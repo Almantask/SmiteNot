@@ -1,0 +1,19 @@
+{
+  "$comment": "Performance budgets from docs/implementation-plan.md section 8. Times in milliseconds unless named otherwise. 'baseline' entries are measurements, filled in from M1 by the perf-check skill.",
+  "machines": {
+    "minimum": "2020+ laptop, Intel Iris Xe or Radeon 680M class iGPU, 4-core/8-thread CPU, 8 GB shared memory",
+    "recommended": "6-core desktop CPU (2020+), mid-range dedicated GPU, 16 GB"
+  },
+  "budgets": {
+    "frame_fps_10k_soldiers": { "minimum": 20, "recommended": 60 },
+    "tick_ms_10k_units_all_fields": { "minimum": 6.0, "recommended": 3.3 },
+    "preview_cast_edit_first_30s_ms": { "minimum": 3000, "recommended": 1500 },
+    "preview_cast_edit_full_3min_ms": { "minimum": 25000, "recommended": 12000 },
+    "nav_rebuild_after_edit_ms": { "minimum": 100, "recommended": 50 },
+    "preview_army_or_terrain_edit_first_30s_ms": { "minimum": 4000, "recommended": 2000 },
+    "reachability_check_drag_ms": { "minimum": 10, "recommended": 5 },
+    "future_memory_mb": { "minimum": 1024, "recommended": 1536 },
+    "keyframe_mb_before_delta": { "minimum": 4, "recommended": 4 }
+  },
+  "baseline": {}
+}

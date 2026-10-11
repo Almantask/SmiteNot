@@ -1,0 +1,14 @@
+{
+  "name": "GodGame.Sim.Math",
+  "rootNamespace": "GodGame.Sim.Math",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}

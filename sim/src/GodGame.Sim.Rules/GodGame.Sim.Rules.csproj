@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>GodGame.Sim.Rules</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../GodGame.Sim.Math/GodGame.Sim.Math.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,7 @@
+{
+  "name": "com.godgame.sim",
+  "version": "0.1.0",
+  "displayName": "God Game Simulation",
+  "description": "Engine-free deterministic simulation shared by Unity and .NET.",
+  "unity": "6000.3"
+}

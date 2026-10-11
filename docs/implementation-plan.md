@@ -213,7 +213,7 @@ In the simulation libraries:
 - Parallel work only through the simulation's runner, writing disjoint index ranges; reductions happen in index order on one thread.
 - No `UnityEngine` (the assembly definition forbids it), no static mutable state, no reading wall-clock time or thread identity into state.
 
-Enforcement, in layers: the analyzer `Microsoft.CodeAnalysis.BannedApiAnalyzers` with `BannedSymbols.txt` (build fails); a Claude Code hook that scans edited simulation files (instant feedback); the `determinism-auditor` subagent on every simulation change; golden replays plus cross-thread, cross-OS and cross-runtime hash tests in CI.
+Enforcement, in layers: the analyzer `Microsoft.CodeAnalysis.BannedApiAnalyzers` with `BannedSymbols.txt` and the project analyzer GG0001 in `sim/analyzers/` (build fails; the banned-API analyzer alone misses the `float`, `double` and `decimal` types themselves, found in M0), with `tools/ci/check_sim_analyzers.py` proving in CI that both still reject banned code; a Claude Code hook that scans edited simulation files (instant feedback); the `determinism-auditor` subagent on every simulation change; golden replays plus cross-thread, cross-OS and cross-runtime hash tests in CI.
 
 ### 3.6 Threading
 
@@ -284,7 +284,8 @@ god-game/
 │   ├── adr/                        # architecture decision records: 0001-engine-unity.md, ...
 │   └── milestones/STATUS.md        # current milestone and checklist (A11)
 ├── sim/
-│   ├── GodGame.Sim.sln  global.json  Directory.Build.props  BannedSymbols.txt   (A9)
+│   ├── GodGame.Sim.sln  global.json  Directory.Build.props  Directory.Packages.props  BannedSymbols.txt   (A9)
+│   ├── analyzers/GodGame.Sim.Analyzers/   # GG0001: no floating point (build-time only)
 │   ├── CHANGELOG-sim.md            # every SimVersion bump and why
 │   ├── src/                        # ← also a Unity package (package.json here)
 │   │   ├── GodGame.Sim.Math/       # .csproj + .asmdef side by side
@@ -309,7 +310,8 @@ god-game/
 │   └── README.md                   # naming, budgets, export rules
 ├── tools/
 │   ├── blender/                    # headless export and validation scripts
-│   └── ci/                         # hash comparison, helpers
+│   ├── ci/                         # analyzer probe, hash comparison, helpers
+│   └── setup_dev.py                # one-time clone setup: LFS, UnityYAMLMerge, dotnet tools
 └── server/                         # PvP match service and verifier (M11)
 ```
 
@@ -917,6 +919,15 @@ From the brief's open questions, ordered by when the build needs an answer. Unti
 ## Appendix A: starter files
 
 Adapt names and paths as needed; these are starting points for M0.
+
+**As built in M0 (2026-10-11).** The files in the repository are now the reference; they differ from these drafts where M0 found a reason:
+- **Floats:** `T:System.Single` and friends in `BannedSymbols.txt` don't flag `float x = 1f;`. The project analyzer GG0001 (`sim/analyzers/`, referenced from `sim/src/Directory.Build.props` as an analyzer) does, and `tools/ci/check_sim_analyzers.py` proves both analyzers fail the build. `BannedSymbols.txt` also bans `Task` and `ThreadPool`.
+- **Packages:** versions are pinned centrally in `sim/Directory.Packages.props` (BannedApiAnalyzers 5.6, NUnit 4.6, BenchmarkDotNet 0.15, Roslyn 4.14 for the analyzer); CSharpier 1.3 is a local tool in `.config/dotnet-tools.json`.
+- **CI (A10):** runs on every push and on demand rather than on push to `main` and pull requests, so every commit is tested once; it also runs the analyzer probe. Until M1 builds the golden infrastructure, the hash files come from `godsim hash --seed 1 --units 10000 --seconds 180` (the placeholder battle), and a pinned hash test stands in for goldens.
+- **Skills (A6):** `allowed-tools` is comma-separated; `milestone` takes an optional milestone number and reads the status file with a pre-approved `cat`.
+- **Hooks (A3):** `guard_files.py` allows `sim/tests/golden/README.md`; `guard_bash.py` also catches `rm -fr` and `rm -R`; `sim_lint.py` also flags floating-point literals and keeps line numbers after stripping comments.
+- **Unity (step 5):** `GodGame → Setup → Apply Project Settings` (an editor script, also runnable with `-executeMethod`) applies the section 3.7 settings and creates the bootstrap scene, so ProjectSettings are never hand-written. The Unity MCP permission is `mcp__UnityMCP`.
+- **Blender (step 7):** the scripts also run under plain Python with the `bpy` module (`python <script> --blend <file>`), which is how they were tested without a Blender install; rules live in `tools/blender/art_rules.json`, the palette grid in `art/palettes/palette.json`; `make_test_soldier.py` builds the test soldier.
 
 ### A1. `CLAUDE.md`
 
@@ -1559,7 +1570,7 @@ jobs:
       - run: dotnet tool restore
       - run: dotnet csharpier check sim
       - run: dotnet test sim/GodGame.Sim.sln -c Release --filter "Category!=Perf&Category!=Fuzz"
-      - run: dotnet run -c Release --project sim/tools/GodGame.Sim.Cli -- golden hashes --out hashes-${{ matrix.os }}.txt
+      - run: dotnet run -c Release --project sim/tools/GodGame.Sim.Cli -- golden hashes --out hashes-${{ matrix.os }}.txt   # M0: `hash --units 10000 --seconds 180 --out ...`
       - uses: actions/upload-artifact@v4
         with:
           name: hashes-${{ matrix.os }}

@@ -50,8 +50,18 @@ python tools/setup_dev.py   # git lfs install + pull, UnityYAMLMerge merge drive
 
 1. Unity Hub → Add → `unity/` → open with 6000.3 LTS. Unity resolves the packages, including the simulation (`com.godgame.sim` → `sim/src`).
 2. Run **GodGame → Setup → Apply Project Settings** once. It applies the settings from the plan (section 3.7): Linear colour, URP pipeline asset, Force Text, Visible Meta Files, IL2CPP, DirectX 12 with a DirectX 11 fallback, Enter Play Mode without domain reload. It also creates the M0 bootstrap scene.
-3. Commit the `.meta` files and the `ProjectSettings/` that Unity generated.
+3. Commit the `.meta` files and the `ProjectSettings/` that Unity generated (including those Unity writes into `sim/src`, which it treats as a local package).
 4. Open `Assets/_Game/Scenes/Bootstrap.unity` and press Play: the cube moves with the simulation tick.
+5. Window → General → Test Runner → EditMode → Run All: the `SimHostTests` pass.
+
+If a package version in `Packages/manifest.json` doesn't resolve on your 6000.3 patch, pick the version Package Manager offers and commit the change.
+
+### Claude Code
+
+- Hooks run `python` (Windows: install Python from python.org with "Add to PATH", or change `python` to `py` in `.claude/settings.json`). They need `dotnet` and `git` on the PATH.
+- **Blender MCP** is shared in `.mcp.json` (`uvx blender-mcp`, safe mode, telemetry off). Install its Blender add-on (see the [blender-mcp README](https://github.com/ahujasid/blender-mcp)) and start its server from Blender's sidebar; the socket has no authentication, so keep it on localhost.
+- **Unity MCP** is per machine because its configuration holds local paths: install [MCP for Unity](https://github.com/CoplayDev/unity-mcp) through Package Manager (git URL from its README), then use its "Configure detected clients" menu for Claude Code. If it registers a server name other than `UnityMCP`, update the `mcp__UnityMCP` permission in `.claude/settings.json`.
+- Check the setup: `/context` lists `CLAUDE.md` and the rules once you open a file they cover, `/agents` lists the agents, `/milestone` prints the current milestone.
 
 ## Commands
 
@@ -62,6 +72,7 @@ python tools/setup_dev.py   # git lfs install + pull, UnityYAMLMerge merge drive
 | Headless placeholder run, per-second hashes | `dotnet run --project sim/tools/GodGame.Sim.Cli -- hash --seconds 180 --out hashes.txt` |
 | Benchmarks | `dotnet run -c Release --project sim/bench/GodGame.Sim.Bench` |
 | Format check | `dotnet csharpier check sim` |
+| Prove the determinism analyzers reject banned code | `python tools/ci/check_sim_analyzers.py` |
 | Blender export | `blender -b <file.blend> --python tools/blender/export.py -- --out <dir>` |
 | Blender validation | `blender -b <file.blend> --python tools/blender/validate.py -- --report <file.json>` |
 

@@ -68,8 +68,8 @@ python tools/setup_dev.py   # git lfs install + pull, UnityYAMLMerge merge drive
 ## Branches, pull requests and CI
 
 - Work on `m<N>/<short-name>` branches, one checklist item each; conventional commits (`feat(sim): …`); squash merge.
-- `.github/workflows/sim.yml` builds and tests the simulation on Windows and Linux on every push, then compares the two hash files: any difference is a determinism bug.
-- **Branch protection on `main`** (set it once in GitHub → Settings → Rules → Rulesets, or Branches): require a pull request before merging, require the status checks `sim / test (ubuntu-latest)`, `sim / test (windows-latest)` and `sim / cross-os`, and block force-pushes and deletion.
+- `.github/workflows/sim.yml` runs on every push (and by hand from the Actions tab): it checks formatting, builds and tests the simulation on Windows and Linux, proves the determinism analyzers reject banned code, then compares the two runs' per-second state hashes. Any difference is a determinism bug.
+- **Branch protection on `main`** (set it once in GitHub → Settings → Rules → Rulesets, or Branches): require a pull request before merging, require the status checks `test (ubuntu-latest)`, `test (windows-latest)` and `cross-os` (from the `sim` workflow), and block force-pushes and deletion.
 
 ## Licence
 

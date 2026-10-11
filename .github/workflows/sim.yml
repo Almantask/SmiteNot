@@ -1,0 +1,65 @@
+name: sim
+
+# The .NET simulation on every push (plan, section 1): build and test on Windows and Linux,
+# then compare the per-second state hashes. Any difference is a determinism bug.
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sim-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: sim/global.json
+      - name: Restore tools
+        run: dotnet tool restore
+      - name: Check formatting
+        run: dotnet csharpier check sim
+      - name: Build
+        run: dotnet build sim/GodGame.Sim.sln -c Release
+      - name: Test
+        run: dotnet test sim/GodGame.Sim.sln -c Release --no-build --filter "Category!=Perf&Category!=Fuzz"
+      - name: Analyzers reject banned code
+        if: runner.os == 'Linux'
+        run: python3 tools/ci/check_sim_analyzers.py
+      - name: State hashes
+        run: >
+          dotnet run -c Release --no-build --project sim/tools/GodGame.Sim.Cli --
+          hash --seed 1 --units 10000 --seconds 180 --out hashes-${{ matrix.os }}.txt
+      - uses: actions/upload-artifact@v5
+        with:
+          name: hashes-${{ matrix.os }}
+          path: hashes-${{ matrix.os }}.txt
+          if-no-files-found: error
+
+  cross-os:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v5
+      - name: Compare Linux and Windows hashes
+        run: diff hashes-ubuntu-latest/hashes-ubuntu-latest.txt hashes-windows-latest/hashes-windows-latest.txt

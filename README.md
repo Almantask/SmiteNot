@@ -59,9 +59,15 @@ If a package version in `Packages/manifest.json` doesn't resolve on your 6000.3 
 ### Claude Code
 
 - Hooks run `python` (Windows: install Python from python.org with "Add to PATH", or change `python` to `py` in `.claude/settings.json`). They need `dotnet` and `git` on the PATH.
-- **Blender MCP** is shared in `.mcp.json` (`uvx blender-mcp`, safe mode, telemetry off). Install its Blender add-on (see the [blender-mcp README](https://github.com/ahujasid/blender-mcp)) and start its server from Blender's sidebar; the socket has no authentication, so keep it on localhost. Without Blender running, the MCP server starts but its tools report that they can't connect.
+- **Blender MCP** is shared in `.mcp.json` (`uvx mcp-for-blender@2.1.9`, the package formerly called `blender-mcp`; safe mode, telemetry off). Install its add-on with `uvx mcp-for-blender@2.1.9 install-addon`, then enable "MCP for Blender" in Blender's preferences; it starts its server on localhost:9876 by itself. The socket has no authentication, so keep it on localhost. Without Blender running, the MCP server starts but its tools report that they can't connect.
 - **Unity MCP** is per machine because its configuration holds local paths: install [MCP for Unity](https://github.com/CoplayDev/unity-mcp) through Package Manager (git URL from its README), then use its "Configure detected clients" menu for Claude Code. If it registers a server name other than `UnityMCP`, update the `mcp__UnityMCP` permission in `.claude/settings.json`.
 - Check the setup: `/context` lists `CLAUDE.md` and the rules once you open a file they cover, `/agents` lists the agents, `/milestone` prints the current milestone.
+
+### Cloud sessions (Claude Code on the web)
+
+`tools/cloud/setup_env.sh` installs the .NET 10 SDK, Blender 5.2.2 LTS with the MCP add-on, and the Unity 6000.3.26f1 editor (8.2 GB) into the container, and activates Unity when a license is configured. Paste its contents into the cloud environment's setup script so every session starts with the tools. `tools/cloud/start_blender_mcp.sh [file.blend]` runs Blender's UI on a virtual display (Xvfb) so the Blender MCP server can reach it.
+
+Unity won't start without a license. Add these as environment variables in the cloud environment's settings (never in the repository or the chat): `UNITY_EMAIL` and `UNITY_PASSWORD`, plus `UNITY_SERIAL` for a Plus or Pro seat, or for Unity Personal `UNITY_LICENSE` holding the contents of `Unity_lic.ulf` from a machine where Unity Hub is signed in (Windows: `C:\ProgramData\Unity\Unity_lic.ulf`). The same values become the GameCI secrets for Unity CI in M2.
 
 ## Commands
 

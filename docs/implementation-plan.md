@@ -927,7 +927,10 @@ Adapt names and paths as needed; these are starting points for M0.
 - **Skills (A6):** `allowed-tools` is comma-separated; `milestone` takes an optional milestone number and reads the status file with a pre-approved `cat`.
 - **Hooks (A3):** `guard_files.py` allows `sim/tests/golden/README.md`; `guard_bash.py` also catches `rm -fr` and `rm -R`; `sim_lint.py` also flags floating-point literals and keeps line numbers after stripping comments.
 - **Unity (step 5):** `GodGame → Setup → Apply Project Settings` (an editor script, also runnable with `-executeMethod`) applies the section 3.7 settings and creates the bootstrap scene, so ProjectSettings are never hand-written. The Unity MCP permission is `mcp__UnityMCP`.
-- **Blender (step 7):** the scripts also run under plain Python with the `bpy` module (`python <script> --blend <file>`), which is how they were tested without a Blender install; rules live in `tools/blender/art_rules.json`, the palette grid in `art/palettes/palette.json`; `make_test_soldier.py` builds the test soldier.
+- **Blender (step 7):** the scripts also run under plain Python with the `bpy` module (`python <script> --blend <file>`); they were tested both ways against Blender 5.2.2 LTS. Rules live in `tools/blender/art_rules.json`, the palette grid in `art/palettes/palette.json`; `make_test_soldier.py` builds the test soldier.
+- **MCP (A7):** `blender-mcp` was renamed `mcp-for-blender`; `.mcp.json` runs `uvx mcp-for-blender@2.1.9`, and its add-on installs with `uvx mcp-for-blender@2.1.9 install-addon`.
+- **Unity version:** 6000.3.26f1, the current 6.3 LTS patch; `unity/Packages/manifest.json` uses the package versions that editor ships and verifies.
+- **Cloud sessions:** `tools/cloud/setup_env.sh` installs .NET, Blender (with the MCP add-on) and Unity into a Claude Code cloud container and activates Unity from environment variables; `tools/cloud/start_blender_mcp.sh` runs Blender's UI on Xvfb for the MCP server. Unity needs a license there too (README, "Cloud sessions").
 
 ### A1. `CLAUDE.md`
 

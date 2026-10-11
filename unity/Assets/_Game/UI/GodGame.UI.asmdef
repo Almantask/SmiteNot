@@ -1,0 +1,14 @@
+{
+  "name": "GodGame.UI",
+  "rootNamespace": "GodGame.UI",
+  "references": ["GodGame.Bridge", "GodGame.Sim"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

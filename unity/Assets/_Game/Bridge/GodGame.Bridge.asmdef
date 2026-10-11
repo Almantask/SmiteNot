@@ -1,0 +1,14 @@
+{
+  "name": "GodGame.Bridge",
+  "rootNamespace": "GodGame.Bridge",
+  "references": ["GodGame.Sim", "GodGame.Sim.Math", "GodGame.Sim.Rules"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

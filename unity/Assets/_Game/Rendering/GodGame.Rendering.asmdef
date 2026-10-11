@@ -1,0 +1,14 @@
+{
+  "name": "GodGame.Rendering",
+  "rootNamespace": "GodGame.Rendering",
+  "references": ["GodGame.Bridge", "GodGame.Sim"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

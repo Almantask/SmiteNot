@@ -1,0 +1,16 @@
+T:System.Single;Use Fix or integers (GodGame.Sim.Math)
+T:System.Double;Use Fix or integers (GodGame.Sim.Math)
+T:System.Decimal;Use Fix or integers (GodGame.Sim.Math)
+T:System.MathF;Floating-point maths is banned in the simulation
+T:System.Random;Use SimRandom streams
+P:System.DateTime.Now;Wall-clock time is banned in the simulation
+P:System.DateTime.UtcNow;Wall-clock time is banned in the simulation
+P:System.Environment.TickCount;Wall-clock time is banned in the simulation
+P:System.Environment.TickCount64;Wall-clock time is banned in the simulation
+T:System.Diagnostics.Stopwatch;Timing belongs in GodGame.Sim.Bench
+M:System.Guid.NewGuid;Use deterministic ids
+M:System.String.GetHashCode;Randomised per process; use SimHash
+T:System.Threading.Tasks.Parallel;Use IParallelRunner
+T:System.Threading.Thread;Use IParallelRunner
+T:System.Threading.Tasks.Task;Use IParallelRunner
+T:System.Threading.ThreadPool;Use IParallelRunner

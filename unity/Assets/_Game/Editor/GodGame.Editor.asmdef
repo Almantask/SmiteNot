@@ -1,0 +1,25 @@
+{
+  "name": "GodGame.Editor",
+  "rootNamespace": "GodGame.Editor",
+  "references": [
+    "GodGame.Bridge",
+    "GodGame.Sim",
+    "Unity.RenderPipelines.Core.Runtime",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [
+    {
+      "name": "com.unity.render-pipelines.universal",
+      "expression": "17.0.0",
+      "define": "GODGAME_URP"
+    }
+  ],
+  "noEngineReferences": false
+}

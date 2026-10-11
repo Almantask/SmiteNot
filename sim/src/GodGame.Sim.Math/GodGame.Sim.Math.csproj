@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>GodGame.Sim.Math</RootNamespace>
+  </PropertyGroup>
+</Project>

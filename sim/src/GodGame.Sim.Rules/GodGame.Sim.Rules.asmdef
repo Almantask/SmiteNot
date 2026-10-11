@@ -1,0 +1,14 @@
+{
+  "name": "GodGame.Sim.Rules",
+  "rootNamespace": "GodGame.Sim.Rules",
+  "references": ["GodGame.Sim.Math"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}

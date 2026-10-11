@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)",
+      "Bash(dotnet run *)",
+      "Bash(dotnet csharpier *)",
+      "Bash(dotnet tool restore)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Bash(git switch *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(python tools/*)",
+      "Bash(python3 tools/*)",
+      "Bash(gh pr view *)",
+      "Bash(gh run view *)",
+      "mcp__blender",
+      "mcp__UnityMCP"
+    ],
+    "ask": ["Bash(git push *)"],
+    "deny": [
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Read(./.env)",
+      "Read(./**/*.pem)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [{ "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session_start.py" }]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [{ "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session_start.py --short" }]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard_files.py" }]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard_bash.py" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/sim_lint.py", "timeout": 60 }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop_checks.py", "timeout": 600 }]
+      }
+    ]
+  }
+}

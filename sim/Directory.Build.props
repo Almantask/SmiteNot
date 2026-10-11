@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <!-- Keep build output out of sim/src, which Unity imports as a package. -->
+    <BaseOutputPath>$(MSBuildThisFileDirectory).build/bin/$(MSBuildProjectName)/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory).build/obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

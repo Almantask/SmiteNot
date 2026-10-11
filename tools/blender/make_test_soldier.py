@@ -10,8 +10,8 @@ import math
 import os
 import sys
 
-import bmesh
-import bpy
+import bpy  # first: under the PyPI bpy module, bmesh only becomes importable once bpy is loaded
+import bmesh  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import blender_cli  # noqa: E402

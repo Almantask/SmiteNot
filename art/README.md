@@ -44,3 +44,5 @@ The `art-export` skill runs export and validation for every changed `.blend`. In
 ## The test soldier
 
 `U_testsoldier_a` is a capsule in three LODs on the humanoid rig, with palette UVs, a team-colour band and a one-second walk clip. `tools/blender/make_test_soldier.py` is its source; regenerate it rather than editing the `.blend`. Its LODs are far under the hero and mid triangle targets on purpose, so validation reports two warnings and no errors.
+
+In the FBX, Blender names each take `<rig>|<action>` (here `RIG_humanoid|A_humanoid_walk`); Unity shows that as the clip name, and the VAT baker keys clips by the part after the last `|`.

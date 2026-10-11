@@ -1,0 +1,37 @@
+{
+  "animations": {
+    "clips": [
+      "A_humanoid_walk"
+    ],
+    "file": "U_testsoldier_a_Anims.fbx"
+  },
+  "asset": "U_testsoldier_a",
+  "blender": "5.2.2 LTS",
+  "lods": [
+    {
+      "file": "U_testsoldier_a_LOD0.fbx",
+      "lod": "LOD0",
+      "objects": [
+        "RIG_humanoid",
+        "U_testsoldier_a_LOD0"
+      ]
+    },
+    {
+      "file": "U_testsoldier_a_LOD1.fbx",
+      "lod": "LOD1",
+      "objects": [
+        "RIG_humanoid",
+        "U_testsoldier_a_LOD1"
+      ]
+    },
+    {
+      "file": "U_testsoldier_a_LOD2.fbx",
+      "lod": "LOD2",
+      "objects": [
+        "RIG_humanoid",
+        "U_testsoldier_a_LOD2"
+      ]
+    }
+  ],
+  "source": "art/source/U_testsoldier_a.blend"
+}

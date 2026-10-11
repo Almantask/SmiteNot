@@ -105,7 +105,7 @@ def check_mesh(obj, lod, rules, palette, report, stats):
 
     check_transforms(obj, report)
     check_uvs(obj, palette, report)
-    if obj.name.startswith("U_"):
+    if not obj.name.startswith("P_"):  # units, and anything misnamed, need the team-colour mask
         check_team_mask(obj, rules["team_mask_attribute"], report)
 
     triangles = triangle_count(obj)

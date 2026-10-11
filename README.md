@@ -59,7 +59,7 @@ If a package version in `Packages/manifest.json` doesn't resolve on your 6000.3 
 ### Claude Code
 
 - Hooks run `python` (Windows: install Python from python.org with "Add to PATH", or change `python` to `py` in `.claude/settings.json`). They need `dotnet` and `git` on the PATH.
-- **Blender MCP** is shared in `.mcp.json` (`uvx blender-mcp`, safe mode, telemetry off). Install its Blender add-on (see the [blender-mcp README](https://github.com/ahujasid/blender-mcp)) and start its server from Blender's sidebar; the socket has no authentication, so keep it on localhost.
+- **Blender MCP** is shared in `.mcp.json` (`uvx blender-mcp`, safe mode, telemetry off). Install its Blender add-on (see the [blender-mcp README](https://github.com/ahujasid/blender-mcp)) and start its server from Blender's sidebar; the socket has no authentication, so keep it on localhost. Without Blender running, the MCP server starts but its tools report that they can't connect.
 - **Unity MCP** is per machine because its configuration holds local paths: install [MCP for Unity](https://github.com/CoplayDev/unity-mcp) through Package Manager (git URL from its README), then use its "Configure detected clients" menu for Claude Code. If it registers a server name other than `UnityMCP`, update the `mcp__UnityMCP` permission in `.claude/settings.json`.
 - Check the setup: `/context` lists `CLAUDE.md` and the rules once you open a file they cover, `/agents` lists the agents, `/milestone` prints the current milestone.
 

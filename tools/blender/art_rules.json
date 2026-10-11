@@ -1,0 +1,24 @@
+{
+  "$comment": "Art rules checked by validate.py. Budgets are the High-preset starting points from docs/implementation-plan.md section 7.1; tune them after the look-development spike.",
+  "triangle_budgets": {
+    "LOD0": { "min": 1000, "max": 2500, "role": "hero: full parts and gear" },
+    "LOD1": { "min": 300, "max": 600, "role": "mid: one merged mesh with gear baked in" },
+    "LOD2": { "max": 100, "role": "far: simplified mesh or impostor card" }
+  },
+  "max_materials_per_mesh": 1,
+  "team_mask_attribute": "TeamMask",
+  "palette": "art/palettes/palette.json",
+  "rigs": {
+    "humanoid": { "max_bones": 24, "role": "infantry, ranged, crews, specialists" },
+    "quadruped": { "max_bones": 32, "role": "horses and herd animals" },
+    "siege": { "max_bones": 12, "role": "rigid parts: arm, wheels" }
+  },
+  "names": {
+    "unit_mesh": "^U_[a-z0-9]+_[a-z0-9]+_LOD[0-9]$",
+    "prop_mesh": "^P_[a-z0-9]+_[a-z0-9]+$",
+    "rig": "^RIG_(humanoid|quadruped|siege)$",
+    "clip": "^A_(humanoid|quadruped|siege)_[a-z0-9]+$",
+    "lod_collection": "^LOD[0-9]$"
+  },
+  "clip_seconds": { "min": 0.1, "max": 10.0 }
+}

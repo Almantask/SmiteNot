@@ -49,6 +49,49 @@ public class RandomTests
     }
 
     [Test]
+    public void Stream_MatchesHashingWithASimHash()
+    {
+        // The allocation-free path must give exactly what M0's SimHash-based streams gave.
+        var rng = new Pcg32(9, 9);
+        for (int i = 0; i < 2_000; i++)
+        {
+            ulong seed = ((ulong)rng.NextUInt() << 32) | rng.NextUInt();
+            int system = (int)rng.NextUInt(),
+                entity = (int)rng.NextUInt(),
+                tick = (int)rng.NextUInt();
+            var hash = new SimHash(seed);
+            hash.AppendInt32(system);
+            hash.AppendInt32(entity);
+            hash.AppendInt32(tick);
+            ulong state = hash.Digest();
+            hash.AppendInt32(0x5EED);
+            var expected = new Pcg32(state, hash.Digest());
+
+            var actual = SimRandom.Stream(seed, system, entity, tick);
+
+            Assert.That(actual.NextUInt(), Is.EqualTo(expected.NextUInt()));
+            Assert.That(actual.NextUInt(), Is.EqualTo(expected.NextUInt()));
+        }
+    }
+
+    [Test]
+    public void HashShort_MatchesSimHashForEveryLengthUnder32()
+    {
+        var bytes = Enumerable.Range(0, 31).Select(i => (byte)(i * 37 + 11)).ToArray();
+        for (int length = 0; length < 32; length++)
+        {
+            var hash = new SimHash(77);
+            hash.Append(bytes.AsSpan(0, length));
+
+            Assert.That(
+                SimHash.HashShort(bytes.AsSpan(0, length), 77),
+                Is.EqualTo(hash.Digest()),
+                $"length {length}"
+            );
+        }
+    }
+
+    [Test]
     public void Stream_SameInputs_SameSequence()
     {
         var a = SimRandom.Stream(7, 1, 2, 3);

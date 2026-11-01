@@ -160,6 +160,49 @@ namespace GodGame.Sim.Math
             }
         }
 
+        /// <summary>
+        /// The same value as appending <paramref name="data"/> to a new SimHash and taking the digest, for inputs under
+        /// 32 bytes, without allocating: what per-unit callers (random streams) need inside the tick.
+        /// </summary>
+        public static ulong HashShort(ReadOnlySpan<byte> data, ulong seed = 0)
+        {
+            if (data.Length >= StripeLength)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(data),
+                    "HashShort takes fewer than 32 bytes."
+                );
+            }
+            unchecked
+            {
+                ulong h = seed + Prime5 + (ulong)data.Length;
+                ReadOnlySpan<byte> tail = data;
+                while (tail.Length >= 8)
+                {
+                    h ^= Round(0, BinaryPrimitives.ReadUInt64LittleEndian(tail));
+                    h = RotateLeft(h, 27) * Prime1 + Prime4;
+                    tail = tail.Slice(8);
+                }
+                if (tail.Length >= 4)
+                {
+                    h ^= BinaryPrimitives.ReadUInt32LittleEndian(tail) * Prime1;
+                    h = RotateLeft(h, 23) * Prime2 + Prime3;
+                    tail = tail.Slice(4);
+                }
+                for (int i = 0; i < tail.Length; i++)
+                {
+                    h ^= tail[i] * Prime5;
+                    h = RotateLeft(h, 11) * Prime1;
+                }
+                h ^= h >> 33;
+                h *= Prime2;
+                h ^= h >> 29;
+                h *= Prime3;
+                h ^= h >> 32;
+                return h;
+            }
+        }
+
         private void ConsumeStripe(ReadOnlySpan<byte> stripe)
         {
             _v1 = Round(_v1, BinaryPrimitives.ReadUInt64LittleEndian(stripe));

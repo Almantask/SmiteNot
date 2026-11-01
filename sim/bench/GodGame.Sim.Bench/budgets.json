@@ -5,15 +5,55 @@
     "recommended": "6-core desktop CPU (2020+), mid-range dedicated GPU, 16 GB"
   },
   "budgets": {
-    "frame_fps_10k_soldiers": { "minimum": 20, "recommended": 60 },
-    "tick_ms_10k_units_all_fields": { "minimum": 6.0, "recommended": 3.3 },
-    "preview_cast_edit_first_30s_ms": { "minimum": 3000, "recommended": 1500 },
-    "preview_cast_edit_full_3min_ms": { "minimum": 25000, "recommended": 12000 },
-    "nav_rebuild_after_edit_ms": { "minimum": 100, "recommended": 50 },
-    "preview_army_or_terrain_edit_first_30s_ms": { "minimum": 4000, "recommended": 2000 },
-    "reachability_check_drag_ms": { "minimum": 10, "recommended": 5 },
-    "future_memory_mb": { "minimum": 1024, "recommended": 1536 },
-    "keyframe_mb_before_delta": { "minimum": 4, "recommended": 4 }
+    "frame_fps_10k_soldiers": {
+      "minimum": 20,
+      "recommended": 60
+    },
+    "tick_ms_10k_units_all_fields": {
+      "minimum": 6.0,
+      "recommended": 3.3
+    },
+    "preview_cast_edit_first_30s_ms": {
+      "minimum": 3000,
+      "recommended": 1500
+    },
+    "preview_cast_edit_full_3min_ms": {
+      "minimum": 25000,
+      "recommended": 12000
+    },
+    "nav_rebuild_after_edit_ms": {
+      "minimum": 100,
+      "recommended": 50
+    },
+    "preview_army_or_terrain_edit_first_30s_ms": {
+      "minimum": 4000,
+      "recommended": 2000
+    },
+    "reachability_check_drag_ms": {
+      "minimum": 10,
+      "recommended": 5
+    },
+    "future_memory_mb": {
+      "minimum": 1024,
+      "recommended": 1536
+    },
+    "keyframe_mb_before_delta": {
+      "minimum": 4,
+      "recommended": 4
+    }
   },
-  "baseline": {}
+  "baseline": {
+    "m1_2026_11_01": {
+      "$comment": "M1 exit baseline: BattleTickBench (10,000 units on m1-flat, M1 systems: empty steps plus PlaceholderWanderSystem), BenchmarkDotNet short job, Release, .NET 10. Measured on a development desktop (AMD Ryzen 9 5900X, 12 cores), not the floor laptop: re-measure there before M2.",
+      "machine": "dev desktop, AMD Ryzen 9 5900X",
+      "tick_us_10k_units_serial": 37.6,
+      "tick_us_10k_units_4_threads": 16.0,
+      "tick_allocated_bytes_serial": 0,
+      "tick_allocated_bytes_4_threads": 2328,
+      "state_hash_us_10k_units": 1068,
+      "real_time_factor_cli_180s_serial": 350,
+      "spatial_hash_build_us_10k": 287,
+      "spatial_hash_query_every_unit_2m_us_10k": 995
+    }
+  }
 }

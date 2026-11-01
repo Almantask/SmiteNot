@@ -1,8 +1,36 @@
 # Milestone status
 
-## Current: M1 — Deterministic core
+## Current: M2 — Armies that march
 Started: 2026-11-01
 
+Goal: armies totalling 10,000 soldiers march, bunch and queue across a real heightfield, within the tick budget.
+
+Needs first: the map scale (working default: about 1.2 × 0.8 km with 1.5 m field cells, plan section 10) and a floor test laptop (integrated graphics, plan section 8), so budgets are measured on minimum-spec hardware from here on.
+
+### Checklist
+- [ ] 1. Heightfield terrain, navigation grid, movement classes (foot, horse, wheeled, water), per-class cost fields
+- [ ] 2. Flow fields per regiment goal with incremental tile rebuilds
+- [ ] 3. Local steering (separation, alignment, obstacle avoidance) and crowd pressure through the spatial hash
+- [ ] 4. Formation slots; regiments of 50–200 with an officer or standard-bearer as anchor
+- [ ] 5. Distance-to-lethal field (cliffs and the map edge for now)
+- [ ] 6. Reachability check: coarse grid, breadth-first distance fill, clearance map, the 2× route cap, route overlay data
+- [ ] 7. Route preview: the attacker's predicted path from the flow fields
+- [ ] 8. Unity: debug renderer (indirect instanced capsules tinted by regiment), flow-field and cost overlays, strategic-zoom camera, map authoring v0 (heightmap import, deployment-zone painter, exporter)
+- [ ] 9. Unity CI with GameCI for Edit and Play Mode tests
+- [ ] 10. The Burst decision: benchmark the hot kernels on .NET, IL2CPP and Burst; record it in an ADR
+
+### Exit criteria
+- [ ] 10,000 attackers cross 1 km through a bridge chokepoint; congestion emerges and regiments queue rather than overlap
+- [ ] The reachability check rejects a full trap and a route longer than 2× in ≤ 5 ms per drag
+- [ ] The tick stays within both budgets at 10,000 units (fields not yet on), on the floor laptop and the recommended machine, and stays deterministic across the M1 matrix
+- [ ] The debug view runs at 60 fps with 10,000 capsules on the recommended machine and at 20 fps or better on the floor laptop
+
+### Decisions needed
+- Map scale (plan section 10, needed by M2; working default above)
+
+## Done
+
+### M1 — Deterministic core (2026-11-01)
 ### Checklist
 - [x] 1. GodGame.Sim.Math: Fix, 2D/3D vectors, integer square root, binary angles and trig tables, PCG32 streams, xxHash64; exhaustive and property tests — Fix and IntMath.Sqrt (against BigInteger, every root below 2^20); Angle (16-bit, centi-degree round trip); Trig (tables built with integer series; sin and cos within 1 raw unit for all 65,536 angles, atan2 within 1 unit; table bits pinned in PinnedHashes.TrigTables); FixVec2 and FixVec3 (lengths from unrounded squares); determinism-auditor: no High findings
 - [x] 2. World state as structure-of-arrays, the regiment table, entity ids with deterministic reuse — World (sim/src/GodGame.Sim/State): unit and regiment arrays, EntityPool with generations and a last-in-first-out free stack (hashed, since free order decides future ids), freed slots reset to zero; hash layout pinned in PinnedHashes.WorldBattleSeed7; determinism-auditor: no High findings. Spawn and despawn must stay single-threaded, in ascending slot order, when the tick runner lands (item 3)
@@ -11,20 +39,18 @@ Started: 2026-11-01
 - [x] 5. Map format v0, plan format v0 (army layer), ruleset loader v0 and ruleset hash — a vendored strict JSON reader (integers only, no unpaired surrogates) and an ASCII canonical form without $comment for every hash; RulesetLoader v0 reads data/rules/unit-types.json (the four base types; health and morale marked placeholder until spec pass S2); MapData (map.json + optional height.bin, at most 30 km and 16 million cells) and BattlePlan (army layer sorted by id, at most 10,000 soldiers; terrain and casts empty until M3); BattleSetup deploys a placeholder square block at 1.5 m until M2 formations; schemas in data/schema; data/maps/m1-flat and data/plans/m1-ten-thousand.json; ruleset, map, plan and deployed-world hashes pinned; determinism-auditor: no High findings
 - [x] 6. Versioned snapshots, state hashes every N ticks, replay file v0 — Snapshot format v2 (magic, format version, SimVersion, battle id from the rules, map and plan hashes, tick, seed, every slot of the world, an xxHash64 checksum); restore reads into a scratch world, checks the world's invariants and refuses another battle, so a bad snapshot never half-restores; a 10,000-unit snapshot is far under the 4 MB keyframe budget; Simulation.RunAndHash records the hash every N ticks; Battle builds the M1 tick (empty systems plus PlaceholderWanderSystem until M2); Replay (.godreplay v0) round-trips and refuses another SimVersion, ruleset or map; determinism-auditor: no High findings
 - [x] 7. godsim CLI: run, hash, compare — builds battles from rules, map, plan and seed or from a replay; --threads picks the runner; run prints the speed and can save a replay; hash writes per-second CSV with a header naming SimVersion, rules, map, plan and seed; compare refuses files from different setups and reports the first differing second, and also re-runs replays and goldens; CI hashes the 10,000-unit plan on Windows and Linux, diffs serial against 4 threads on Linux and checks out LFS; determinism-auditor: no High findings
-- [ ] 8. Determinism harness (twice, snapshot and restore, thread counts, cross-OS, Unity Mono editor, IL2CPP player) — done: twice the same, snapshot and restore (byte for byte, on any runner), 1/2/3/4/8 threads, Windows vs Linux in CI (hash files and goldens), and the Unity Mono editor (GoldenReplayTests in Play Mode, batch run 2026-11-01: 2/2, the golden's 180 hashes match .NET). Open: the IL2CPP player. GodGame → Build → Determinism Player (IL2CPP) and GoldenRunner's -run-goldens entry point are in, but this machine's Unity 6000.6.7f1 has no Windows IL2CPP build support module (only Mono players), so the player can't be built yet
+- [x] 8. Determinism harness (twice, snapshot and restore, thread counts, cross-OS, Unity Mono editor, IL2CPP player) — twice the same, snapshot and restore (byte for byte, on any runner), 1/2/3/4/8 threads, Windows vs Linux in CI (hash files and goldens), the Unity Mono editor (GoldenReplayTests in Play Mode: 2/2) and the Windows IL2CPP player (GodGame → Build → Determinism Player, run with -run-goldens on 2026-11-01: `runtime player scripting IL2CPP`, `ok m1-ten-thousand-seed1`). By hand now, nightly from M2
 - [x] 9. Golden replay infrastructure and the golden-replay skill end to end; SimVersion and CHANGELOG-sim.md — goldens are .godreplay files in sim/tests/golden (first: m1-ten-thousand-seed1, 10,000 units for 180 s); godsim golden list, verify, add and regenerate, compare --golden; the Golden test category and CI verify them; the golden-replay skill describes verify, update and add with these commands; SimVersion stays 1, since no existing outcome changed (first goldens). Run /golden-replay verify once yourself to see the skill end to end
 
 ### Exit criteria
-- [ ] 10,000 wandering units for three simulated minutes hash identically across two runs, snapshot and restore, 1 vs 8 threads, Windows vs Linux, and .NET vs Unity Mono vs IL2CPP — all but IL2CPP verified (Windows vs Linux once the next CI run is green); IL2CPP waits for the module (item 8)
+- [x] 10,000 wandering units for three simulated minutes hash identically across two runs, snapshot and restore, 1 vs 8 threads, Windows vs Linux, and .NET vs Unity Mono vs IL2CPP — all verified 2026-11-01: the golden m1-ten-thousand-seed1 (180 per-second hashes) matches on .NET (Windows and Linux CI, 1 to 8 threads), the Unity 6000.6.7f1 Mono editor and the IL2CPP Windows player
 - [x] At least 15× real time with placeholder systems; baseline in budgets.json — one tick at 10,000 units takes 37.6 µs serial and 16.0 µs on 4 threads (godsim run: 350× real time over 180 s); recorded as baseline m1_2026_11_01 in budgets.json, on the dev desktop (Ryzen 9 5900X), not yet on the floor laptop
 - [x] determinism-auditor review of the whole simulation with no open high-severity findings — 2026-11-01 at 78ce4d3: no High; the one Medium is the unverified IL2CPP player (item 8); CI green on Windows and Linux
 
 ### Notes
-- M1 is complete except the IL2CPP player check (item 8, exit criterion 1). To finish it: in Unity Hub, add the Windows Build Support (IL2CPP) module to 6000.6.7f1 (it needs the Visual Studio C++ workload, which is installed), run GodGame → Build → Determinism Player (IL2CPP), then run `unity/Builds/DeterminismPlayer/GodGameDeterminism.exe -batchmode -run-goldens -repo <repo> -golden-results results.txt` and check every line reads `ok`.
+- The IL2CPP check: GodGame → Build → Determinism Player (IL2CPP), then `unity/Builds/DeterminismPlayer/GodGameDeterminism.exe -batchmode -nographics -run-goldens -repo <repo> -golden-results results.txt`; every line must read `ok`.
 - Before or during M2 (Low findings from the M1 exit review): one shared rules-and-map loader in sim/src for both hosts (Unity's GoldenRunner still has its own); hash the map with zones sorted by side; a registry of RNG system ids with a uniqueness test, and a decision on keying streams by generation; an analyzer rule requiring readonly struct kernels, plus thread-count tests with the real movement systems; exact FixVec2.DistanceSquared before separation uses it; a tie-break for Angle.DeltaTo at half a turn in steering; build the spatial hash at a fixed point in Movement and check its tick; validate replay map ids before they become paths; a reusable scratch world for restores (M4 scrubbing).
 - Placeholders to replace: PlaceholderWanderSystem (M2 movement), BattleSetup's square block (M2 formations), unit-type health and morale (spec pass S2). PlaceholderBattle remains only for Unity's SimHost cube and its pinned hash.
-
-## Done
 
 ### M0 — Foundations (2026-10-11 to 2026-11-01)
 Started: 2026-10-11

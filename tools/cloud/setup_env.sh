@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Toolchain for Claude Code cloud sessions (Ubuntu 24.04, x64): .NET 10 SDK, Blender 5.2.2 LTS with the
-# MCP for Blender add-on, and the Unity 6000.3.26f1 editor; activates Unity when a license is configured.
+# MCP for Blender add-on, and the Unity 6000.6.7f1 editor; activates Unity when a license is configured.
 # Idempotent: safe to run at the start of every session. Paste it into the cloud environment's setup script.
 #
 # Unity license (environment variables, never committed): UNITY_EMAIL and UNITY_PASSWORD, plus either
@@ -11,8 +11,8 @@ set -euo pipefail
 DOTNET_DIR="${DOTNET_DIR:-$HOME/.dotnet}"
 BLENDER_VERSION=5.2.2
 BLENDER_DIR="/opt/blender/blender-${BLENDER_VERSION}-linux-x64"
-UNITY_VERSION=6000.3.26f1
-UNITY_CHANGESET=de8167e7440c
+UNITY_VERSION=6000.6.7f1
+UNITY_CHANGESET=b22767f04f04
 UNITY_DIR="/opt/unity/${UNITY_VERSION}"
 MCP_FOR_BLENDER=mcp-for-blender@2.1.9
 
@@ -39,7 +39,7 @@ if [ ! -f "$ADDONS_DIR/blender_mcp.py" ] && command -v uvx >/dev/null; then
 fi
 
 if [ ! -x "$UNITY_DIR/Editor/Unity" ]; then
-  log "installing Unity $UNITY_VERSION (4.5 GB download, 8.2 GB on disk)"
+  log "installing Unity $UNITY_VERSION (4.1 GB download)"
   mkdir -p "$UNITY_DIR"
   curl -sSL --retry 4 "https://download.unity3d.com/download_unity/${UNITY_CHANGESET}/LinuxEditorInstaller/Unity-${UNITY_VERSION}.tar.xz" \
     | tar -xJ -C "$UNITY_DIR"

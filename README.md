@@ -22,7 +22,7 @@ A god-powers strategy auto-battler. A small army defended by a god faces a much 
 
 - Git and Git LFS
 - .NET 10 SDK (version pinned in `sim/global.json`)
-- Unity Hub with Unity 6.3 LTS (`6000.3.x`), Windows Build Support (IL2CPP) module
+- Unity Hub with Unity 6.6 (`6000.6.7f1`), Windows Build Support (IL2CPP) module
 - Python 3.10 or later, and [`uv`](https://docs.astral.sh/uv/) (for the Blender MCP server)
 - Blender (current LTS)
 - Claude Code; GitHub CLI (`gh`)
@@ -48,24 +48,24 @@ python tools/setup_dev.py   # git lfs install + pull, UnityYAMLMerge merge drive
 
 ### First Unity open
 
-1. Unity Hub → Add → `unity/` → open with 6000.3 LTS. Unity resolves the packages, including the simulation (`com.godgame.sim` → `sim/src`).
+1. Unity Hub → Add → `unity/` → open with 6000.6.7f1. Unity resolves the packages, including the simulation (`com.godgame.sim` → `sim/src`).
 2. Run **GodGame → Setup → Apply Project Settings** once. It applies the settings from the plan (section 3.7): Linear colour, URP pipeline asset, Force Text, Visible Meta Files, IL2CPP, DirectX 12 with a DirectX 11 fallback, Enter Play Mode without domain reload. It also creates the M0 bootstrap scene.
 3. Commit the `.meta` files and the `ProjectSettings/` that Unity generated (including those Unity writes into `sim/src`, which it treats as a local package).
 4. Open `Assets/_Game/Scenes/Bootstrap.unity` and press Play: the cube moves with the simulation tick.
 5. Window → General → Test Runner → EditMode → Run All: the `SimHostTests` pass.
 
-If a package version in `Packages/manifest.json` doesn't resolve on your 6000.3 patch, pick the version Package Manager offers and commit the change.
+If a package version in `Packages/manifest.json` doesn't resolve on your 6000.6 patch, pick the version Package Manager offers and commit the change.
 
 ### Claude Code
 
 - Hooks run `python` (Windows: install Python from python.org with "Add to PATH", or change `python` to `py` in `.claude/settings.json`). They need `dotnet` and `git` on the PATH.
-- **Blender MCP** is shared in `.mcp.json` (`uvx mcp-for-blender@2.1.9`, the package formerly called `blender-mcp`; safe mode, telemetry off). Install its add-on with `uvx mcp-for-blender@2.1.9 install-addon`, then enable "MCP for Blender" in Blender's preferences; it starts its server on localhost:9876 by itself. The socket has no authentication, so keep it on localhost. Without Blender running, the MCP server starts but its tools report that they can't connect.
-- **Unity MCP** is per machine because its configuration holds local paths: install [MCP for Unity](https://github.com/CoplayDev/unity-mcp) through Package Manager (git URL from its README), then use its "Configure detected clients" menu for Claude Code. If it registers a server name other than `UnityMCP`, update the `mcp__UnityMCP` permission in `.claude/settings.json`.
+- **Blender MCP** is shared in `.mcp.json` (`uvx mcp-for-blender@2.1.9`, the package formerly called `blender-mcp`; safe mode, telemetry off). Install its add-on with `uvx mcp-for-blender@2.1.9 install-addon` (on a Blender that has never been opened there is no user folder yet: pass `--addons-dir "%APPDATA%\Blender Foundation\Blender\<version>\scripts\addons"`, and set `PYTHONIOENCODING=utf-8` on Windows or its final message crashes the console), then enable "MCP for Blender" in Blender's preferences; it starts its server on localhost:9876 by itself. The socket has no authentication, so keep it on localhost. Without Blender running, the MCP server starts but its tools report that they can't connect.
+- **Unity MCP**: the [MCP for Unity](https://github.com/CoplayDev/unity-mcp) package is in `unity/Packages/manifest.json` (pinned `#v10.3.0`), and its server is shared in `.mcp.json` as `UnityMCP` (`uvx --from mcpforunityserver==10.3.0 mcp-for-unity --transport stdio`, telemetry off); bump both pins together. The editor's bridge listens on localhost:6400 once the project is open; keep the package on stdio transport (its default here). Its "Configure All Detected Clients" menu isn't needed for Claude Code, and without the `claude` CLI on the PATH it only configures Claude Desktop. Without the editor open, the server starts but its tools report that they can't connect.
 - Check the setup: `/context` lists `CLAUDE.md` and the rules once you open a file they cover, `/agents` lists the agents, `/milestone` prints the current milestone.
 
 ### Cloud sessions (Claude Code on the web)
 
-`tools/cloud/setup_env.sh` installs the .NET 10 SDK, Blender 5.2.2 LTS with the MCP add-on, and the Unity 6000.3.26f1 editor (8.2 GB) into the container, and activates Unity when a license is configured. Paste its contents into the cloud environment's setup script so every session starts with the tools. `tools/cloud/start_blender_mcp.sh [file.blend]` runs Blender's UI on a virtual display (Xvfb) so the Blender MCP server can reach it.
+`tools/cloud/setup_env.sh` installs the .NET 10 SDK, Blender 5.2.2 LTS with the MCP add-on, and the Unity 6000.6.7f1 editor (4.1 GB download) into the container, and activates Unity when a license is configured. Paste its contents into the cloud environment's setup script so every session starts with the tools. `tools/cloud/start_blender_mcp.sh [file.blend]` runs Blender's UI on a virtual display (Xvfb) so the Blender MCP server can reach it.
 
 Unity won't start without a license. Add these as environment variables in the cloud environment's settings (never in the repository or the chat): `UNITY_EMAIL` and `UNITY_PASSWORD`, plus `UNITY_SERIAL` for a Plus or Pro seat, or for Unity Personal `UNITY_LICENSE` holding the contents of `Unity_lic.ulf` from a machine where Unity Hub is signed in (Windows: `C:\ProgramData\Unity\Unity_lic.ulf`). The same values become the GameCI secrets for Unity CI in M2.
 

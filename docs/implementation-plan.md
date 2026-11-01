@@ -264,7 +264,7 @@ Enforcement, in layers: the analyzer `Microsoft.CodeAnalysis.BannedApiAnalyzers`
 god-game/
 ├── CLAUDE.md                       # project instructions for Claude Code (Appendix A1)
 ├── README.md
-├── .mcp.json                       # shared MCP servers (Blender); Unity MCP is configured per machine
+├── .mcp.json                       # shared MCP servers (Blender, Unity)
 ├── .claude/
 │   ├── settings.json               # permissions + hooks (A2)
 │   ├── rules/                      # path-scoped instructions (A4)
@@ -929,7 +929,8 @@ Adapt names and paths as needed; these are starting points for M0.
 - **Unity (step 5):** `GodGame → Setup → Apply Project Settings` (an editor script, also runnable with `-executeMethod`) applies the section 3.7 settings and creates the bootstrap scene, so ProjectSettings are never hand-written. The Unity MCP permission is `mcp__UnityMCP`.
 - **Blender (step 7):** the scripts also run under plain Python with the `bpy` module (`python <script> --blend <file>`); they were tested both ways against Blender 5.2.2 LTS. Rules live in `tools/blender/art_rules.json`, the palette grid in `art/palettes/palette.json`; `make_test_soldier.py` builds the test soldier.
 - **MCP (A7):** `blender-mcp` was renamed `mcp-for-blender`; `.mcp.json` runs `uvx mcp-for-blender@2.1.9`, and its add-on installs with `uvx mcp-for-blender@2.1.9 install-addon`.
-- **Unity version:** 6000.3.26f1, the current 6.3 LTS patch; `unity/Packages/manifest.json` uses the package versions that editor ships and verifies.
+- **Unity version:** 6000.6.7f1 (moved from 6000.3.26f1 LTS on 2026-11-01, the editor installed locally); `unity/Packages/manifest.json` uses the package versions that editor upgraded the project to.
+- **Unity MCP:** shared in `.mcp.json` as `UnityMCP` (`uvx --from mcpforunityserver==10.3.0 mcp-for-unity --transport stdio`, matching the `com.coplaydev.unity-mcp#v10.3.0` package), not in local scope as section 5.6 planned: the stdio command holds no machine paths, and the package's "Configure detected clients" needs the `claude` CLI on the PATH, which the desktop app doesn't provide.
 - **Cloud sessions:** `tools/cloud/setup_env.sh` installs .NET, Blender (with the MCP add-on) and Unity into a Claude Code cloud container and activates Unity from environment variables; `tools/cloud/start_blender_mcp.sh` runs Blender's UI on Xvfb for the MCP server. Unity needs a license there too (README, "Cloud sessions").
 
 ### A1. `CLAUDE.md`

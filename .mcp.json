@@ -4,6 +4,11 @@
       "command": "uvx",
       "args": ["mcp-for-blender@2.1.9"],
       "env": { "BLENDER_MCP_SAFE_MODE": "1", "DISABLE_TELEMETRY": "true" }
+    },
+    "UnityMCP": {
+      "command": "uvx",
+      "args": ["--from", "mcpforunityserver==10.3.0", "mcp-for-unity", "--transport", "stdio"],
+      "env": { "DISABLE_TELEMETRY": "true" }
     }
   }
 }

@@ -3,3 +3,4 @@
 - [World SoA and pools](pattern_world_soa_pools.md) — spawn/hash field coverage, dead-slot stale data, despawn order as state, parallel writes
 - [Runners and kernels](pattern_runner_kernels.md) — kernel shared via closure, ban-list holes, system state outside hash, TickRate overflow
 - [Derived spatial structures](pattern_derived_spatial.md) — off-map square overflow, stale hash after despawn, shared query buffers, truncation bias
+- [Data loading and hashes](pattern_data_hashing.md) — lone surrogates/non-ASCII canonical, file-order plan hash, $comment hashed, map size caps

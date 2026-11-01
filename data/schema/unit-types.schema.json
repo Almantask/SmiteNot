@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Unit types, ruleset v0",
+  "description": "Read by GodGame.Sim.Rules.RulesetLoader. Numbers are integers; unknown keys are rejected.",
+  "type": "object",
+  "required": [
+    "version",
+    "unitTypes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "version": {
+      "const": 0
+    },
+    "status": {
+      "enum": [
+        "placeholder",
+        "settled"
+      ],
+      "description": "placeholder: numbers no spec has set yet"
+    },
+    "unitTypes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "movementClass",
+          "health",
+          "morale"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]{1,64}$",
+            "description": "Stable id used by plans and replays"
+          },
+          "movementClass": {
+            "enum": [
+              "foot",
+              "horse",
+              "wheeled",
+              "water"
+            ]
+          },
+          "health": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "description": "Starting hit points (ruleset units)"
+          },
+          "morale": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000,
+            "description": "Starting morale (ruleset units)"
+          }
+        }
+      }
+    }
+  }
+}

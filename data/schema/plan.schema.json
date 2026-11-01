@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Plan, format v0",
+  "description": "Read by GodGame.Sim.BattlePlan.Load. The three layers of plan section 3.8; v0 reads the army layer, and terrain and casts must be empty until M3. Regiments deploy in ordinal id order whatever the file order. At most 10,000 soldiers in all. $comment members never count in hashes.",
+  "type": "object",
+  "required": [
+    "version",
+    "map",
+    "army",
+    "terrain",
+    "casts"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "version": {
+      "const": 0
+    },
+    "map": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{1,64}$"
+    },
+    "army": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "side",
+          "unitType",
+          "soldiers",
+          "xMm",
+          "yMm",
+          "facingCentiDegrees"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]{1,64}$",
+            "description": "Stable across edits"
+          },
+          "side": {
+            "enum": [
+              "attacker",
+              "defender"
+            ]
+          },
+          "unitType": {
+            "type": "string",
+            "description": "A unit type id from data/rules/unit-types.json"
+          },
+          "soldiers": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "xMm": {
+            "type": "integer",
+            "description": "Regiment centre; must lie in its side's deployment zone"
+          },
+          "yMm": {
+            "type": "integer"
+          },
+          "facingCentiDegrees": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 35999,
+            "description": "0 faces east, counter-clockwise"
+          }
+        }
+      }
+    },
+    "terrain": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "casts": {
+      "type": "array",
+      "maxItems": 0
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "$comment": "Unit types (ruleset v0). The four base types come from the brief (pillar 3) and the movement classes from the data rules. Health and morale have no spec yet: spec pass S2 sets the roster, so the file is marked placeholder and every type starts at 100.",
+  "version": 0,
+  "status": "placeholder",
+  "unitTypes": [
+    { "id": "infantry", "movementClass": "foot", "health": 100, "morale": 100 },
+    { "id": "cavalry", "movementClass": "horse", "health": 100, "morale": 100 },
+    { "id": "ranged", "movementClass": "foot", "health": 100, "morale": 100 },
+    { "id": "siege", "movementClass": "wheeled", "health": 100, "morale": 100 }
+  ]
+}

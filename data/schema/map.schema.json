@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Map, format v0",
+  "description": "Read by GodGame.Sim.MapData.Load. All lengths in millimetres; x grows east, y north, from the south-west corner. An optional height.bin next to map.json holds int32 little-endian millimetres per cell, rows south to north, each west to east; without it the ground is flat at 0. Heights lie within \u00b110,000,000 mm; at most 16 million cells.",
+  "type": "object",
+  "required": [
+    "version",
+    "id",
+    "widthMm",
+    "depthMm",
+    "cellSizeMm",
+    "deployment"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "version": {
+      "const": 0
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{1,64}$"
+    },
+    "widthMm": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 30000000
+    },
+    "depthMm": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 30000000
+    },
+    "cellSizeMm": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 100000,
+      "description": "Field cell edge; the plan's shared value is 1500"
+    },
+    "deployment": {
+      "type": "array",
+      "description": "At most one zone per side; minimum inclusive, maximum exclusive",
+      "items": {
+        "type": "object",
+        "required": [
+          "side",
+          "minXMm",
+          "minYMm",
+          "maxXMm",
+          "maxYMm"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "side": {
+            "enum": [
+              "attacker",
+              "defender"
+            ]
+          },
+          "minXMm": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "0 to the map's size; max above min"
+          },
+          "minYMm": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "0 to the map's size; max above min"
+          },
+          "maxXMm": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "0 to the map's size; max above min"
+          },
+          "maxYMm": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "0 to the map's size; max above min"
+          }
+        }
+      }
+    }
+  }
+}

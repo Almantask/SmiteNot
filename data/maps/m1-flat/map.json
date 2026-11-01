@@ -1,0 +1,12 @@
+{
+  "$comment": "M1 test map: the plan's working size (1.2 x 0.8 km, 1.5 m cells, section 10), flat, attacker in the west and defender in the east. No height layer, so the ground is flat at 0.",
+  "version": 0,
+  "id": "m1-flat",
+  "widthMm": 1200000,
+  "depthMm": 800000,
+  "cellSizeMm": 1500,
+  "deployment": [
+    { "side": "attacker", "minXMm": 0, "minYMm": 0, "maxXMm": 200000, "maxYMm": 800000 },
+    { "side": "defender", "minXMm": 1000000, "minYMm": 0, "maxXMm": 1200000, "maxYMm": 800000 }
+  ]
+}

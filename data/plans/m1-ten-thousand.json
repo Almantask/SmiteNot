@@ -1,0 +1,909 @@
+{
+  "$comment": "M1 determinism plan: 100 regiments of 100 (10,000 units) on m1-flat, for the CLI, the determinism harness and the goldens.",
+  "version": 0,
+  "map": "m1-flat",
+  "army": [
+    {
+      "id": "a00",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 40000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a01",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 55000,
+      "yMm": 40000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a02",
+      "side": "attacker",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 90000,
+      "yMm": 40000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a03",
+      "side": "attacker",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 125000,
+      "yMm": 40000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a04",
+      "side": "attacker",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 160000,
+      "yMm": 40000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a05",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 115000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a06",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 55000,
+      "yMm": 115000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a07",
+      "side": "attacker",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 90000,
+      "yMm": 115000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a08",
+      "side": "attacker",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 125000,
+      "yMm": 115000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a09",
+      "side": "attacker",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 160000,
+      "yMm": 115000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a10",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 190000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a11",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 55000,
+      "yMm": 190000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a12",
+      "side": "attacker",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 90000,
+      "yMm": 190000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a13",
+      "side": "attacker",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 125000,
+      "yMm": 190000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a14",
+      "side": "attacker",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 160000,
+      "yMm": 190000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a15",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 265000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a16",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 55000,
+      "yMm": 265000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a17",
+      "side": "attacker",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 90000,
+      "yMm": 265000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a18",
+      "side": "attacker",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 125000,
+      "yMm": 265000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a19",
+      "side": "attacker",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 160000,
+      "yMm": 265000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a20",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 340000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a21",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 55000,
+      "yMm": 340000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a22",
+      "side": "attacker",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 90000,
+      "yMm": 340000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a23",
+      "side": "attacker",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 125000,
+      "yMm": 340000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a24",
+      "side": "attacker",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 160000,
+      "yMm": 340000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a25",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 415000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a26",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 55000,
+      "yMm": 415000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a27",
+      "side": "attacker",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 90000,
+      "yMm": 415000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a28",
+      "side": "attacker",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 125000,
+      "yMm": 415000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a29",
+      "side": "attacker",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 160000,
+      "yMm": 415000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a30",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 490000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a31",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 55000,
+      "yMm": 490000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a32",
+      "side": "attacker",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 90000,
+      "yMm": 490000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a33",
+      "side": "attacker",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 125000,
+      "yMm": 490000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a34",
+      "side": "attacker",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 160000,
+      "yMm": 490000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a35",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 565000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a36",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 55000,
+      "yMm": 565000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a37",
+      "side": "attacker",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 90000,
+      "yMm": 565000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a38",
+      "side": "attacker",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 125000,
+      "yMm": 565000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a39",
+      "side": "attacker",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 160000,
+      "yMm": 565000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a40",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 640000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a41",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 55000,
+      "yMm": 640000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a42",
+      "side": "attacker",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 90000,
+      "yMm": 640000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a43",
+      "side": "attacker",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 125000,
+      "yMm": 640000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a44",
+      "side": "attacker",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 160000,
+      "yMm": 640000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a45",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 715000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a46",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 55000,
+      "yMm": 715000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a47",
+      "side": "attacker",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 90000,
+      "yMm": 715000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a48",
+      "side": "attacker",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 125000,
+      "yMm": 715000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a49",
+      "side": "attacker",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 160000,
+      "yMm": 715000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d00",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1180000,
+      "yMm": 40000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d01",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1145000,
+      "yMm": 40000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d02",
+      "side": "defender",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 1110000,
+      "yMm": 40000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d03",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 1075000,
+      "yMm": 40000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d04",
+      "side": "defender",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 1040000,
+      "yMm": 40000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d05",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1180000,
+      "yMm": 115000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d06",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1145000,
+      "yMm": 115000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d07",
+      "side": "defender",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 1110000,
+      "yMm": 115000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d08",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 1075000,
+      "yMm": 115000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d09",
+      "side": "defender",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 1040000,
+      "yMm": 115000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d10",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1180000,
+      "yMm": 190000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d11",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1145000,
+      "yMm": 190000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d12",
+      "side": "defender",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 1110000,
+      "yMm": 190000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d13",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 1075000,
+      "yMm": 190000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d14",
+      "side": "defender",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 1040000,
+      "yMm": 190000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d15",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1180000,
+      "yMm": 265000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d16",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1145000,
+      "yMm": 265000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d17",
+      "side": "defender",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 1110000,
+      "yMm": 265000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d18",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 1075000,
+      "yMm": 265000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d19",
+      "side": "defender",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 1040000,
+      "yMm": 265000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d20",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1180000,
+      "yMm": 340000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d21",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1145000,
+      "yMm": 340000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d22",
+      "side": "defender",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 1110000,
+      "yMm": 340000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d23",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 1075000,
+      "yMm": 340000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d24",
+      "side": "defender",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 1040000,
+      "yMm": 340000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d25",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1180000,
+      "yMm": 415000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d26",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1145000,
+      "yMm": 415000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d27",
+      "side": "defender",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 1110000,
+      "yMm": 415000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d28",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 1075000,
+      "yMm": 415000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d29",
+      "side": "defender",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 1040000,
+      "yMm": 415000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d30",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1180000,
+      "yMm": 490000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d31",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1145000,
+      "yMm": 490000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d32",
+      "side": "defender",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 1110000,
+      "yMm": 490000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d33",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 1075000,
+      "yMm": 490000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d34",
+      "side": "defender",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 1040000,
+      "yMm": 490000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d35",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1180000,
+      "yMm": 565000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d36",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1145000,
+      "yMm": 565000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d37",
+      "side": "defender",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 1110000,
+      "yMm": 565000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d38",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 1075000,
+      "yMm": 565000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d39",
+      "side": "defender",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 1040000,
+      "yMm": 565000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d40",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1180000,
+      "yMm": 640000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d41",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1145000,
+      "yMm": 640000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d42",
+      "side": "defender",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 1110000,
+      "yMm": 640000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d43",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 1075000,
+      "yMm": 640000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d44",
+      "side": "defender",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 1040000,
+      "yMm": 640000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d45",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1180000,
+      "yMm": 715000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d46",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 1145000,
+      "yMm": 715000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d47",
+      "side": "defender",
+      "unitType": "cavalry",
+      "soldiers": 100,
+      "xMm": 1110000,
+      "yMm": 715000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d48",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 1075000,
+      "yMm": 715000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d49",
+      "side": "defender",
+      "unitType": "siege",
+      "soldiers": 100,
+      "xMm": 1040000,
+      "yMm": 715000,
+      "facingCentiDegrees": 18000
+    }
+  ],
+  "terrain": [],
+  "casts": []
+}

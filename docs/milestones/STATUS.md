@@ -34,5 +34,24 @@ Started: 2026-10-11
 - For the VAT baker (M8): skinned meshes keep Blender's Z-up in mesh space (the rig and mesh nodes carry a 90° X rotation under an unrotated root), so sample in root space; the walk clip imports as `RIG_humanoid|A_humanoid_walk` with looping off.
 - To finish M0: copy the design docs; run /milestone, /context and /agents once in an interactive session; block force-pushes and deletion of main.
 
+## Next: M1 — Deterministic core
+Started early (2026-11-01) while M0's last items wait on the repository owner.
+
+### Checklist
+- [ ] 1. GodGame.Sim.Math: Fix, 2D/3D vectors, integer square root, binary angles and trig tables, PCG32 streams, xxHash64; exhaustive and property tests — PCG32 and xxHash64 from M0; Fix (16 fractional bits; products round down, quotients toward zero, debug overflow asserts) and IntMath.Sqrt done, tested against BigInteger and exhaustively below 2^20; vectors and angles next
+- [ ] 2. World state as structure-of-arrays, the regiment table, entity ids with deterministic reuse
+- [ ] 3. Tick scheduler with the fixed system order, IParallelRunner, rates and sub-rates
+- [ ] 4. Spatial hash
+- [ ] 5. Map format v0, plan format v0 (army layer), ruleset loader v0 and ruleset hash
+- [ ] 6. Versioned snapshots, state hashes every N ticks, replay file v0
+- [ ] 7. godsim CLI: run, hash, compare
+- [ ] 8. Determinism harness (twice, snapshot and restore, thread counts, cross-OS, Unity Mono editor, IL2CPP player)
+- [ ] 9. Golden replay infrastructure and the golden-replay skill end to end; SimVersion and CHANGELOG-sim.md
+
+### Exit criteria
+- [ ] 10,000 wandering units for three simulated minutes hash identically across two runs, snapshot and restore, 1 vs 8 threads, Windows vs Linux, and .NET vs Unity Mono vs IL2CPP
+- [ ] At least 15× real time with placeholder systems; baseline in budgets.json
+- [ ] determinism-auditor review of the whole simulation with no open high-severity findings
+
 ## Done
 - (nothing yet)

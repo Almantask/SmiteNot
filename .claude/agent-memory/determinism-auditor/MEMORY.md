@@ -1,0 +1,1 @@
+- [Overflow/assert pitfalls](pattern_overflow_assert_side_effects.md) — MinValue/-1, throwing divisions inside Debug.Assert, IL2CPP UB, missing .meta

@@ -31,6 +31,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodGame.Sim.Analyzers", "an
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodGame.Sim.Analyzers.Tests", "tests\GodGame.Sim.Analyzers.Tests\GodGame.Sim.Analyzers.Tests.csproj", "{BE3D261A-D887-491E-900B-A9FDAF3FF201}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "hosts", "hosts", "{2F3EF1A3-B2B0-B28C-122D-FFB85167A4CE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodGame.Sim.Hosting", "hosts\GodGame.Sim.Hosting\GodGame.Sim.Hosting.csproj", "{0C9E3BB3-AE55-492A-A530-C8B44E4839F2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -149,6 +153,18 @@ Global
 		{BE3D261A-D887-491E-900B-A9FDAF3FF201}.Release|x64.Build.0 = Release|Any CPU
 		{BE3D261A-D887-491E-900B-A9FDAF3FF201}.Release|x86.ActiveCfg = Release|Any CPU
 		{BE3D261A-D887-491E-900B-A9FDAF3FF201}.Release|x86.Build.0 = Release|Any CPU
+		{0C9E3BB3-AE55-492A-A530-C8B44E4839F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C9E3BB3-AE55-492A-A530-C8B44E4839F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C9E3BB3-AE55-492A-A530-C8B44E4839F2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0C9E3BB3-AE55-492A-A530-C8B44E4839F2}.Debug|x64.Build.0 = Debug|Any CPU
+		{0C9E3BB3-AE55-492A-A530-C8B44E4839F2}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0C9E3BB3-AE55-492A-A530-C8B44E4839F2}.Debug|x86.Build.0 = Debug|Any CPU
+		{0C9E3BB3-AE55-492A-A530-C8B44E4839F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C9E3BB3-AE55-492A-A530-C8B44E4839F2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C9E3BB3-AE55-492A-A530-C8B44E4839F2}.Release|x64.ActiveCfg = Release|Any CPU
+		{0C9E3BB3-AE55-492A-A530-C8B44E4839F2}.Release|x64.Build.0 = Release|Any CPU
+		{0C9E3BB3-AE55-492A-A530-C8B44E4839F2}.Release|x86.ActiveCfg = Release|Any CPU
+		{0C9E3BB3-AE55-492A-A530-C8B44E4839F2}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -163,5 +179,6 @@ Global
 		{A2F93EE9-FE47-419F-B446-11083EA60A01} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 		{3C795364-F0B5-4A04-B816-1A3689093A13} = {F883AD26-E2D9-0064-49F2-B333EF800629}
 		{BE3D261A-D887-491E-900B-A9FDAF3FF201} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{0C9E3BB3-AE55-492A-A530-C8B44E4839F2} = {2F3EF1A3-B2B0-B28C-122D-FFB85167A4CE}
 	EndGlobalSection
 EndGlobal

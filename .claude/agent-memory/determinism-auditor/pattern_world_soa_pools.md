@@ -12,7 +12,7 @@ Check first when World/EntityPool or any per-unit array changes (first audited 2
 - DespawnUnit writes RegimentAlive[regiment] (shared counter) and the pool: never callable from parallel chunks.
 - Arrays are get-only properties: parallel systems that read neighbours' Position while writing their own chunk need a separate output buffer; check that nobody writes Position in place in a parallel pass.
 - Exception messages built with `"..." + int` use the current culture (negative sign). Low, but flag it; EntityId.ToString is invariant.
-- No thread-count tests existed as of 2026-11-01; say so in the report until they appear.
+- Thread-count tests exist since M1 item 3 (TickingTests, 1/2/8 threads); see [[pattern-runner-kernels]].
 - Missing .meta files for the World/ folder and its files came up again (third time). See [[pattern-overflow-assert-side-effects]].
 
 **Why:** These came up in the World/EntityPool review; none diverge today but each is a trap for the systems that land in M1-M2.

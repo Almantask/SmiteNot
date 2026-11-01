@@ -2,7 +2,7 @@
 """Prove the determinism analyzers are wired into sim/src: probe files with banned constructs must fail the build.
 
 GG0001 (sim/analyzers) rejects floating point; RS0030 (BannedApiAnalyzers + sim/BannedSymbols.txt) rejects
-wall-clock time, System.Random, string hashing and ad-hoc threads.
+wall-clock time, System.Random, string hashing, ad-hoc threads, PLINQ and the core count.
 
 Usage: python tools/ci/check_sim_analyzers.py
 Exit 0 when every probe is rejected with its expected diagnostic, 1 otherwise. Standard library only.
@@ -24,6 +24,11 @@ PROBES = {
     "DateTime.Now": ("internal static long Probe() => System.DateTime.Now.Ticks;", "RS0030"),
     "string.GetHashCode": ('internal static int Probe() => "a".GetHashCode();', "RS0030"),
     "Task.Run": ("internal static void Probe() => System.Threading.Tasks.Task.Run(() => { });", "RS0030"),
+    "PLINQ AsParallel": (
+        "internal static int Probe(int[] a) => System.Linq.ParallelEnumerable.Sum(System.Linq.ParallelEnumerable.AsParallel(a));",
+        "RS0030",
+    ),
+    "Environment.ProcessorCount": ("internal static int Probe() => System.Environment.ProcessorCount;", "RS0030"),
 }
 
 TEMPLATE = """namespace GodGame.Sim

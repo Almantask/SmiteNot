@@ -1,3 +1,4 @@
 - [Overflow/assert pitfalls](pattern_overflow_assert_side_effects.md) — MinValue/-1, throwing divisions inside Debug.Assert, IL2CPP UB, missing .meta
 - [Tables and vectors](pattern_tables_vectors.md) — trig table overflow margin, pinned-bit tests, floored squares on short vectors, half-turn DeltaTo
 - [World SoA and pools](pattern_world_soa_pools.md) — spawn/hash field coverage, dead-slot stale data, despawn order as state, parallel writes
+- [Runners and kernels](pattern_runner_kernels.md) — kernel shared via closure, ban-list holes, system state outside hash, TickRate overflow

@@ -14,3 +14,12 @@ T:System.Threading.Tasks.Parallel;Use IParallelRunner
 T:System.Threading.Thread;Use IParallelRunner
 T:System.Threading.Tasks.Task;Use IParallelRunner
 T:System.Threading.ThreadPool;Use IParallelRunner
+T:System.Linq.ParallelEnumerable;PLINQ starts pool threads and can merge in completion order; use IParallelRunner
+P:System.Environment.ProcessorCount;Results must not depend on the machine's core count
+T:System.Threading.Timer;Timers are wall-clock and threaded
+T:System.Timers.Timer;Timers are wall-clock and threaded
+T:System.Threading.Tasks.Task`1;Use IParallelRunner
+T:System.Threading.Tasks.TaskFactory;Use IParallelRunner
+T:System.Threading.Tasks.TaskScheduler;Use IParallelRunner
+T:System.Threading.Tasks.ValueTask;Use IParallelRunner
+T:System.Threading.Tasks.ValueTask`1;Use IParallelRunner

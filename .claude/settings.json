@@ -14,6 +14,8 @@
       "Bash(git switch *)",
       "Bash(git add *)",
       "Bash(git commit *)",
+      "Bash(git push)",
+      "Bash(git push origin main)",
       "Bash(python tools/*)",
       "Bash(python3 tools/*)",
       "Bash(gh pr view *)",
@@ -21,7 +23,6 @@
       "mcp__blender",
       "mcp__UnityMCP"
     ],
-    "ask": ["Bash(git push *)"],
     "deny": [
       "Bash(git push --force *)",
       "Bash(git push -f *)",

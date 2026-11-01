@@ -12,11 +12,11 @@ Mode and reason: $ARGUMENTS
 Run `dotnet test sim/GodGame.Sim.sln --filter Category=Golden`. For each failing scenario, run
 `dotnet run --project sim/tools/GodGame.Sim.Cli -- compare --golden <scenario>` and report the first diverging second and the first differing cause events.
 
-Until M1 builds the golden infrastructure (`compare` and `golden regenerate` don't exist yet), verify means: run the Fast tests and report any failing pinned-hash test in `sim/tests/GodGame.Sim.Tests/PinnedHashes.cs`, with the first tick at which `godsim hash` output differs from main.
+Until M1 builds the golden infrastructure (`compare` and `golden regenerate` don't exist yet), verify means: run the Fast tests and report any failing pinned-hash test in `sim/tests/GodGame.Sim.Tests/PinnedHashes.cs`, with the first tick at which `godsim hash` output differs from origin/main.
 
 ## update
 1. Run verify. If nothing diverges, stop.
-2. Explain each divergence from the branch's changes (`git diff main...HEAD`). If any divergence is unexplained, stop and suggest /desync-hunt.
+2. Explain each divergence from the changes not yet pushed (`git diff origin/main`, which covers unpushed commits and uncommitted work). If any divergence is unexplained, stop and suggest /desync-hunt.
 3. Show the explanation and ask the user to confirm the reason.
 4. Increment the constant in sim/src/GodGame.Sim/SimVersion.cs.
 5. Run `dotnet run --project sim/tools/GodGame.Sim.Cli -- golden regenerate --all` (before M1: update the constants in PinnedHashes.cs to the new values reported by the failing tests).

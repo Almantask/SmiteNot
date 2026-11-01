@@ -85,8 +85,8 @@ This plan turns the design (game brief, power palette, tech notes, unit spec, br
 
    > Read docs/implementation-plan.md. Execute milestone M0 (section 9) step by step, creating the files in Appendix A and adapting them where the plan says to. After each numbered M0 step, stop and show me what changed.
 
-4. From M1 on, each work session starts with `/milestone` (a skill from section 5.5), which shows the current milestone, its unchecked items and the next suggested task. Work one checklist item per branch.
-5. Keep the plan alive. When a design decision changes the build, update this file and `docs/milestones/STATUS.md` in the same pull request.
+4. From M1 on, each work session starts with `/milestone` (a skill from section 5.5), which shows the current milestone, its unchecked items and the next suggested task. Work one checklist item per commit, straight on `main`.
+5. Keep the plan alive. When a design decision changes the build, update this file and `docs/milestones/STATUS.md` in the same commit.
 
 ---
 
@@ -364,11 +364,11 @@ Built-in `Explore` and `Plan` agents already exist; these add the project's spec
 | `test-engineer` | sonnet | Read, Edit, Write, Bash, Grep, Glob, Skill | Turns brief decisions into scenario tests, maintains builders, fuzzing and golden replays (through the skill), Unity Play Mode tests. |
 | `design-lead` | opus | Read, Grep, Glob, Edit, Write (docs only, by instruction), Skill | The game-design partner inside the repo: answers rule questions from `docs/design/`, checks implementations against the brief, records decisions via the `game-design` skill, and drafts the spec passes S1–S5 (section 9) as docs and rules data. Never edits code. |
 | `level-designer` | sonnet | Read, Edit, Write, Bash, Grep, Glob | From M9: builds campaign levels as data, runs the solver and perturbation checks, writes side quests. |
-| `code-reviewer` | sonnet | Read, Grep, Glob, Bash (no Edit/Write) | General review of a branch before its pull request: correctness, clarity, tests, plan conformance. |
+| `code-reviewer` | sonnet | Read, Grep, Glob, Bash (no Edit/Write) | General review of the unpushed changes on `main` before they are pushed: correctness, clarity, tests, plan conformance. |
 | `reviewers/game-designer`, `reviewers/veteran-player`, `reviewers/casual-gamer` | inherit | Read (as today) | Ported unchanged from the claude.ai project (`claude/reviewers/*.md`) for the `review-idea` skill. |
 
 Tips:
-- Give implementing agents `isolation: worktree` when you run two in parallel (for example `sim-engineer` on fields while `unity-engineer` builds the timeline UI), so they never edit the same checkout.
+- When two implementing agents run in parallel (for example `sim-engineer` on fields while `unity-engineer` builds the timeline UI), give them disjoint files in the one checkout. No worktrees: they create branches, and all work lands straight on `main`.
 - Keep agent descriptions short and specific; Claude delegates by matching the description.
 - `memory: project` on `determinism-auditor` and `perf-engineer` lets them accumulate recurring findings.
 
@@ -425,11 +425,11 @@ Run `/install-github-app` in Claude Code to add the Claude GitHub App and a work
 
 ### 5.10 A normal working session
 
-1. `/milestone` → pick one unchecked item → create a branch (`m3/rain-power`).
+1. `/milestone` → pick one unchecked item; work on `main`, no branch.
 2. Plan mode: Claude reads the relevant rules and design docs and proposes a plan; you adjust it.
 3. Claude delegates (for example `sim-engineer` implements, `test-engineer` adds the scenario test); the hooks lint and test as it goes.
-4. Before the pull request: `determinism-auditor` (simulation changes), `/perf-check` (hot paths), `code-reviewer`, and `/golden-replay` if outcomes changed on purpose.
-5. Merge when CI is green; tick the item in `STATUS.md`.
+4. Before pushing: `determinism-auditor` (simulation changes), `/perf-check` (hot paths), `code-reviewer`, and `/golden-replay` if outcomes changed on purpose.
+5. Commit, tick the item in `STATUS.md` in the same commit, and push to `main`; fix a red CI run with the next commit.
 6. Monthly: run `/doctor prompt-audit` to find outdated or conflicting instructions in `CLAUDE.md`, rules, skills and agents.
 
 ---
@@ -609,7 +609,7 @@ M0 → M1 → M2 → M3 → M4 → M5 → M6 → M7 → M9 ───────
                                              M7 → M10 → M11 ────┘
 ```
 
-Each milestone's checklist is copied into `docs/milestones/STATUS.md` when it starts; tick items there as they merge.
+Each milestone's checklist is copied into `docs/milestones/STATUS.md` when it starts; tick items there as they land on `main`.
 
 ### Design spec track (runs ahead of the code)
 
@@ -630,7 +630,7 @@ Which units, powers, terrain pieces and systems each spec covers, and what waits
 **Goal:** a repository where Claude Code can build, test and lint the simulation, Unity opens the project, and an asset flows from Blender into Unity.
 
 **Steps** (Claude stops after each for review):
-1. **Repository basics.** README, `.gitignore`, `.gitattributes` with LFS patterns and Unity Smart Merge, `.editorconfig`, `git lfs install`, branch protection on `main` (pull request + green CI). Configure UnityYAMLMerge as the merge driver in local git config (documented in the README).
+1. **Repository basics.** README, `.gitignore`, `.gitattributes` with LFS patterns and Unity Smart Merge, `.editorconfig`, `git lfs install`, protection on `main` (block force-pushes and deletion; no required pull requests, since commits go straight to `main`). Configure UnityYAMLMerge as the merge driver in local git config (documented in the README).
 2. **Docs.** Copy the design docs into `docs/design/`; write ADR 0001 (engine: Unity) from the brief's 2026-10-11 decision; create `docs/milestones/STATUS.md` (A11).
 3. **Simulation solution.** The projects in section 3.2, `Directory.Build.props`, `BannedSymbols.txt`, `global.json` (.NET 10 SDK), CSharpier as a local dotnet tool, a placeholder simulation (tick counter, a few units, state hash) and first unit tests.
 4. **CI.** `sim.yml`: build and test on Windows and Linux, upload hash files, compare them in a final job (A10).
@@ -907,8 +907,8 @@ From the brief's open questions, ordered by when the build needs an answer. Unti
 
 ## 12. Working agreements
 
-- **Definition of done** for any checklist item: code and data merged through a pull request; tests added (a scenario test for any game rule); CI green; `determinism-auditor` passed for simulation changes; `/perf-check` run for per-unit or per-cell code; docs updated (this plan, the brief via `game-design`, ADRs); `STATUS.md` ticked.
-- **Branches and commits:** `m<N>/<short-name>`; conventional commits (`feat(sim): …`, `fix(unity): …`); squash merge.
+- **Definition of done** for any checklist item: code and data pushed to `main`; tests added (a scenario test for any game rule); CI green; `determinism-auditor` passed for simulation changes; `/perf-check` run for per-unit or per-cell code; docs updated (this plan, the brief via `game-design`, ADRs); `STATUS.md` ticked.
+- **Commits:** one developer, so straight to `main`: no feature branches, worktrees or pull requests. One checklist item per commit or a short series; conventional commits (`feat(sim): …`, `fix(unity): …`).
 - **ADRs** for decisions that are expensive to reverse (Burst or not, backend choice, file formats).
 - **Design docs sync.** The claude.ai project stays the place for design conversations; `docs/design/` in the repo is a copy. Re-copy the docs whenever a decision lands there (at the latest when a milestone starts). When a decision is recorded from Claude Code through the `game-design` skill, update the claude.ai project too, so the two never drift.
 - **Golden files** change only through `/golden-replay`, with a `SimVersion` bump and a changelog line.
@@ -931,6 +931,7 @@ Adapt names and paths as needed; these are starting points for M0.
 - **MCP (A7):** `blender-mcp` was renamed `mcp-for-blender`; `.mcp.json` runs `uvx mcp-for-blender@2.1.9`, and its add-on installs with `uvx mcp-for-blender@2.1.9 install-addon`.
 - **Unity version:** 6000.6.7f1 (moved from 6000.3.26f1 LTS on 2026-11-01, the editor installed locally); `unity/Packages/manifest.json` uses the package versions that editor upgraded the project to.
 - **Unity MCP:** shared in `.mcp.json` as `UnityMCP` (`uvx --from mcpforunityserver==10.3.0 mcp-for-unity --transport stdio`, matching the `com.coplaydev.unity-mcp#v10.3.0` package), not in local scope as section 5.6 planned: the stdio command holds no machine paths, and the package's "Configure detected clients" needs the `claude` CLI on the PATH, which the desktop app doesn't provide.
+- **Workflow (2026-11-01):** one developer, so commits go straight to `main` and are pushed; no `m<N>/<name>` branches, worktrees, pull requests or squash merges. Where A1 and A6 below mention branches or pull requests, `CLAUDE.md` and the skills in `.claude/skills/` are the reference.
 - **Cloud sessions:** `tools/cloud/setup_env.sh` installs .NET, Blender (with the MCP add-on) and Unity into a Claude Code cloud container and activates Unity from environment variables; `tools/cloud/start_blender_mcp.sh` runs Blender's UI on Xvfb for the MCP server. Unity needs a license there too (README, "Cloud sessions").
 
 ### A1. `CLAUDE.md`

@@ -24,7 +24,7 @@ A god helps a weak army survive a far stronger attacker, using only indirect pow
 4. Every simulation feature lands with tests, including a scenario test named after the brief decision it implements.
 5. Performance first: run /perf-check after touching per-unit or per-cell code. Budgets: docs/implementation-plan.md section 8.
 6. Don't invent game rules. Check the brief; if the rule is open there, use the plan's working default (section 10) behind a data flag and say so.
-7. Small diffs, one checklist item per branch (m<N>/<name>), conventional commits.
+7. Small diffs, one checklist item per commit, conventional commits. Work on main and push straight to origin/main: no feature branches, worktrees or pull requests (one developer).
 8. Don't hand-edit Unity YAML (.unity, .prefab, .asset) or ProjectSettings unless asked; use the Unity MCP tools or editor scripts (unity/Assets/_Game/Editor/).
 9. sim/src: C# 9, .NET Standard 2.1, no runtime NuGet packages (Unity compiles the source directly). Watch the namespace: inside GodGame.Sim.*, `Math` means GodGame.Sim.Math, so write `System.Math.Max` for integer helpers.
 
@@ -32,9 +32,9 @@ A god helps a weak army survive a far stronger attacker, using only indirect pow
 regiment · plan layers (army, terrain, casts) · range rule (100 m), fizzle · field · cause event, causality trace · keyframe, playback track · launch, landing spread · swept · teeter · strain stages (creak, crack, sag) · specialist, charges · seat (attacker, defender), round, lock-in, sunset
 
 ## Who does what
-sim-engineer (simulation code) · determinism-auditor (before merging sim changes) · ai-engineer (regiment AI, later the AI god) · perf-engineer (budgets) · unity-engineer (Unity side) · tech-artist (shaders, VAT, VFX, Blender) · test-engineer (scenario tests, goldens, fuzz) · design-lead (game rules, decisions, spec passes) · level-designer (campaign levels) · code-reviewer (before a pull request) · reviewers/ (the /review-idea panel)
+sim-engineer (simulation code) · determinism-auditor (before pushing sim changes) · ai-engineer (regiment AI, later the AI god) · perf-engineer (budgets) · unity-engineer (Unity side) · tech-artist (shaders, VAT, VFX, Blender) · test-engineer (scenario tests, goldens, fuzz) · design-lead (game rules, decisions, spec passes) · level-designer (campaign levels) · code-reviewer (before pushing) · reviewers/ (the /review-idea panel)
 
 ## Workflow
 - Start with /milestone; use plan mode for anything beyond a one-line fix.
-- Tick items in docs/milestones/STATUS.md when they merge.
+- Tick items in docs/milestones/STATUS.md in the commit that finishes them.
 - Design decisions are recorded with the game-design skill; mirror them to the claude.ai project so the two never drift.

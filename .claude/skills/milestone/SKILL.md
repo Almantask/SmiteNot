@@ -21,5 +21,5 @@ Then:
 1. If a milestone number was requested and it isn't the current one, read its section in docs/implementation-plan.md (section 9, "### M<N>") and summarise its goal, build list, exit criteria, "Needs first" questions and spec pass; say what must finish before it can start. Stop there.
 2. Otherwise summarise the current milestone and its exit criteria in three lines.
 3. List the unchecked items. If recent commits seem to complete one, verify in the code and offer to tick it.
-4. Propose the next item: the smallest unblocked item on the critical path. Give a branch name (m<N>/<short-name>), the agent(s), the skills and the tests to add.
+4. Propose the next item: the smallest unblocked item on the critical path. Give the agent(s), the skills and the tests to add. Work happens on main (no branch), and the finished item is pushed straight to origin/main.
 5. If the item depends on an open question (docs/implementation-plan.md section 10), name it and the working default.

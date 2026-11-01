@@ -1,6 +1,6 @@
 ---
 name: determinism-auditor
-description: Reviews simulation changes for nondeterminism and runs the determinism tests. Use before merging any change under sim/ or data/rules/.
+description: Reviews simulation changes for nondeterminism and runs the determinism tests. Use before pushing any change under sim/ or data/rules/.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
 model: opus

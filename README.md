@@ -82,11 +82,11 @@ Unity won't start without a license. Add these as environment variables in the c
 | Blender export | `blender -b <file.blend> --python tools/blender/export.py -- --out <dir>` |
 | Blender validation | `blender -b <file.blend> --python tools/blender/validate.py -- --report <file.json>` |
 
-## Branches, pull requests and CI
+## Commits and CI
 
-- Work on `m<N>/<short-name>` branches, one checklist item each; conventional commits (`feat(sim): …`); squash merge.
+- One developer, so no feature branches or pull requests: commit straight to `main` and push. One checklist item per commit (or a short series); conventional commits (`feat(sim): …`). Run the fast tests before pushing, because CI runs after the push.
 - `.github/workflows/sim.yml` runs on every push (and by hand from the Actions tab): it checks formatting, builds and tests the simulation on Windows and Linux, proves the determinism analyzers reject banned code, then compares the two runs' per-second state hashes. Any difference is a determinism bug.
-- **Branch protection on `main`** (set it once in GitHub → Settings → Rules → Rulesets, or Branches): require a pull request before merging, require the status checks `test (ubuntu-latest)`, `test (windows-latest)` and `cross-os` (from the `sim` workflow), and block force-pushes and deletion.
+- **Protect `main`** (once, in GitHub → Settings → Rules → Rulesets, or Branches): block force-pushes and deletion. Don't require pull requests or status checks; both reject direct pushes. A red CI run is fixed by the next commit on `main`.
 
 ## Licence
 

@@ -24,7 +24,7 @@ Blender sources and the rules every asset follows. The full pipeline is in `docs
 | Rigs | Humanoid at most 24 bones (about 20 planned); quadruped 32; siege 12 |
 | Clips | 0.1–10 s each; 30 fps for hero-quality clips |
 
-Budgets and limits live in `tools/blender/art_rules.json`; change them there, in the same pull request as this table.
+Budgets and limits live in `tools/blender/art_rules.json`; change them there, in the same commit as this table.
 
 ## Commands
 

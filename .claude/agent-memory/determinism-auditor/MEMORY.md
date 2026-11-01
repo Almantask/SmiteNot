@@ -2,3 +2,4 @@
 - [Tables and vectors](pattern_tables_vectors.md) — trig table overflow margin, pinned-bit tests, floored squares on short vectors, half-turn DeltaTo
 - [World SoA and pools](pattern_world_soa_pools.md) — spawn/hash field coverage, dead-slot stale data, despawn order as state, parallel writes
 - [Runners and kernels](pattern_runner_kernels.md) — kernel shared via closure, ban-list holes, system state outside hash, TickRate overflow
+- [Derived spatial structures](pattern_derived_spatial.md) — off-map square overflow, stale hash after despawn, shared query buffers, truncation bias

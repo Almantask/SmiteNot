@@ -38,6 +38,12 @@ namespace GodGame.Sim
 
         public int AliveCount => _aliveCount;
 
+        /// <summary>
+        /// Bumped by every allocation and free, so derived data (the spatial hash) can tell it is out of date.
+        /// It decides nothing in the battle, so it is not part of the hash.
+        /// </summary>
+        public int Version { get; private set; }
+
         public bool IsAlive(int index) => _alive[index];
 
         public bool IsAlive(EntityId id) =>
@@ -81,6 +87,7 @@ namespace GodGame.Sim
             _generation[index] = generation <= 0 ? 1 : generation;
             _alive[index] = true;
             _aliveCount++;
+            Version = unchecked(Version + 1);
             return new EntityId(index, _generation[index]);
         }
 
@@ -93,6 +100,7 @@ namespace GodGame.Sim
             _alive[id.Index] = false;
             _freeStack[_freeCount++] = id.Index;
             _aliveCount--;
+            Version = unchecked(Version + 1);
         }
 
         /// <summary>Everything that decides future allocations, in a fixed order.</summary>

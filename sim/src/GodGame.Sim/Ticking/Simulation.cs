@@ -19,9 +19,11 @@ namespace GodGame.Sim
             World world,
             ulong seed,
             IParallelRunner runner,
-            IReadOnlyList<ISimSystem>? systems = null
+            IReadOnlyList<ISimSystem>? systems = null,
+            ulong battleId = 0
         )
         {
+            BattleId = battleId;
             if (world == null)
             {
                 throw new ArgumentNullException(nameof(world));
@@ -38,6 +40,9 @@ namespace GodGame.Sim
         public World World => _context.World;
 
         public ulong Seed => _context.Seed;
+
+        /// <summary>Which battle this is (Battle.Id); snapshots carry it, so one can't restore into another battle. 0 for simulations built by hand.</summary>
+        public ulong BattleId { get; }
 
         /// <summary>Ticks completed; also the number of the tick <see cref="Step()"/> runs next.</summary>
         public int Tick { get; private set; }
@@ -63,6 +68,56 @@ namespace GodGame.Sim
             {
                 Step();
             }
+        }
+
+        /// <summary>A snapshot of the whole simulation; see <see cref="Snapshot"/>.</summary>
+        public byte[] CaptureSnapshot() => Snapshot.Write(BattleId, Tick, Seed, World);
+
+        /// <summary>
+        /// Puts this simulation back to a snapshot's moment. The world must have the same capacities and the seed must
+        /// match: a snapshot belongs to one battle. Systems keep no state between ticks, so nothing else needs restoring.
+        /// </summary>
+        public void RestoreSnapshot(byte[] snapshot)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+            // Read into a scratch world first, so a bad snapshot leaves this simulation untouched.
+            var scratch = new World(World.Units.Capacity, World.Regiments.Capacity);
+            var (battleId, tick, seed) = Snapshot.Read(snapshot, scratch);
+            if (battleId != BattleId)
+            {
+                throw new FormatException(
+                    "The snapshot belongs to another battle (rules, map or plan differ)."
+                );
+            }
+            if (seed != Seed)
+            {
+                throw new FormatException("The snapshot belongs to a battle with another seed.");
+            }
+            Snapshot.Read(snapshot, World);
+            Tick = tick;
+        }
+
+        /// <summary>
+        /// Steps <paramref name="ticks"/> ticks and records the state hash after every <paramref name="every"/>th
+        /// (plan, section 3.9: hashes every N ticks; 20 gives the per-second hashes goldens and CI compare).
+        /// </summary>
+        public ulong[] RunAndHash(int ticks, int every)
+        {
+            if (ticks < 0 || every < 1)
+            {
+                throw new ArgumentOutOfRangeException(ticks < 0 ? nameof(ticks) : nameof(every));
+            }
+            var hashes = new ulong[ticks / every];
+            for (int i = 0; i < hashes.Length; i++)
+            {
+                Step(every);
+                hashes[i] = StateHash();
+            }
+            Step(ticks - hashes.Length * every);
+            return hashes;
         }
 
         /// <summary>xxHash64 over the version, the tick, the seed and the whole world.</summary>

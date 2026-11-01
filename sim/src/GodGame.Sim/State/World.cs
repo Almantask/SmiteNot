@@ -158,6 +158,146 @@ namespace GodGame.Sim
         }
 
         /// <summary>
+        /// Every slot of every array, up to capacity, in a fixed order: a restored world matches the original slot for
+        /// slot, dead slots included (they are zero, see the class notes).
+        /// </summary>
+        internal void WriteTo(ByteWriter writer)
+        {
+            Units.WriteTo(writer);
+            Regiments.WriteTo(writer);
+            int units = Units.Capacity;
+            for (int u = 0; u < units; u++)
+            {
+                writer.WriteInt64(Position[u].X.Raw);
+                writer.WriteInt64(Position[u].Y.Raw);
+                writer.WriteInt64(Velocity[u].X.Raw);
+                writer.WriteInt64(Velocity[u].Y.Raw);
+                writer.WriteInt32(UnitType[u]);
+                writer.WriteInt32(UnitRegiment[u]);
+                writer.WriteInt32(Health[u]);
+                writer.WriteInt32(Morale[u]);
+                writer.WriteInt32(unchecked((int)Flags[u]));
+            }
+            for (int r = 0; r < Regiments.Capacity; r++)
+            {
+                writer.WriteByte((byte)RegimentSide[r]);
+                writer.WriteInt32(RegimentUnitType[r]);
+                writer.WriteInt32(RegimentStartingSize[r]);
+                writer.WriteInt32(RegimentAlive[r]);
+                writer.WriteInt32(RegimentMorale[r]);
+            }
+        }
+
+        /// <summary>
+        /// Throws <see cref="FormatException"/> when the world breaks its own rules: live units in dead regiments,
+        /// regiment counts that don't match their soldiers, dead slots that aren't zero, unknown flag bits.
+        /// </summary>
+        internal void CheckInvariants()
+        {
+            Units.CheckInvariants();
+            Regiments.CheckInvariants();
+            const UnitFlags known =
+                UnitFlags.Launched
+                | UnitFlags.Stunned
+                | UnitFlags.Teetering
+                | UnitFlags.Swept
+                | UnitFlags.Burning
+                | UnitFlags.Routing
+                | UnitFlags.Garrisoned;
+            var counted = new int[Regiments.Capacity];
+            for (int u = 0; u < Units.Capacity; u++)
+            {
+                if (Units.IsAlive(u))
+                {
+                    int r = UnitRegiment[u];
+                    if (r < 0 || r >= Regiments.Capacity || !Regiments.IsAlive(r))
+                    {
+                        throw new FormatException(
+                            "A live unit belongs to a regiment that is not alive."
+                        );
+                    }
+                    if ((Flags[u] & ~known) != 0)
+                    {
+                        throw new FormatException("A unit has unknown flag bits.");
+                    }
+                    counted[r]++;
+                }
+                else if (
+                    Position[u] != FixVec2.Zero
+                    || Velocity[u] != FixVec2.Zero
+                    || UnitType[u] != 0
+                    || UnitRegiment[u] != 0
+                    || Health[u] != 0
+                    || Morale[u] != 0
+                    || Flags[u] != UnitFlags.None
+                )
+                {
+                    throw new FormatException("A dead unit slot is not zero.");
+                }
+            }
+            for (int r = 0; r < Regiments.Capacity; r++)
+            {
+                if (Regiments.IsAlive(r))
+                {
+                    if (
+                        RegimentAlive[r] != counted[r]
+                        || RegimentStartingSize[r] < RegimentAlive[r]
+                    )
+                    {
+                        throw new FormatException(
+                            "A regiment's soldier counts do not match its units."
+                        );
+                    }
+                }
+                else if (
+                    RegimentSide[r] != Side.Attacker
+                    || RegimentUnitType[r] != 0
+                    || RegimentStartingSize[r] != 0
+                    || RegimentAlive[r] != 0
+                    || RegimentMorale[r] != 0
+                )
+                {
+                    throw new FormatException("A dead regiment slot is not zero.");
+                }
+            }
+        }
+
+        internal void ReadFrom(ByteReader reader)
+        {
+            Units.ReadFrom(reader);
+            Regiments.ReadFrom(reader);
+            for (int u = 0; u < Units.Capacity; u++)
+            {
+                Position[u] = new FixVec2(
+                    Fix.FromRaw(reader.ReadInt64()),
+                    Fix.FromRaw(reader.ReadInt64())
+                );
+                Velocity[u] = new FixVec2(
+                    Fix.FromRaw(reader.ReadInt64()),
+                    Fix.FromRaw(reader.ReadInt64())
+                );
+                UnitType[u] = reader.ReadInt32();
+                UnitRegiment[u] = reader.ReadInt32();
+                Health[u] = reader.ReadInt32();
+                Morale[u] = reader.ReadInt32();
+                Flags[u] = unchecked((UnitFlags)reader.ReadInt32());
+            }
+            for (int r = 0; r < Regiments.Capacity; r++)
+            {
+                byte side = reader.ReadByte();
+                if (side > (byte)Side.Defender)
+                {
+                    throw new FormatException("Snapshot side is out of range.");
+                }
+                RegimentSide[r] = (Side)side;
+                RegimentUnitType[r] = reader.ReadInt32();
+                RegimentStartingSize[r] = reader.ReadInt32();
+                RegimentAlive[r] = reader.ReadInt32();
+                RegimentMorale[r] = reader.ReadInt32();
+            }
+        }
+
+        /// <summary>
         /// Every piece of state that can affect the future, in a fixed order: pools first, then each live slot's
         /// fields. Dead slots are skipped, since a spawn overwrites every field.
         /// </summary>

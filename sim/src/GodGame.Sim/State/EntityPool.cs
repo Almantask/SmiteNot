@@ -103,6 +103,99 @@ namespace GodGame.Sim
             Version = unchecked(Version + 1);
         }
 
+        /// <summary>The whole pool, every slot up to capacity, for snapshots.</summary>
+        internal void WriteTo(ByteWriter writer)
+        {
+            writer.WriteInt32(Capacity);
+            writer.WriteInt32(_highWater);
+            writer.WriteInt32(_freeCount);
+            writer.WriteInt32(_aliveCount);
+            writer.WriteInt32s(_generation);
+            writer.WriteInt32s(_freeStack);
+            for (int i = 0; i < Capacity; i++)
+            {
+                writer.WriteByte(_alive[i] ? (byte)1 : (byte)0);
+            }
+        }
+
+        /// <summary>Replaces this pool's state with a snapshot's; the capacity must match.</summary>
+        internal void ReadFrom(ByteReader reader)
+        {
+            if (reader.ReadInt32() != Capacity)
+            {
+                throw new FormatException("Snapshot pool capacity does not match the world.");
+            }
+            int highWater = reader.ReadInt32();
+            int freeCount = reader.ReadInt32();
+            int aliveCount = reader.ReadInt32();
+            if (
+                highWater < 0
+                || highWater > Capacity
+                || freeCount < 0
+                || freeCount > highWater
+                || aliveCount != highWater - freeCount
+            )
+            {
+                throw new FormatException("Snapshot pool counts are inconsistent.");
+            }
+            reader.ReadInt32s(_generation);
+            reader.ReadInt32s(_freeStack);
+            for (int i = 0; i < Capacity; i++)
+            {
+                byte alive = reader.ReadByte();
+                if (alive > 1)
+                {
+                    throw new FormatException("Snapshot alive flag is not 0 or 1.");
+                }
+                _alive[i] = alive == 1;
+            }
+            _highWater = highWater;
+            _freeCount = freeCount;
+            _aliveCount = aliveCount;
+            Version = unchecked(Version + 1); // derived data built before the restore is now stale
+            CheckInvariants();
+        }
+
+        /// <summary>
+        /// Throws <see cref="FormatException"/> when the pool's internal state is inconsistent: what a damaged or
+        /// hand-made snapshot could otherwise smuggle in (a free slot that is also alive hands one slot to two units).
+        /// </summary>
+        internal void CheckInvariants()
+        {
+            int alive = 0;
+            for (int i = 0; i < Capacity; i++)
+            {
+                if (_alive[i])
+                {
+                    if (i >= _highWater)
+                    {
+                        throw new FormatException("A slot above the high-water mark is alive.");
+                    }
+                    if (_generation[i] <= 0)
+                    {
+                        throw new FormatException("A live slot has no generation.");
+                    }
+                    alive++;
+                }
+            }
+            if (alive != _aliveCount)
+            {
+                throw new FormatException("The alive count does not match the alive flags.");
+            }
+            var seen = new bool[Capacity];
+            for (int f = 0; f < _freeCount; f++)
+            {
+                int slot = _freeStack[f];
+                if (slot < 0 || slot >= _highWater || _alive[slot] || seen[slot])
+                {
+                    throw new FormatException(
+                        "The free stack names a live, repeated or out-of-range slot."
+                    );
+                }
+                seen[slot] = true;
+            }
+        }
+
         /// <summary>Everything that decides future allocations, in a fixed order.</summary>
         public void AppendTo(SimHash hash)
         {

@@ -6,7 +6,7 @@ metadata:
 ---
 
 Check first when anything under sim/src/GodGame.Sim.Rules/Json, RulesetLoader/Hash or sim/src/GodGame.Sim/Data changes (first audited 2026-11-01, M1 item 5):
-- JsonCanonical writes non-ASCII chars raw and relies on Encoding.UTF8. Lone surrogates (raw or via \uD800) become U+FFFD, so distinct strings collide and Replay's canonical-plan round trip (UTF8.GetString of canonical bytes) silently changes the plan. Want: reader rejects unpaired surrogates, canonical escapes every c >= 0x7F as \uXXXX (pure ASCII), ids restricted to ASCII.
+- JsonCanonical was made pure ASCII (\uXXXX for >= 0x7F) by 2026-11-01 (M1 item 6 audit); re-check lone-surrogate rejection in JsonReader if touched.
 - Canonical form keeps array order. Plan army is sorted by id for deployment but hashed in file order: same outcome, different hash (false PvP/replay mismatch, not a divergence). Hash should be built from the sorted army.
 - $comment is inside every hash (ruleset, map, plan): comment edits move pinned hashes and goldens. Decide deliberately; flag if surprising.
 - Map widthMm/depthMm allowed up to 100 km while FixVec2.LengthSquared is exact only to ~32 km (see [[pattern-tables-vectors]], [[pattern-derived-spatial]]). Large maps also mean platform-dependent OOM on the height array. Want a cap near the plan's map sizes.

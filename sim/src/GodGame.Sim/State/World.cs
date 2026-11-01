@@ -1,0 +1,198 @@
+using System;
+using System.Globalization;
+using GodGame.Sim.Math;
+
+namespace GodGame.Sim
+{
+    /// <summary>
+    /// Battle state as structure-of-arrays (plan, section 3.2; tech notes, section 2). Units and regiments live in
+    /// fixed-capacity slots; a slot's index is stable for the unit's life, so systems loop over indices 0 to
+    /// <see cref="EntityPool.HighWater"/>, skip dead slots, and split that range into disjoint chunks for the parallel
+    /// runner. Systems read and write the arrays directly; spawning and despawning go through this class so the
+    /// regiment counts and the pools stay consistent.
+    /// <para>
+    /// Freed slots are reset to zero, so a dead slot holds the same bits however it died; a snapshot can copy
+    /// whole arrays and a restored world matches the original slot for slot, not only in the hash.
+    /// </para>
+    /// <para>
+    /// Spawning and despawning change shared counters and the pools' free stacks, whose order decides future
+    /// ids, so they run on one thread in a fixed order (ascending slot index), never inside parallel chunks.
+    /// Systems that read neighbours while writing their own chunk write to scratch arrays and commit afterwards.
+    /// </para>
+    /// </summary>
+    public sealed class World
+    {
+        public World(int unitCapacity, int regimentCapacity)
+        {
+            Units = new EntityPool(unitCapacity);
+            Regiments = new EntityPool(regimentCapacity);
+
+            Position = new FixVec2[unitCapacity];
+            Velocity = new FixVec2[unitCapacity];
+            UnitType = new int[unitCapacity];
+            UnitRegiment = new int[unitCapacity];
+            Health = new int[unitCapacity];
+            Morale = new int[unitCapacity];
+            Flags = new UnitFlags[unitCapacity];
+
+            RegimentSide = new Side[regimentCapacity];
+            RegimentUnitType = new int[regimentCapacity];
+            RegimentStartingSize = new int[regimentCapacity];
+            RegimentAlive = new int[regimentCapacity];
+            RegimentMorale = new int[regimentCapacity];
+        }
+
+        public EntityPool Units { get; }
+        public EntityPool Regiments { get; }
+
+        // Per unit, indexed by unit slot.
+
+        /// <summary>Metres on the ground plane.</summary>
+        public FixVec2[] Position { get; }
+
+        /// <summary>Metres per tick.</summary>
+        public FixVec2[] Velocity { get; }
+
+        /// <summary>Index into the ruleset's unit types.</summary>
+        public int[] UnitType { get; }
+
+        /// <summary>The regiment's slot index.</summary>
+        public int[] UnitRegiment { get; }
+
+        /// <summary>Hit points in the ruleset's units; a unit at 0 or below is despawned by the hazards and combat systems.</summary>
+        public int[] Health { get; }
+
+        /// <summary>Per-soldier morale in the ruleset's units (regiments carry their own, below).</summary>
+        public int[] Morale { get; }
+
+        public UnitFlags[] Flags { get; }
+
+        // Per regiment, indexed by regiment slot.
+
+        public Side[] RegimentSide { get; }
+
+        public int[] RegimentUnitType { get; }
+
+        /// <summary>Soldiers spawned into the regiment; the "below about 10% counts as wiped" rule measures against it.</summary>
+        public int[] RegimentStartingSize { get; }
+
+        public int[] RegimentAlive { get; }
+
+        public int[] RegimentMorale { get; }
+
+        public EntityId AddRegiment(Side side, int unitType, int morale)
+        {
+            EntityId id = Regiments.Allocate();
+            int r = id.Index;
+            RegimentSide[r] = side;
+            RegimentUnitType[r] = unitType;
+            RegimentStartingSize[r] = 0;
+            RegimentAlive[r] = 0;
+            RegimentMorale[r] = morale;
+            return id;
+        }
+
+        /// <summary>A soldier of the regiment's unit type, standing still, with no flags.</summary>
+        public EntityId SpawnUnit(EntityId regiment, FixVec2 position, int health, int morale)
+        {
+            if (!Regiments.IsAlive(regiment))
+            {
+                throw new InvalidOperationException("Regiment " + regiment + " is not alive.");
+            }
+            EntityId id = Units.Allocate();
+            int u = id.Index;
+            int r = regiment.Index;
+            Position[u] = position;
+            Velocity[u] = FixVec2.Zero;
+            UnitType[u] = RegimentUnitType[r];
+            UnitRegiment[u] = r;
+            Health[u] = health;
+            Morale[u] = morale;
+            Flags[u] = UnitFlags.None;
+            RegimentStartingSize[r]++;
+            RegimentAlive[r]++;
+            return id;
+        }
+
+        public void DespawnUnit(EntityId unit)
+        {
+            if (!Units.IsAlive(unit))
+            {
+                throw new InvalidOperationException("Unit " + unit + " is not alive.");
+            }
+            int u = unit.Index;
+            RegimentAlive[UnitRegiment[u]]--;
+            Position[u] = FixVec2.Zero;
+            Velocity[u] = FixVec2.Zero;
+            UnitType[u] = 0;
+            UnitRegiment[u] = 0;
+            Health[u] = 0;
+            Morale[u] = 0;
+            Flags[u] = UnitFlags.None;
+            Units.Free(unit);
+        }
+
+        /// <summary>Removes an empty regiment. Regiments with soldiers left must lose them first.</summary>
+        public void RemoveRegiment(EntityId regiment)
+        {
+            if (!Regiments.IsAlive(regiment))
+            {
+                throw new InvalidOperationException("Regiment " + regiment + " is not alive.");
+            }
+            if (RegimentAlive[regiment.Index] != 0)
+            {
+                throw new InvalidOperationException(
+                    "Regiment "
+                        + regiment
+                        + " still has "
+                        + RegimentAlive[regiment.Index].ToString(CultureInfo.InvariantCulture)
+                        + " soldiers."
+                );
+            }
+            int r = regiment.Index;
+            RegimentSide[r] = Side.Attacker;
+            RegimentUnitType[r] = 0;
+            RegimentStartingSize[r] = 0;
+            RegimentMorale[r] = 0;
+            Regiments.Free(regiment);
+        }
+
+        /// <summary>
+        /// Every piece of state that can affect the future, in a fixed order: pools first, then each live slot's
+        /// fields. Dead slots are skipped, since a spawn overwrites every field.
+        /// </summary>
+        public void AppendTo(SimHash hash)
+        {
+            Units.AppendTo(hash);
+            Regiments.AppendTo(hash);
+            for (int u = 0; u < Units.HighWater; u++)
+            {
+                if (!Units.IsAlive(u))
+                {
+                    continue;
+                }
+                hash.AppendInt64(Position[u].X.Raw);
+                hash.AppendInt64(Position[u].Y.Raw);
+                hash.AppendInt64(Velocity[u].X.Raw);
+                hash.AppendInt64(Velocity[u].Y.Raw);
+                hash.AppendInt32(UnitType[u]);
+                hash.AppendInt32(UnitRegiment[u]);
+                hash.AppendInt32(Health[u]);
+                hash.AppendInt32(Morale[u]);
+                hash.AppendInt32(unchecked((int)Flags[u]));
+            }
+            for (int r = 0; r < Regiments.HighWater; r++)
+            {
+                if (!Regiments.IsAlive(r))
+                {
+                    continue;
+                }
+                hash.AppendInt32((int)RegimentSide[r]);
+                hash.AppendInt32(RegimentUnitType[r]);
+                hash.AppendInt32(RegimentStartingSize[r]);
+                hash.AppendInt32(RegimentAlive[r]);
+                hash.AppendInt32(RegimentMorale[r]);
+            }
+        }
+    }
+}

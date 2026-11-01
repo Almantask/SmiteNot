@@ -10,4 +10,7 @@ internal static class PinnedHashes
 
     /// <summary>Every sine value plus atan2 over a 129 × 129 grid (TrigTests). Pinned 2026-11-01.</summary>
     public const ulong TrigTables = 0xFA3751819458DAD5UL;
+
+    /// <summary>World.AppendTo after WorldTests' seed-7 battle with despawns and a reused slot. Pinned 2026-11-01.</summary>
+    public const ulong WorldBattleSeed7 = 0xE071511754907C1FUL;
 }

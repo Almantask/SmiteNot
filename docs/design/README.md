@@ -10,17 +10,17 @@ Paths inside the copies keep the project's form: read `claude/<name>.md` as `doc
 
 | File | What it holds | In the repo |
 |---|---|---|
-| `game-brief.md` | Pillars, modes, dated decisions, open questions (source of truth) | **Missing: copy it from the project** |
-| `power-palette.md` | Powers, terrain pieces, counter web, combos | **Missing** |
-| `tech-notes.md` | How to build it: scale, determinism, fields, timeline, rendering | **Missing** |
-| `unit-spec.md` | Unit look, LODs, animation and death gags | **Missing** |
-| `unit-brainstorm.md` | Unit and specialist ideas | **Missing** |
-| `idea-bank.md` | Numbered ideas (IB n) | **Missing** |
-| `terrain-weather-brainstorm.md` | Terrain and weather ideas, Top 25 (TW #n) | **Missing** |
+| `game-brief.md` | Pillars, modes, dated decisions, open questions (source of truth) | Copied 2026-11-01 |
+| `power-palette.md` | Powers, terrain pieces, counter web, combos | Copied 2026-11-01 |
+| `tech-notes.md` | How to build it: scale, determinism, fields, timeline, rendering | Copied 2026-11-01 |
+| `unit-spec.md` | Unit look, LODs, animation and death gags | Copied 2026-11-01 |
+| `unit-brainstorm.md` | Unit and specialist ideas | Copied 2026-11-01 |
+| `idea-bank.md` | Numbered ideas (IB n) | Copied 2026-11-01 |
+| `terrain-weather-brainstorm.md` | Terrain and weather ideas, Top 25 (TW #n) | Copied 2026-11-01 |
 | `idea-reviews.md` | Saved `/review-idea` verdicts | **Missing** |
 | `gamer-review.md` | The gamer reviews | **Missing** |
 | `content-roadmap.md` | What content comes first, by wave | Copied 2026-10-11 |
 
 Later spec passes add `roster.md` (S2), `launch-powers.md` (S3), `attacker-behaviour.md` (S4) and `economy.md` (S5); see the implementation plan, section 9.
 
-When a file arrives, change its row to "Copied YYYY-MM-DD".
+When a file arrives, change its row to "Copied YYYY-MM-DD". Pasting from the project can escape Markdown (`\#`, `\*`), leave `&#x20;` lines and put blank lines between table rows; undo those so the copy matches the original.

@@ -4,8 +4,8 @@
 Started: 2026-10-11
 
 ### Checklist
-- [ ] 1. Repository basics (gitignore, gitattributes + LFS, editorconfig, protection on main) — files done; blocking force-pushes and deletion of `main` needs a repository admin (README, "Commits and CI"); no required pull requests or checks, since commits go straight to main
-- [ ] 2. Design docs, ADR 0001, this file — ADR 0001, this file, the plan and the content roadmap are in; copy the other design docs from the claude.ai project (docs/design/README.md lists them)
+- [x] 1. Repository basics (gitignore, gitattributes + LFS, editorconfig, protection on main) — GitHub ruleset `main` (2026-11-01) blocks deletion and force-pushes on the default branch; no required pull requests or checks, since commits go straight to main
+- [x] 2. Design docs, ADR 0001, this file — ADR 0001, this file, the plan and seven more design docs (the brief among them) copied 2026-11-01; idea-reviews.md and gamer-review.md weren't in the copy and are optional (opinions, not decisions)
 - [x] 3. Simulation solution with analyzers and first tests
 - [x] 4. CI: sim.yml with cross-OS hash check
 - [x] 5. Unity project (now 6000.6.7f1) with the sim package and SimHost cube — GodGame → Setup → Apply Project Settings run through MCP for Unity (2026-11-01): Linear, IL2CPP, DX12 then DX11, Enter Play Mode without domain reload, URP_Pipeline as the default pipeline, Bootstrap scene in the build list; Edit Mode tests 4/4 green
@@ -32,7 +32,7 @@ Started: 2026-10-11
 - Expected warnings in the Unity console: Input Manager deprecation (Active Input Handling is Both), and "inconsistent LOD naming" for U_testsoldier_a_LOD1 and _LOD2 because each LOD is its own FBX. Soldiers are drawn with indirect instancing, not LODGroups, so the second is harmless.
 - Player Settings → Run In Background is off, so Play Mode pauses while the editor isn't focused, including when Claude drives it over MCP. Check Play Mode state through the simulation tick, not the frame count.
 - For the VAT baker (M8): skinned meshes keep Blender's Z-up in mesh space (the rig and mesh nodes carry a 90° X rotation under an unrotated root), so sample in root space; the walk clip imports as `RIG_humanoid|A_humanoid_walk` with looping off.
-- To finish M0: copy the design docs; run /milestone, /context and /agents once in an interactive session; block force-pushes and deletion of main.
+- To finish M0: run /milestone, /context and /agents once in an interactive session.
 
 ## Next: M1 — Deterministic core
 Started early (2026-11-01) while M0's last items wait on the repository owner.

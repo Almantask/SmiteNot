@@ -389,6 +389,7 @@ Tips:
 | `perf-check` | Claude or you | Runs the benchmarks in Release, compares them with `sim/bench/budgets.json`, and reports regressions. |
 | `unity-tests` | Claude or you | Runs Edit Mode and Play Mode tests through the Unity MCP server when the editor is open, or in batch mode when it is closed, and summarises failures. |
 | `art-export` | Claude or you | Runs the headless Blender export and validation scripts for changed `.blend` files, then triggers VAT baking in Unity. |
+| `texture-gen` | Claude or you | Generates textures locally (seamless terrain tiles, icon drafts, concept art) with ComfyUI and Z-Image Turbo through the `comfy` MCP server, checks tile seams, and saves approved results to `art/textures/` with a reproducible sidecar. |
 | `adr` | You | Writes an architecture decision record in `docs/adr/` (context, options, decision, consequences). |
 
 Skills can inject live context with `` !`command` `` (for example the milestone skill pulls `git log` and the status file), and can pre-approve the commands they need with `allowed-tools`. Keep each `SKILL.md` under 500 lines and put long reference material in supporting files next to it.

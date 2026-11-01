@@ -8,6 +8,7 @@ Blender sources and the rules every asset follows. The full pipeline is in `docs
 |---|---|
 | `art/source/` | `.blend` files (Git LFS), one asset per file, named after the asset: `U_<type>_<variant>.blend`, `P_<prop>_<state>.blend` |
 | `art/palettes/` | The shared palette: `palette.json` (grid and named cells); `palette.png` arrives with the look-development spike |
+| `art/textures/<category>/` | Generated textures `T_<category>_<name>.png` (Git LFS), each with a `.json` sidecar holding the prompt, seed, model, licence and workflow; the texture-gen skill writes both |
 | `unity/Assets/_Game/Art/Generated/<asset>/` | Exported FBX and `export.json` (Git LFS). Never edited by hand |
 
 ## Rules (checked by `tools/blender/validate.py`)

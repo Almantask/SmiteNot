@@ -17,7 +17,12 @@ Started: 2026-11-01
 ### Exit criteria
 - [ ] 10,000 wandering units for three simulated minutes hash identically across two runs, snapshot and restore, 1 vs 8 threads, Windows vs Linux, and .NET vs Unity Mono vs IL2CPP — all but IL2CPP verified (Windows vs Linux once the next CI run is green); IL2CPP waits for the module (item 8)
 - [x] At least 15× real time with placeholder systems; baseline in budgets.json — one tick at 10,000 units takes 37.6 µs serial and 16.0 µs on 4 threads (godsim run: 350× real time over 180 s); recorded as baseline m1_2026_11_01 in budgets.json, on the dev desktop (Ryzen 9 5900X), not yet on the floor laptop
-- [ ] determinism-auditor review of the whole simulation with no open high-severity findings
+- [x] determinism-auditor review of the whole simulation with no open high-severity findings — 2026-11-01 at 78ce4d3: no High; the one Medium is the unverified IL2CPP player (item 8); CI green on Windows and Linux
+
+### Notes
+- M1 is complete except the IL2CPP player check (item 8, exit criterion 1). To finish it: in Unity Hub, add the Windows Build Support (IL2CPP) module to 6000.6.7f1 (it needs the Visual Studio C++ workload, which is installed), run GodGame → Build → Determinism Player (IL2CPP), then run `unity/Builds/DeterminismPlayer/GodGameDeterminism.exe -batchmode -run-goldens -repo <repo> -golden-results results.txt` and check every line reads `ok`.
+- Before or during M2 (Low findings from the M1 exit review): one shared rules-and-map loader in sim/src for both hosts (Unity's GoldenRunner still has its own); hash the map with zones sorted by side; a registry of RNG system ids with a uniqueness test, and a decision on keying streams by generation; an analyzer rule requiring readonly struct kernels, plus thread-count tests with the real movement systems; exact FixVec2.DistanceSquared before separation uses it; a tie-break for Angle.DeltaTo at half a turn in steering; build the spatial hash at a fixed point in Movement and check its tick; validate replay map ids before they become paths; a reusable scratch world for restores (M4 scrubbing).
+- Placeholders to replace: PlaceholderWanderSystem (M2 movement), BattleSetup's square block (M2 formations), unit-type health and morale (spec pass S2). PlaceholderBattle remains only for Unity's SimHost cube and its pinned hash.
 
 ## Done
 

@@ -31,6 +31,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v6
+        with:
+          lfs: true
       - uses: actions/setup-dotnet@v5
         with:
           global-json-file: sim/global.json
@@ -48,7 +50,15 @@ jobs:
       - name: State hashes
         run: >
           dotnet run -c Release --no-build --project sim/tools/GodGame.Sim.Cli --
-          hash --seed 1 --units 10000 --seconds 180 --out hashes-${{ matrix.os }}.txt
+          hash --seed 1 --seconds 180 --threads 4 --out hashes-${{ matrix.os }}.txt
+      - name: Serial and threaded runs hash the same
+        if: runner.os == 'Linux'
+        run: >
+          dotnet run -c Release --no-build --project sim/tools/GodGame.Sim.Cli --
+          hash --seed 1 --seconds 180 --threads 1 --out hashes-serial.txt &&
+          diff hashes-serial.txt hashes-${{ matrix.os }}.txt
+      - name: Golden replays
+        run: dotnet run -c Release --no-build --project sim/tools/GodGame.Sim.Cli -- golden verify --threads 4
       - uses: actions/upload-artifact@v5
         with:
           name: hashes-${{ matrix.os }}

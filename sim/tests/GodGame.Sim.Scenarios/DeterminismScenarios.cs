@@ -1,8 +1,10 @@
+using GodGame.Sim.Hosting;
+
 namespace GodGame.Sim.Scenarios;
 
 /// <summary>
-/// Design decisions as executable tests (plan, Appendix B). In M0 only the placeholder simulation exists,
-/// so this protects the first decision every other one depends on.
+/// Design decisions as executable tests (plan, Appendix B). M1 has the deterministic core but no game systems yet,
+/// so this protects the decision every other one depends on.
 /// </summary>
 [TestFixture, Category("Fast")]
 public class DeterminismScenarios
@@ -10,22 +12,19 @@ public class DeterminismScenarios
     [Test]
     public void Decision_2026_10_08_SamePlanSameBattle_PerSecondHashesMatch()
     {
-        var setup = new PlaceholderSetup(seed: 2026, unitCount: 1_000);
-        ulong[] first = PerSecondHashes(setup, seconds: 180);
-        ulong[] second = PerSecondHashes(setup, seconds: 180);
+        string root = RepoFiles.FindRoot(TestContext.CurrentContext.TestDirectory);
+        var rules = RepoFiles.LoadRepoRules(root);
+        var map = RepoFiles.LoadRepoMap(root, "m1-flat");
+        var plan = BattlePlan.Load(
+            File.ReadAllText(Path.Combine(root, "data", "plans", "m1-ten-thousand.json")),
+            map,
+            rules
+        );
+        var battle = new Battle(rules, map, plan, seed: 2026);
+
+        ulong[] first = battle.PerSecondHashes(60, new SerialRunner());
+        ulong[] second = battle.PerSecondHashes(60, new ThreadedRunner(3));
 
         Assert.That(second, Is.EqualTo(first));
-    }
-
-    private static ulong[] PerSecondHashes(PlaceholderSetup setup, int seconds)
-    {
-        var battle = new PlaceholderBattle(setup);
-        var hashes = new ulong[seconds];
-        for (int second = 0; second < seconds; second++)
-        {
-            battle.Step(SimConstants.TicksPerSecond);
-            hashes[second] = battle.StateHash();
-        }
-        return hashes;
     }
 }

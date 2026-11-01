@@ -10,5 +10,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/GodGame.Sim/GodGame.Sim.csproj" />
+    <ProjectReference Include="../../hosts/GodGame.Sim.Hosting/GodGame.Sim.Hosting.csproj" />
   </ItemGroup>
 </Project>

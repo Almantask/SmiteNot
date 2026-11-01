@@ -4,7 +4,7 @@
 Started: 2026-11-01
 
 ### Checklist
-- [ ] 1. GodGame.Sim.Math: Fix, 2D/3D vectors, integer square root, binary angles and trig tables, PCG32 streams, xxHash64; exhaustive and property tests — PCG32 and xxHash64 from M0; Fix (16 fractional bits; products round down, quotients toward zero, debug overflow asserts) and IntMath.Sqrt done, tested against BigInteger and exhaustively below 2^20; vectors and angles next
+- [x] 1. GodGame.Sim.Math: Fix, 2D/3D vectors, integer square root, binary angles and trig tables, PCG32 streams, xxHash64; exhaustive and property tests — Fix and IntMath.Sqrt (against BigInteger, every root below 2^20); Angle (16-bit, centi-degree round trip); Trig (tables built with integer series; sin and cos within 1 raw unit for all 65,536 angles, atan2 within 1 unit; table bits pinned in PinnedHashes.TrigTables); FixVec2 and FixVec3 (lengths from unrounded squares); determinism-auditor: no High findings
 - [ ] 2. World state as structure-of-arrays, the regiment table, entity ids with deterministic reuse
 - [ ] 3. Tick scheduler with the fixed system order, IParallelRunner, rates and sub-rates
 - [ ] 4. Spatial hash

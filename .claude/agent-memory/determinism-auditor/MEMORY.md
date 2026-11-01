@@ -1,1 +1,2 @@
 - [Overflow/assert pitfalls](pattern_overflow_assert_side_effects.md) — MinValue/-1, throwing divisions inside Debug.Assert, IL2CPP UB, missing .meta
+- [Tables and vectors](pattern_tables_vectors.md) — trig table overflow margin, pinned-bit tests, floored squares on short vectors, half-turn DeltaTo

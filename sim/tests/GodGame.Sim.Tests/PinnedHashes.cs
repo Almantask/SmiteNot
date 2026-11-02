@@ -6,7 +6,7 @@ namespace GodGame.Sim.Tests;
 /// </summary>
 internal static class PinnedHashes
 {
-    public const ulong PlaceholderSeed1Units8After60s = 1640547632182098941UL; // SimVersion 3 (the hash includes it)
+    public const ulong PlaceholderSeed1Units8After60s = 11927692217686778052UL; // SimVersion 4 (the hash includes it)
 
     /// <summary>Every sine value plus atan2 over a 129 × 129 grid (TrigTests). Pinned 2026-11-01.</summary>
     public const ulong TrigTables = 0xFA3751819458DAD5UL;

@@ -38,3 +38,8 @@ Reachability (audited 2026-11-02, commit 8bc3078; one High, correctness not dete
 - Coarse cell size = coarseCells x map cellSizeMm, so clearance widths in metres vary per map.
 - No zone/usable-seed validation at construction; Zone() throws inside the kernel.
 - Same freshness gap as costs/flow: Update(rect) is trusted, no RebuildCount stamp.
+- Closed in 8786ea8: coarse open only when every field cell is passable. Sound because FlowField/Reachability edges block only on cell impassability plus no corner cutting, so all-open adjacent coarse cells imply a fine path. Re-check if edges ever block on their own (per-edge slope, walls on cell borders). Cost: gates under ~2 coarse cells (+clearance) read closed, so legal funnels get refused; the wall-gap test was widened to 28 m for siege.
+
+Route preview (audited 2026-11-02, commit 0a447a8; no High):
+- RoutePreview.AttackerRoutes calls Navigation.AssignRegiments, which mutates the Navigation it is given (regiment->field map, appends flow fields). Safe only because Battle.CreateSystems builds a private Navigation per simulation and Terrain clones map heights. If the live Navigation is ever exposed to the host (for overlays), preview calls race the tick or edit battle terrain: keep preview on its own Navigation.
+- Trace treats a mid-path NoDirection as the goal (stale field); MaxSteps bounds loops.

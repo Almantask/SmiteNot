@@ -34,13 +34,16 @@ namespace GodGame.Sim
         public static readonly Fix HashCellSize = Fix.FromRatio(MapData.NeighbourGridCellMm, 1000);
 
         /// <summary>The gap at which a soldier walks at full speed behind someone standing still; it brakes in proportion below (placeholder).</summary>
-        public static readonly Fix BrakeDistance = Fix.FromRatio(1, 2);
+        public static readonly Fix BrakeDistance = Fix.FromRatio(3, 10);
 
         /// <summary>How many flow-field steps ahead a soldier aims (placeholder).</summary>
         public const int LookAheadCells = 4;
 
         /// <summary>Share of its speed a soldier keeps when someone stands right in front (placeholder).</summary>
         public static readonly Fix CreepShare = Fix.FromRatio(1, 8);
+
+        /// <summary>A soldier already overlapping its neighbours by this much in total stops creeping (placeholder).</summary>
+        public static readonly Fix CreepPressureLimit = Fix.FromRatio(1, 4);
 
         /// <summary>Share of an overlap each of the two soldiers moves apart per tick (placeholder).</summary>
         public static readonly Fix PushShare = Fix.FromRatio(2, 5);
@@ -498,7 +501,11 @@ namespace GodGame.Sim
                     // Steering: the heading at the allowed pace. A blocked soldier still creeps forward at CreepShare
                     // of its wish: the crowd behind presses on (crowd pressure), and a jam where everyone waits for
                     // everyone can always unwind.
-                    limit = System.Math.Max(limit, cap * CreepShare.Raw >> Fix.FractionalBits);
+                    if (pressure < CreepPressureLimit.Raw)
+                    {
+                        // Only while not already pressed: in a deep crowd the creeps would add up along the chain.
+                        limit = System.Math.Max(limit, cap * CreepShare.Raw >> Fix.FractionalBits);
+                    }
                     FixVec2 desired = heading * Fix.FromRaw(limit);
                     if (follower)
                     {

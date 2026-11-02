@@ -20,9 +20,9 @@ Needs first: the map scale (working default: about 1.2 × 0.8 km with 1.5 m fiel
 - [ ] 10. The Burst decision: benchmark the hot kernels on .NET, IL2CPP and Burst; record it in an ADR
 
 ### Exit criteria
-- [ ] 10,000 attackers cross 1 km through a bridge chokepoint; congestion emerges and regiments queue rather than overlap
+- [x] 10,000 attackers cross 1 km through a bridge chokepoint; congestion emerges and regiments queue rather than overlap — M2ExitScenarios (Slow) on data/maps/m2-bridge (a 20 m river with one 20 m bridge) and data/plans/m2-bridge-ten-thousand.json (10,000 attackers in 103 regiments): all cross in 44.5 game minutes (about 4 a second over the bridge), a queue of up to 2,900 builds before it, no soldier ever stands in a closed cell, and at most 0.7% of soldiers overlap a neighbour by more than a quarter of contact (worst pair 36%). Throughput is lower than real crowds (about 1.3 a metre a second): tuning for M5
 - [ ] The reachability check rejects a full trap and a route longer than 2× in ≤ 5 ms per drag
-- [ ] The tick stays within both budgets at 10,000 units (fields not yet on), on the floor laptop and the recommended machine, and stays deterministic across the M1 matrix
+- [ ] The tick stays within both budgets at 10,000 units (fields not yet on), on the floor laptop and the recommended machine, and stays deterministic across the M1 matrix — desktop (SimVersion 4): m1-flat 2.8 ms serial, 1.4 ms on 4 threads; the m2-bridge crush 6.0 ms serial, 2.4 ms on 4 threads, so within the recommended 3.3 ms on threads; baseline m2_2026_11_02 in budgets.json. Deterministic across threads, snapshot and restore, Windows and Linux CI and the golden; still open: the floor laptop, and the Unity Mono and IL2CPP runs of the new golden (Unity needs a license sign-in)
 - [ ] The debug view runs at 60 fps with 10,000 capsules on the recommended machine and at 20 fps or better on the floor laptop
 
 ### Decisions needed

@@ -10,7 +10,7 @@ namespace GodGame.Sim
     /// recomputes the assignment every tick.
     /// <para>
     /// M2 goals are a working default until regiment AI arrives (M7, ai-engineer): attacking regiments march to the
-    /// defender's deployment zone, defending regiments hold where they stand.
+    /// far quarter of the defender's deployment zone, defending regiments hold where they stand.
     /// </para>
     /// </summary>
     public sealed class Navigation
@@ -62,7 +62,7 @@ namespace GodGame.Sim
                 _regimentField[r] = -1;
             }
             bool hasTarget = TryZone(Side.Defender, out var target);
-            var goal = hasTarget ? Terrain.CellsOf(target) : default;
+            var goal = hasTarget ? Terrain.CellsOf(FarQuarter(target)) : default;
             for (int r = 0; r < world.Regiments.HighWater; r++)
             {
                 if (
@@ -77,6 +77,33 @@ namespace GodGame.Sim
                 _regimentField[r] = FlowFields.GetOrAdd(movementClass, goal);
             }
             FlowFields.BuildPending(runner);
+        }
+
+        /// <summary>
+        /// The quarter of the defender's zone farthest from the attacker's (along the axis the zones are furthest
+        /// apart on): the attackers march through the zone rather than stopping at its edge, so arriving regiments
+        /// spread into it instead of piling up at the border and backing up the road. A working default until regiment
+        /// AI chooses real targets (M7).
+        /// </summary>
+        private RectMm FarQuarter(RectMm target)
+        {
+            if (!TryZone(Side.Attacker, out var from))
+            {
+                return target;
+            }
+            long dx = ((long)target.MinX + target.MaxX) - ((long)from.MinX + from.MaxX);
+            long dy = ((long)target.MinY + target.MaxY) - ((long)from.MinY + from.MaxY);
+            int quarterX = System.Math.Max(1, target.Width / 4);
+            int quarterY = System.Math.Max(1, target.Depth / 4);
+            if (System.Math.Abs(dx) >= System.Math.Abs(dy))
+            {
+                return dx >= 0
+                    ? new RectMm(target.MaxX - quarterX, target.MinY, target.MaxX, target.MaxY)
+                    : new RectMm(target.MinX, target.MinY, target.MinX + quarterX, target.MaxY);
+            }
+            return dy >= 0
+                ? new RectMm(target.MinX, target.MaxY - quarterY, target.MaxX, target.MaxY)
+                : new RectMm(target.MinX, target.MinY, target.MaxX, target.MinY + quarterY);
         }
 
         private bool TryZone(Side side, out RectMm area)

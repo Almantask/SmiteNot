@@ -1,0 +1,24 @@
+{
+  "$comment": "M2 exit map: the working size (1.2 x 0.8 km, 1.5 m cells), flat but for a 20 m river at x = 590 to 610 m, a 5 m trench (a cliff for every land class until water arrives in M3), crossed by one 20 m bridge at y = 390 to 410 m. Attacker zone in the west, defender zone in the east, 800 m apart.",
+  "version": 0,
+  "id": "m2-bridge",
+  "widthMm": 1200000,
+  "depthMm": 800000,
+  "cellSizeMm": 1500,
+  "deployment": [
+    {
+      "side": "attacker",
+      "minXMm": 0,
+      "minYMm": 0,
+      "maxXMm": 200000,
+      "maxYMm": 800000
+    },
+    {
+      "side": "defender",
+      "minXMm": 1000000,
+      "minYMm": 0,
+      "maxXMm": 1200000,
+      "maxYMm": 800000
+    }
+  ]
+}

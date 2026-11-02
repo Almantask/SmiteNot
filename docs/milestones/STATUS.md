@@ -1,7 +1,31 @@
 # Milestone status
 
 ## Current: M3 — Water: first field, first power, first deaths
-Not started: run /milestone to set it up from the plan (section 9).
+Started: 2026-11-02
+
+Goal: rain floods a ford and the attacker pays for it, through the whole consequence chain.
+
+Specs first: S1 (water and the first power): Rain's area, wind-up, duration and water added; river and mud rules; the first terrain pieces (channel, ridge, spring, boulders). Output: data/rules/powers.json, terrain.json, fields.json v1 (design-lead, game-design skill).
+
+### Checklist
+- [ ] 0. Spec pass S1 (design-lead): Rain, river and mud rules, channel, ridge, spring and boulders, as numbers in docs/design and data/rules
+- [ ] 1. The field framework: integer grids, active-tile tracking, sub-rate scheduling, the interaction table as data, field snapshots
+- [ ] 2. Field upload to GPU textures and debug shaders (Unity)
+- [ ] 3. Water: virtual-pipes shallow water on the heightfield, river sources and sinks, flow speed
+- [ ] 4. Wetness, and mud that worsens with traffic (the army ruts its own road)
+- [ ] 5. Units read the fields: speed by depth and mud per movement class; lethal cells closed in the flow field; distance-to-lethal rebuilt on change
+- [ ] 6. The swept state with drowning timer and bank exit; crowd pressure can push soldiers over an edge; teetering
+- [ ] 7. The casts layer of the plan; the Rain power (area, wind-up, duration) with the range rule at the firing tick and fizzle reasons
+- [ ] 8. Terrain pieces v0: dig a channel, raise a ridge, add water or a spring, set boulders, all through the reachability check
+- [ ] 9. Cause log v1 (cast executed → river overflowed → regiment swept → soldier drowned) and a causality-trace query
+
+### Exit criteria
+- [ ] Scenario tests pass: rain upstream at 0:50 floods the ford by about 2:40, and the attacker reroutes or arrives at least 60 s later; a dug channel plus rain becomes a moat; every drowned soldier traces back to the cast
+- [ ] The never-walk-into-hazards fuzz invariant holds: no soldier enters a lethal cell under its own steering
+- [ ] The field step stays within budget with water active on the largest test map
+
+### Decisions needed
+- (none yet; S1 may raise some)
 
 ### Carried over from M2
 - [ ] Measure on the floor laptop (a 2020-or-later laptop with Intel Iris Xe or Radeon 680M graphics): the 10,000-unit tick against the 6 ms floor budget (`godsim run --map data/maps/m2-bridge --plan data/plans/m2-bridge-ten-thousand.json --seconds 900 --threads 4`), and the debug view at 20 fps or better (`unity/Builds/DebugViewPlayer/GodGameDebugView.exe -repo <repo> -measure-fps fps.txt`, built by GodGame → Build → Debug View Player). Record both in sim/bench/GodGame.Sim.Bench/budgets.json and ADR 0002 if the Burst numbers there change.

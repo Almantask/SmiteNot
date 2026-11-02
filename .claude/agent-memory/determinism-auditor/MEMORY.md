@@ -5,4 +5,4 @@
 - [Derived spatial structures](pattern_derived_spatial.md) — off-map square overflow, stale hash after despawn, shared query buffers, truncation bias
 - [Data loading and hashes](pattern_data_hashing.md) — lone surrogates/non-ASCII canonical, file-order plan hash, $comment hashed, map size caps
 - [Snapshots and replays](pattern_snapshots_replays.md) — five-place field lists, shallow pool validation, no battle id in snapshot, compare ignores headers
-- [Terrain and navigation](pattern_terrain_navigation.md) — height/slope/cost margins, dirty radius vs stencil, unbuilt fields, heights as state, header-only golden regen
+- [Terrain and navigation](pattern_terrain_navigation.md) — cost margins, dirty radius vs stencil, flow repair preconditions (cost>=1, one rebuild), heights as state

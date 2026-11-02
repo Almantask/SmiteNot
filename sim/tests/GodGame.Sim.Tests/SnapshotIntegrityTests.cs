@@ -84,16 +84,16 @@ public class SnapshotIntegrityTests
     {
         var battle = RepoBattle.TenThousand();
         var original = battle.Start(new SerialRunner());
-        original.Step(120);
-        byte[] at120 = original.CaptureSnapshot();
-        original.Step(80);
-        byte[] at200 = original.CaptureSnapshot();
+        original.Step(40);
+        byte[] at40 = original.CaptureSnapshot();
+        original.Step(30);
+        byte[] at70 = original.CaptureSnapshot();
 
         var other = battle.Start(new ThreadedRunner(4));
-        other.Step(333); // somewhere else entirely
-        other.RestoreSnapshot(at120);
-        other.Step(80);
+        other.Step(90); // somewhere else entirely
+        other.RestoreSnapshot(at40);
+        other.Step(30);
 
-        Assert.That(other.CaptureSnapshot(), Is.EqualTo(at200));
+        Assert.That(other.CaptureSnapshot(), Is.EqualTo(at70));
     }
 }

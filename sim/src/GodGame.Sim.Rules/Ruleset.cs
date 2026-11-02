@@ -51,7 +51,9 @@ namespace GodGame.Sim.Rules
             string id,
             MovementClass movementClass,
             int health,
-            int morale
+            int morale,
+            int speedMmPerSecond,
+            int radiusMm
         )
         {
             Index = index;
@@ -59,6 +61,8 @@ namespace GodGame.Sim.Rules
             MovementClass = movementClass;
             Health = health;
             Morale = morale;
+            SpeedMmPerSecond = speedMmPerSecond;
+            RadiusMm = radiusMm;
         }
 
         /// <summary>Position in the ruleset, which is what <c>World.UnitType</c> stores.</summary>
@@ -74,6 +78,12 @@ namespace GodGame.Sim.Rules
 
         /// <summary>Starting morale.</summary>
         public int Morale { get; }
+
+        /// <summary>Marching speed on flat open ground, in mm per second.</summary>
+        public int SpeedMmPerSecond { get; }
+
+        /// <summary>The body's radius on the ground plane, in mm: how close another soldier may stand.</summary>
+        public int RadiusMm { get; }
     }
 
     /// <summary>

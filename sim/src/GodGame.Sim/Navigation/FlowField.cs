@@ -164,6 +164,13 @@ namespace GodGame.Sim
             return DirectionVector(Direction(x, y));
         }
 
+        /// <summary>Checks freshness once, for hot loops that then index the array directly.</summary>
+        internal byte[] FreshDirections()
+        {
+            AssertFresh();
+            return _direction;
+        }
+
         public static FixVec2 DirectionVector(byte direction) =>
             direction < AtGoal ? Unit[direction] : FixVec2.Zero;
 

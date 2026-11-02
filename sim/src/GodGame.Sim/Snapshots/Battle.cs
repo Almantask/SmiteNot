@@ -44,17 +44,28 @@ namespace GodGame.Sim
             }
         }
 
-        /// <summary>The M1 tick: every step empty except the placeholder wander movement.</summary>
-        public ISimSystem[] CreateSystems()
+        /// <summary>
+        /// The M2 tick: navigation (regiment goals and flow fields) and movement; every other step is still empty. The
+        /// navigation's cost fields are built with <paramref name="runner"/>, which never changes the result.
+        /// </summary>
+        public ISimSystem[] CreateSystems(IParallelRunner runner)
         {
+            var navigation = new Navigation(Map, Rules, runner);
             var systems = TickOrder.CreateDefault();
-            systems[(int)TickStep.Movement] = new PlaceholderWanderSystem(Map.Width, Map.Depth);
+            systems[(int)TickStep.Navigation] = new NavigationSystem(navigation);
+            systems[(int)TickStep.Movement] = new MovementSystem(navigation);
             return systems;
         }
 
         /// <summary>A fresh simulation at tick 0. Each call builds new systems: they belong to one simulation.</summary>
         public Simulation Start(IParallelRunner runner) =>
-            new Simulation(BattleSetup.Deploy(Map, Plan, Rules), Seed, runner, CreateSystems(), Id);
+            new Simulation(
+                BattleSetup.Deploy(Map, Plan, Rules),
+                Seed,
+                runner,
+                CreateSystems(runner),
+                Id
+            );
 
         /// <summary>
         /// Runs from tick 0 for <paramref name="seconds"/> and returns the state hash after every second, the sequence

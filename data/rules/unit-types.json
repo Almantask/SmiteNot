@@ -1,11 +1,11 @@
 {
-  "$comment": "Unit types (ruleset v0). The four base types come from the brief (pillar 3) and the movement classes from the data rules. Health and morale have no spec yet: spec pass S2 sets the roster, so the file is marked placeholder and every type starts at 100.",
+  "$comment": "Unit types (ruleset v0). The four base types come from the brief (pillar 3) and the movement classes from the data rules. Health, morale, speed and body radius have no spec yet: spec pass S2 sets the roster, so the file is marked placeholder. Health and morale start at 100; speeds are a march (1.5 m/s), a trot (3.5 m/s) and an ox-drawn engine (0.8 m/s); radii are a soldier's shoulders (0.35 m), a horse (0.7 m) and an engine (1.5 m).",
   "version": 0,
   "status": "placeholder",
   "unitTypes": [
-    { "id": "infantry", "movementClass": "foot", "health": 100, "morale": 100 },
-    { "id": "cavalry", "movementClass": "horse", "health": 100, "morale": 100 },
-    { "id": "ranged", "movementClass": "foot", "health": 100, "morale": 100 },
-    { "id": "siege", "movementClass": "wheeled", "health": 100, "morale": 100 }
+    { "id": "infantry", "movementClass": "foot", "health": 100, "morale": 100, "speedMmPerS": 1500, "radiusMm": 350 },
+    { "id": "cavalry", "movementClass": "horse", "health": 100, "morale": 100, "speedMmPerS": 3500, "radiusMm": 700 },
+    { "id": "ranged", "movementClass": "foot", "health": 100, "morale": 100, "speedMmPerS": 1500, "radiusMm": 350 },
+    { "id": "siege", "movementClass": "wheeled", "health": 100, "morale": 100, "speedMmPerS": 800, "radiusMm": 1500 }
   ]
 }

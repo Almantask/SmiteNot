@@ -62,6 +62,13 @@ namespace GodGame.Sim
             return _costs[(int)movementClass];
         }
 
+        /// <summary>Checks freshness once, for hot loops that then index the array directly.</summary>
+        internal ushort[] FreshArray(MovementClass movementClass)
+        {
+            AssertFresh();
+            return _costs[(int)movementClass];
+        }
+
         public ushort Cost(MovementClass movementClass, int x, int y)
         {
             AssertFresh();

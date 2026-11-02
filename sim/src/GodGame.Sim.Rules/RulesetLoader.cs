@@ -19,6 +19,14 @@ namespace GodGame.Sim.Rules
         /// <summary>Costs fit a ushort with room for the impassable marker.</summary>
         public const int MaxCost = 10_000;
 
+        /// <summary>20 m/s: a galloping horse is about 15.</summary>
+        public const int MaxSpeedMmPerSecond = 20_000;
+
+        /// <summary>Bodies from 10 cm to 5 m across the ground; the movement system's neighbour search assumes this.</summary>
+        public const int MinRadiusMm = 100;
+
+        public const int MaxRadiusMm = 2_500;
+
         public static Ruleset Load(IReadOnlyList<KeyValuePair<string, string>> files)
         {
             if (files == null)
@@ -114,7 +122,7 @@ namespace GodGame.Sim.Rules
             var seen = new HashSet<string>(StringComparer.Ordinal);
             foreach (var item in root.Array("unitTypes"))
             {
-                item.OnlyKeys("id", "movementClass", "health", "morale");
+                item.OnlyKeys("id", "movementClass", "health", "morale", "speedMmPerS", "radiusMm");
                 string id = DataIds.Require(item["id"]);
                 if (!seen.Add(id))
                 {
@@ -126,7 +134,9 @@ namespace GodGame.Sim.Rules
                         id,
                         ParseMovementClass(item["movementClass"]),
                         item.Int("health", 1, 1_000_000),
-                        item.Int("morale", 0, 1_000_000)
+                        item.Int("morale", 0, 1_000_000),
+                        item.Int("speedMmPerS", 1, MaxSpeedMmPerSecond),
+                        item.Int("radiusMm", MinRadiusMm, MaxRadiusMm)
                     )
                 );
             }

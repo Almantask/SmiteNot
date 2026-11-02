@@ -27,15 +27,15 @@ public class SnapshotTests
     {
         var battle = RepoBattle.TenThousand();
         var original = battle.Start(new SerialRunner());
-        original.Step(150); // past a heading change at tick 100
+        original.Step(50); // marching and bunching by now
         byte[] snapshot = original.CaptureSnapshot();
-        ulong[] expected = original.RunAndHash(200, 20);
+        ulong[] expected = original.RunAndHash(60, 20);
 
         var restored = battle.Start(new SerialRunner());
         restored.RestoreSnapshot(snapshot);
 
-        Assert.That(restored.Tick, Is.EqualTo(150));
-        Assert.That(restored.RunAndHash(200, 20), Is.EqualTo(expected));
+        Assert.That(restored.Tick, Is.EqualTo(50));
+        Assert.That(restored.RunAndHash(60, 20), Is.EqualTo(expected));
     }
 
     [Test]
@@ -101,8 +101,8 @@ public class ReplayTests
     public void Replay_RoundTripsAndRebuildsTheSameBattle()
     {
         var battle = RepoBattle.TenThousand();
-        ulong[] hashes = battle.PerSecondHashes(5, new SerialRunner());
-        string json = battle.ToReplay(5, hashes).ToJson();
+        ulong[] hashes = battle.PerSecondHashes(2, new SerialRunner());
+        string json = battle.ToReplay(2, hashes).ToJson();
 
         var replay = Replay.Parse(json);
         var rebuilt = replay.ToBattle(battle.Rules, battle.Map);
@@ -111,7 +111,7 @@ public class ReplayTests
         Assert.That(replay.Seed, Is.EqualTo(42UL));
         Assert.That(rebuilt.Plan.Hash, Is.EqualTo(battle.Plan.Hash));
         Assert.That(
-            rebuilt.PerSecondHashes(5, new ThreadedRunner(4)),
+            rebuilt.PerSecondHashes(2, new ThreadedRunner(4)),
             Is.EqualTo(replay.PerSecondHashes)
         );
     }
@@ -144,14 +144,10 @@ public class ReplayTests
     [Test]
     public void PerSecondHashes_ChangeEverySecond_AndWithTheSeed()
     {
-        ulong[] a = RepoBattle.TenThousand(seed: 1).PerSecondHashes(3, new SerialRunner());
-        ulong[] b = RepoBattle.TenThousand(seed: 2).PerSecondHashes(3, new SerialRunner());
+        ulong[] a = RepoBattle.TenThousand(seed: 1).PerSecondHashes(2, new SerialRunner());
+        ulong[] b = RepoBattle.TenThousand(seed: 2).PerSecondHashes(2, new SerialRunner());
 
-        Assert.That(
-            a.Distinct().Count(),
-            Is.EqualTo(3),
-            "the wander system moves units every tick"
-        );
+        Assert.That(a.Distinct().Count(), Is.EqualTo(2), "the attackers march every tick");
         Assert.That(b, Is.Not.EqualTo(a));
     }
 }

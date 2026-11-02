@@ -74,6 +74,7 @@ namespace GodGame.Sim
         private readonly Fix[] _typeRankSpacing;
         private readonly long _maxRadiusRaw;
         private readonly long _quarterCellRaw;
+        private readonly long _mapDiagonalRaw;
 
         // Scratch: overwritten every run before it is read.
         private SpatialHash? _hash;
@@ -101,6 +102,9 @@ namespace GodGame.Sim
             _typeRadiusRaw = new long[types.Count];
             _typeClass = new MovementClass[types.Count];
             _quarterCellRaw = Fix.FromRatio(navigation.Terrain.CellSizeMm, 4000).Raw;
+            long w = navigation.Map.Width.Raw;
+            long d = navigation.Map.Depth.Raw;
+            _mapDiagonalRaw = IntMath.Sqrt((ulong)(w * w + d * d)) + 1; // sides at most 30 km: the square fits
             _typeFileSpacing = new Fix[types.Count];
             _typeRankSpacing = new Fix[types.Count];
             for (int t = 0; t < types.Count; t++)
@@ -297,7 +301,11 @@ namespace GodGame.Sim
                 }
                 int type = world.RegimentUnitType[r];
                 int ranks = Formation.Ranks(world.RegimentStartingSize[r], world.RegimentFiles[r]);
-                long reach = ReformDistance.Raw + _typeRankSpacing[type].Raw * ranks;
+                // Clamped to the map's diagonal, so even a crafted snapshot's formation can't overflow the square.
+                long reach = System.Math.Min(
+                    _mapDiagonalRaw,
+                    ReformDistance.Raw + _typeRankSpacing[type].Raw * ranks
+                );
                 long dx = world.Position[u].X.Raw - world.Position[anchor].X.Raw;
                 long dy = world.Position[u].Y.Raw - world.Position[anchor].Y.Raw;
                 // Axis test first: a soldier flung far away can't overflow the square.

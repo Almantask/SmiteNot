@@ -306,6 +306,10 @@ namespace GodGame.Sim
             var slotStart = new long[Regiments.Capacity + 1];
             for (int r = 0; r < Regiments.Capacity; r++)
             {
+                if (Regiments.IsAlive(r) && RegimentStartingSize[r] < 0)
+                {
+                    throw new FormatException("A regiment's starting size is negative.");
+                }
                 slotStart[r + 1] =
                     slotStart[r] + (Regiments.IsAlive(r) ? RegimentStartingSize[r] : 0);
             }

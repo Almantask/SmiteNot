@@ -8,4 +8,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_Game/Scenes/Bootstrap.unity
     guid: 05de545d3ac51184698da983af4677fc
+  - enabled: 1
+    path: Assets/_Game/Scenes/BattleDebug.unity
+    guid: a06c4129fde600347893fcf63c6ddd0e
   m_configObjects: {}

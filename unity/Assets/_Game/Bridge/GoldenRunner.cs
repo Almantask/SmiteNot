@@ -22,8 +22,7 @@ namespace GodGame.Bridge
         public const string ResultsArgument = "-golden-results";
 
         /// <summary>The repository root seen from the Unity project (unity/Assets → two levels up).</summary>
-        public static string EditorRepoRoot =>
-            Path.GetFullPath(Path.Combine(Application.dataPath, "..", ".."));
+        public static string EditorRepoRoot => RepoLoader.EditorRepoRoot;
 
         public static IReadOnlyList<string> GoldenNames(string repoRoot) =>
             Directory
@@ -40,8 +39,8 @@ namespace GodGame.Bridge
                     Path.Combine(repoRoot, "sim", "tests", "golden", name + ".godreplay")
                 )
             );
-            var rules = LoadRules(Path.Combine(repoRoot, "data", "rules"));
-            var map = LoadMap(Path.Combine(repoRoot, "data", "maps", replay.MapId));
+            var rules = RepoLoader.LoadRules(repoRoot);
+            var map = RepoLoader.LoadMap(repoRoot, replay.MapId);
             var battle = replay.ToBattle(rules, map);
             ulong[] actual = battle.PerSecondHashes(replay.Seconds, new SerialRunner());
             for (int i = 0; i < actual.Length; i++)
@@ -62,27 +61,6 @@ namespace GodGame.Bridge
                 }
             }
             return null;
-        }
-
-        private static Ruleset LoadRules(string dir) =>
-            RulesetLoader.Load(
-                Directory
-                    .GetFiles(dir, "*.json")
-                    .OrderBy(f => Path.GetFileName(f), StringComparer.Ordinal)
-                    .Select(f => new KeyValuePair<string, string>(
-                        Path.GetFileName(f),
-                        File.ReadAllText(f)
-                    ))
-                    .ToList()
-            );
-
-        private static MapData LoadMap(string dir)
-        {
-            string height = Path.Combine(dir, "height.bin");
-            return MapData.Load(
-                File.ReadAllText(Path.Combine(dir, "map.json")),
-                File.Exists(height) ? File.ReadAllBytes(height) : null
-            );
         }
 
         /// <summary>

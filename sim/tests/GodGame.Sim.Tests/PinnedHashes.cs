@@ -24,4 +24,7 @@ internal static class PinnedHashes
 
     /// <summary>All four cost fields over a seeded 64 × 48 terrain with the repo's movement classes (TerrainCostTests). Pinned 2026-11-02.</summary>
     public const ulong CostFieldsSeed6 = 0x6DB36691903731AFUL;
+
+    /// <summary>Distances and directions of a horse flow field over a seeded 64 × 48 terrain (FlowFieldTests). Pinned 2026-11-02.</summary>
+    public const ulong FlowFieldSeed41 = 2360656639287698109UL;
 }

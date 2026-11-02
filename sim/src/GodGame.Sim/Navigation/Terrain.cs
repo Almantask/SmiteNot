@@ -137,6 +137,15 @@ namespace GodGame.Sim
 
         public CellRect All => new CellRect(0, 0, Columns - 1, Rows - 1);
 
+        /// <summary>The cells an area in mm overlaps (a deployment zone, a goal), clamped to the map.</summary>
+        public CellRect CellsOf(RectMm area) =>
+            new CellRect(
+                Clamp(area.MinX / CellSizeMm, Columns),
+                Clamp(area.MinY / CellSizeMm, Rows),
+                Clamp((area.MaxX - 1) / CellSizeMm, Columns),
+                Clamp((area.MaxY - 1) / CellSizeMm, Rows)
+            );
+
         /// <summary>Every height, row-major, in a fixed order: for snapshots and hashes once battle-time edits exist.</summary>
         public ReadOnlySpan<int> Heights => _heightMm;
 

@@ -6,12 +6,18 @@ namespace GodGame.Sim.Rules
 {
     /// <summary>
     /// Builds a <see cref="Ruleset"/> from rules files. The simulation reads no files itself: the host reads
-    /// <c>data/rules/*.json</c> and passes (file name, text) pairs. v0 knows <c>unit-types.json</c> only.
+    /// <c>data/rules/*.json</c> and passes (file name, text) pairs. v0 knows <c>unit-types.json</c> and
+    /// <c>movement-classes.json</c>, and needs both.
     /// </summary>
     public static class RulesetLoader
     {
         public const int UnitTypesVersion = 0;
         public const string UnitTypesFile = "unit-types.json";
+        public const int MovementClassesVersion = 0;
+        public const string MovementClassesFile = "movement-classes.json";
+
+        /// <summary>Costs fit a ushort with room for the impassable marker.</summary>
+        public const int MaxCost = 10_000;
 
         public static Ruleset Load(IReadOnlyList<KeyValuePair<string, string>> files)
         {
@@ -21,6 +27,7 @@ namespace GodGame.Sim.Rules
             }
             var parsed = new List<KeyValuePair<string, JsonValue>>();
             JsonValue? unitTypesJson = null;
+            JsonValue? movementJson = null;
             foreach (var file in files)
             {
                 var value = JsonReader.Parse(file.Value, file.Key);
@@ -28,6 +35,10 @@ namespace GodGame.Sim.Rules
                 if (string.Equals(file.Key, UnitTypesFile, StringComparison.Ordinal))
                 {
                     unitTypesJson = value;
+                }
+                else if (string.Equals(file.Key, MovementClassesFile, StringComparison.Ordinal))
+                {
+                    movementJson = value;
                 }
                 else
                 {
@@ -40,10 +51,55 @@ namespace GodGame.Sim.Rules
             {
                 throw new DataFormatException(UnitTypesFile + " is missing.");
             }
+            if (movementJson == null)
+            {
+                throw new DataFormatException(MovementClassesFile + " is missing.");
+            }
 
             bool placeholders = false;
             var unitTypes = ReadUnitTypes(unitTypesJson, ref placeholders);
-            return new Ruleset(unitTypes, RulesetHash.Of(parsed), placeholders);
+            var movement = ReadMovementClasses(movementJson, ref placeholders);
+            return new Ruleset(unitTypes, movement, RulesetHash.Of(parsed), placeholders);
+        }
+
+        private static MovementClassRules[] ReadMovementClasses(
+            JsonValue root,
+            ref bool placeholders
+        )
+        {
+            root.OnlyKeys("$comment", "version", "status", "classes");
+            if (root.Int("version") != MovementClassesVersion)
+            {
+                throw new DataFormatException(root.Path + ": version must be 0.");
+            }
+            placeholders |= ReadStatus(root);
+            var classes = new MovementClassRules?[4];
+            foreach (var item in root.Array("classes"))
+            {
+                item.OnlyKeys("id", "baseCost", "slopeCost", "maxSlopePermille");
+                var movementClass = ParseMovementClass(item["id"]);
+                if (classes[(int)movementClass] != null)
+                {
+                    throw new DataFormatException(item.Path + ": the class is listed twice.");
+                }
+                classes[(int)movementClass] = new MovementClassRules(
+                    movementClass,
+                    item.Int("baseCost", 1, MaxCost),
+                    item.Int("slopeCost", 0, MaxCost),
+                    item.Int("maxSlopePermille", 0, 100_000)
+                );
+            }
+            var result = new MovementClassRules[classes.Length];
+            for (int i = 0; i < classes.Length; i++)
+            {
+                result[i] =
+                    classes[i]
+                    ?? throw new DataFormatException(
+                        root.Path
+                            + ": every movement class needs an entry (foot, horse, wheeled, water)."
+                    );
+            }
+            return result;
         }
 
         private static List<UnitTypeRules> ReadUnitTypes(JsonValue root, ref bool placeholders)

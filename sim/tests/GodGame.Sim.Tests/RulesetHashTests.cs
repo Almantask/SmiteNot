@@ -23,11 +23,18 @@ internal static class RepoData
     public static string Read(params string[] parts) =>
         File.ReadAllText(Path.Combine(new[] { Root }.Concat(parts).ToArray()));
 
-    public static Ruleset Rules() =>
+    public static Ruleset Rules() => RulesWithUnitTypes(Read("data", "rules", "unit-types.json"));
+
+    /// <summary>The repo's movement classes with the given unit-types file.</summary>
+    public static Ruleset RulesWithUnitTypes(string unitTypesJson) =>
         RulesetLoader.Load(
             new[]
             {
-                KeyValuePair.Create("unit-types.json", Read("data", "rules", "unit-types.json")),
+                KeyValuePair.Create(
+                    "movement-classes.json",
+                    Read("data", "rules", "movement-classes.json")
+                ),
+                KeyValuePair.Create("unit-types.json", unitTypesJson),
             }
         );
 }
@@ -184,9 +191,7 @@ public class RulesetLoaderTests
     [TestCase("{\"version\":0,\"unitTypes\":[]}", "empty")]
     public void BadRules_AreRejectedWithTheirPath(string json, string why)
     {
-        var error = Assert.Throws<DataFormatException>(() =>
-            RulesetLoader.Load(new[] { KeyValuePair.Create("unit-types.json", json) })
-        );
+        var error = Assert.Throws<DataFormatException>(() => RepoData.RulesWithUnitTypes(json));
 
         Assert.That(error!.Message, Does.Contain(why));
     }

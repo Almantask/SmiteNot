@@ -14,11 +14,14 @@ internal static class PinnedHashes
     /// <summary>World.AppendTo after WorldTests' seed-7 battle with despawns and a reused slot. Pinned 2026-11-01.</summary>
     public const ulong WorldBattleSeed7 = 0xE071511754907C1FUL;
 
-    /// <summary>RulesetHash of data/rules (unit-types.json v0, placeholder stats; canonical form without $comment). Pinned 2026-11-01.</summary>
-    public const ulong RulesV0 = 0xB51C6F73FE324FC9UL;
+    /// <summary>RulesetHash of data/rules (unit-types.json and movement-classes.json v0, placeholder values; canonical form without $comment). Pinned 2026-11-02.</summary>
+    public const ulong RulesV0 = 0xFAA47738602BBDD1UL;
 
     /// <summary>data/maps/m1-flat (map hash), data/plans/m1-ten-thousand.json (plan hash) and the world it deploys. Pinned 2026-11-01.</summary>
     public const ulong MapM1Flat = 0x59885A55C9609ABBUL;
     public const ulong PlanM1TenThousand = 0xE6CC8D05245963B5UL;
     public const ulong WorldM1TenThousandDeployed = 0xD711BF8603E6843BUL;
+
+    /// <summary>All four cost fields over a seeded 64 × 48 terrain with the repo's movement classes (TerrainCostTests). Pinned 2026-11-02.</summary>
+    public const ulong CostFieldsSeed6 = 0x6DB36691903731AFUL;
 }

@@ -13,6 +13,36 @@ namespace GodGame.Sim.Rules
         Water = 3,
     }
 
+    /// <summary>
+    /// How one movement class meets the ground, from <c>data/rules/movement-classes.json</c>. A cell's cost is
+    /// <see cref="BaseCost"/> plus <see cref="SlopeCost"/> × slope / 1000 (slope in ‰, rise over run); steeper than
+    /// <see cref="MaxSlopePermille"/> is impassable. Costs are relative: 100 means "a flat cell for this class".
+    /// </summary>
+    public sealed class MovementClassRules
+    {
+        public MovementClassRules(
+            MovementClass movementClass,
+            int baseCost,
+            int slopeCost,
+            int maxSlopePermille
+        )
+        {
+            MovementClass = movementClass;
+            BaseCost = baseCost;
+            SlopeCost = slopeCost;
+            MaxSlopePermille = maxSlopePermille;
+        }
+
+        public MovementClass MovementClass { get; }
+
+        public int BaseCost { get; }
+
+        /// <summary>Extra cost per 1000 ‰ of slope (a 45° climb).</summary>
+        public int SlopeCost { get; }
+
+        public int MaxSlopePermille { get; }
+    }
+
     /// <summary>One unit type from <c>data/rules/unit-types.json</c>. Units are documented in data/schema/unit-types.schema.json.</summary>
     public sealed class UnitTypeRules
     {
@@ -54,8 +84,14 @@ namespace GodGame.Sim.Rules
     {
         private readonly Dictionary<string, UnitTypeRules> _unitTypesById;
 
-        internal Ruleset(IReadOnlyList<UnitTypeRules> unitTypes, ulong hash, bool hasPlaceholders)
+        internal Ruleset(
+            IReadOnlyList<UnitTypeRules> unitTypes,
+            IReadOnlyList<MovementClassRules> movementClasses,
+            ulong hash,
+            bool hasPlaceholders
+        )
         {
+            MovementClasses = movementClasses;
             UnitTypes = unitTypes;
             Hash = hash;
             HasPlaceholders = hasPlaceholders;
@@ -68,6 +104,12 @@ namespace GodGame.Sim.Rules
 
         /// <summary>In file order; <see cref="UnitTypeRules.Index"/> is the position here.</summary>
         public IReadOnlyList<UnitTypeRules> UnitTypes { get; }
+
+        /// <summary>Indexed by <see cref="Rules.MovementClass"/>: all four classes, in enum order.</summary>
+        public IReadOnlyList<MovementClassRules> MovementClasses { get; }
+
+        public MovementClassRules Movement(MovementClass movementClass) =>
+            MovementClasses[(int)movementClass];
 
         public ulong Hash { get; }
 

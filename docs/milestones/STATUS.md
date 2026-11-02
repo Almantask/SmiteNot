@@ -8,7 +8,7 @@ Goal: armies totalling 10,000 soldiers march, bunch and queue across a real heig
 Needs first: the map scale (working default: about 1.2 × 0.8 km with 1.5 m field cells, plan section 10) and a floor test laptop (integrated graphics, plan section 8), so budgets are measured on minimum-spec hardware from here on.
 
 ### Checklist
-- [ ] 1. Heightfield terrain, navigation grid, movement classes (foot, horse, wheeled, water), per-class cost fields
+- [x] 1. Heightfield terrain, navigation grid, movement classes (foot, horse, wheeled, water), per-class cost fields — Terrain (sim/src/GodGame.Sim/Navigation): the map's heightfield on its 1.5 m field grid, integer bilinear height, slope as the steepest 4-neighbour step; CostFields: a ushort cost per class per cell from slope (impassable past each class's limit; water impassable until M3), built on creation, rebuilt by rectangle in parallel rows, with a version check against stale reads; data/rules/movement-classes.json (placeholder numbers until spec pass S2). Desktop: full rebuild of 430,000 cells 12.7 ms serial, 3.8 ms on 4 threads; one-cell edit 0.13 µs. The golden was regenerated header-only (ruleset hash; all 180 per-second hashes identical, no SimVersion bump). determinism-auditor: no High findings
 - [ ] 2. Flow fields per regiment goal with incremental tile rebuilds
 - [ ] 3. Local steering (separation, alignment, obstacle avoidance) and crowd pressure through the spatial hash
 - [ ] 4. Formation slots; regiments of 50–200 with an officer or standard-bearer as anchor
@@ -27,6 +27,11 @@ Needs first: the map scale (working default: about 1.2 × 0.8 km with 1.5 m fiel
 
 ### Decisions needed
 - Map scale (plan section 10, needed by M2; working default above)
+
+### Notes
+- Movement-class numbers (each class's steepest climb and slope cost) are placeholders in data/rules/movement-classes.json until spec pass S2; they only follow tech notes section 3 (siege cares about slope far more than infantry).
+- Heights are fixed during the battle for now, so Terrain and CostFields are derived state. When battle-time digs and fills arrive: hash the heights (a running hash per edit), write them into snapshots and rebuild after restore, apply edits serially in a fixed order, pin when they become visible relative to the navigation step, cover planning-phase edits in the plan hash, and widen DirtyAround for fields with a wider stencil.
+- Unity .meta files for sim/src/GodGame.Sim/Navigation and its two files are not committed yet: Unity's batch mode refused to start on 2026-11-02 ("No valid Unity Editor license found"); sign in to Unity Hub, open the project once and commit what it generates.
 
 ## Done
 

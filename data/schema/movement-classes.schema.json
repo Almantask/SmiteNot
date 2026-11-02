@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Movement classes, ruleset v0",
+  "description": "Read by GodGame.Sim.Rules.RulesetLoader. Exactly one entry per class. A cell costs baseCost + slopeCost * slopePermille / 1000; steeper than maxSlopePermille is impassable. Costs are relative (100 = a flat cell).",
+  "type": "object",
+  "required": [
+    "version",
+    "classes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "version": {
+      "const": 0
+    },
+    "status": {
+      "enum": [
+        "placeholder",
+        "settled"
+      ]
+    },
+    "classes": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "baseCost",
+          "slopeCost",
+          "maxSlopePermille"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "enum": [
+              "foot",
+              "horse",
+              "wheeled",
+              "water"
+            ]
+          },
+          "baseCost": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "slopeCost": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "Extra cost per 1000 permille of slope"
+          },
+          "maxSlopePermille": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000,
+            "description": "Rise over run x 1000; steeper is impassable"
+          }
+        }
+      }
+    }
+  }
+}

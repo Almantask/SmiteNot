@@ -121,16 +121,10 @@ public class ReplayTests
     {
         var battle = RepoBattle.TenThousand();
         var replay = battle.ToReplay(3);
-        var otherRules = RulesetLoader.Load(
-            new[]
-            {
-                KeyValuePair.Create(
-                    "unit-types.json",
-                    RepoData
-                        .Read("data", "rules", "unit-types.json")
-                        .Replace("\"health\": 100", "\"health\": 101")
-                ),
-            }
+        var otherRules = RepoData.RulesWithUnitTypes(
+            RepoData
+                .Read("data", "rules", "unit-types.json")
+                .Replace("\"health\": 100", "\"health\": 101")
         );
         var otherMap = MapData.Load(
             RepoData.Read("data", "maps", "m1-flat", "map.json").Replace("200000", "199000")

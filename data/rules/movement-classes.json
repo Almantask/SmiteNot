@@ -1,0 +1,31 @@
+{
+  "$comment": "Movement classes (ruleset v0): how each class meets the ground. Cost of a cell = baseCost + slopeCost * slope / 1000, slope in permille (rise over run, 1000 = 45 degrees); steeper than maxSlopePermille is impassable. No spec has set these numbers yet: spec pass S2 does, so the file is marked placeholder. The values only follow tech notes section 3 (siege cares about slope far more than infantry). The water class is impassable everywhere until water depth arrives in M3: its numbers here do nothing until then (changing them still changes the ruleset hash).",
+  "version": 0,
+  "status": "placeholder",
+  "classes": [
+    {
+      "id": "foot",
+      "baseCost": 100,
+      "slopeCost": 200,
+      "maxSlopePermille": 1000
+    },
+    {
+      "id": "horse",
+      "baseCost": 100,
+      "slopeCost": 300,
+      "maxSlopePermille": 700
+    },
+    {
+      "id": "wheeled",
+      "baseCost": 100,
+      "slopeCost": 800,
+      "maxSlopePermille": 250
+    },
+    {
+      "id": "water",
+      "baseCost": 100,
+      "slopeCost": 0,
+      "maxSlopePermille": 0
+    }
+  ]
+}

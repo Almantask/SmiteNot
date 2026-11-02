@@ -106,7 +106,7 @@ namespace GodGame.Sim
             {
                 for (int i = start; i < end; i++)
                 {
-                    if (!_pendingOnly || _fields[i].BuiltFromVersion < 0)
+                    if (!_pendingOnly || !_fields[i].IsBuilt)
                     {
                         _fields[i].Rebuild();
                     }

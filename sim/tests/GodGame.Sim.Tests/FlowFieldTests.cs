@@ -54,7 +54,7 @@ public class FlowFieldTests
                     }
                     for (int d = 0; d < 8; d++)
                     {
-                        var (dx, dy) = FlowField.Offsets[d];
+                        var (dx, dy) = FlowField.Offset(d);
                         int nx = x + dx,
                             ny = y + dy;
                         if (!t.InBounds(nx, ny))
@@ -141,7 +141,7 @@ public class FlowFieldTests
                 {
                     continue;
                 }
-                var (dx, dy) = FlowField.Offsets[d];
+                var (dx, dy) = FlowField.Offset(d);
                 Assert.That(
                     field.Distance(x + dx, y + dy),
                     Is.LessThan(field.Distance(x, y)),
@@ -176,7 +176,7 @@ public class FlowFieldTests
         bool throughGap = false;
         for (int step = 0; step < 200 && field.Direction(cx, cy) < FlowField.AtGoal; step++)
         {
-            var (dx, dy) = FlowField.Offsets[field.Direction(cx, cy)];
+            var (dx, dy) = FlowField.Offset(field.Direction(cx, cy));
             cx += dx;
             cy += dy;
             throughGap |= cx == 15;
@@ -218,6 +218,7 @@ public class FlowFieldTests
         var repaired = new[]
         {
             Built(costs, MovementClass.Foot, goal),
+            Built(costs, MovementClass.Horse, goal),
             Built(costs, MovementClass.Wheeled, goal),
         };
 
@@ -317,7 +318,34 @@ public class FlowFieldTests
         for (int i = 0; i < 3; i++)
         {
             Assert.That(threaded[i].Distances.ToArray(), Is.EqualTo(serial[i].Distances.ToArray()));
+            Assert.That(
+                threaded[i].Directions.ToArray(),
+                Is.EqualTo(serial[i].Directions.ToArray())
+            );
         }
+    }
+
+    [Test]
+    public void TwoCostRebuildsBeforeOneRepair_FallBackToAFullBuild()
+    {
+        // The repair only knows the last dirty area; after two rebuilds it must not trust it.
+        var (t, costs) = Ground((x, y) => 0, 40, 30);
+        var goal = new CellRect(39, 0, 39, 29);
+        var field = Built(costs, MovementClass.Foot, goal);
+
+        for (int y = 0; y < 30; y++)
+        {
+            t.SetHeight(10, y, y == 29 ? 0 : Wall);
+        }
+        costs.Rebuild(t.DirtyAround(10, 0, 10, 29), new SerialRunner());
+        t.SetHeight(20, 15, Wall);
+        var last = t.DirtyAround(20, 15, 20, 15);
+        costs.Rebuild(last, new SerialRunner());
+        field.Repair(last);
+
+        var full = Built(costs, MovementClass.Foot, goal);
+        Assert.That(field.Distances.ToArray(), Is.EqualTo(full.Distances.ToArray()));
+        Assert.That(field.Directions.ToArray(), Is.EqualTo(full.Directions.ToArray()));
     }
 
     [Test]

@@ -47,6 +47,12 @@ namespace GodGame.Sim
         /// <summary>The terrain version the fields last caught up with; reads check it in Debug builds.</summary>
         public int BuiltFromVersion { get; private set; }
 
+        /// <summary>
+        /// Counts rebuilds that touched at least one cell. A flow field repairs only across exactly one of them (it
+        /// knows the dirty area of that one alone); after more, it rebuilds in full.
+        /// </summary>
+        public int RebuildCount { get; private set; }
+
         public Terrain Terrain => _terrain;
 
         /// <summary>Row-major costs for one class.</summary>
@@ -79,9 +85,10 @@ namespace GodGame.Sim
             {
                 return Impassable;
             }
-            // slope ≤ 100,000 ‰ and slopeCost ≤ 10,000 (loader limits), so the product fits a long; capped below Impassable.
+            // slope ≤ 100,000 ‰ and slopeCost ≤ 10,000 (loader limits), so the product fits a long; capped below
+            // Impassable and at least 1, which flow-field repairs rely on (every step strictly costs something).
             long cost = rules.BaseCost + (long)rules.SlopeCost * slopePermille / 1000;
-            return (ushort)System.Math.Min(cost, Impassable - 1);
+            return (ushort)System.Math.Max(1, System.Math.Min(cost, Impassable - 1));
         }
 
         public void RebuildAll(IParallelRunner runner) => Rebuild(_terrain.All, runner);
@@ -90,6 +97,7 @@ namespace GodGame.Sim
         {
             if (area.IsEmpty)
             {
+                BuiltFromVersion = _terrain.Version;
                 return;
             }
             if (
@@ -104,6 +112,7 @@ namespace GodGame.Sim
             runner.For(area.Height, RowsPerChunk, new RowKernel(_terrain, _classes, _costs, area));
             // The caller passes the area its edits dirtied (DirtyAround); after that the fields match the terrain.
             BuiltFromVersion = _terrain.Version;
+            RebuildCount++;
         }
 
         private readonly struct RowKernel : IChunkKernel

@@ -14,11 +14,13 @@ namespace GodGame.Sim
     /// costs times 10 east-west or north-south and times 14 diagonally (so √2 is 1.4), and a diagonal needs both cells
     /// it cuts past to be open. The distances are a pure function of the costs and the goal (Dijkstra's shortest
     /// distances are unique), and each direction is a pure function of its neighbours' distances, ties going to the
-    /// first neighbour in <see cref="Offsets"/> order. So <see cref="Repair"/> after an edit gives exactly the field a
+    /// first neighbour in <see cref="Offset"/> order. So <see cref="Repair"/> after an edit gives exactly the field a
     /// full <see cref="Rebuild"/> would, which the tests check bit for bit.
     /// </para>
     /// <para>
-    /// Derived state, like the cost fields: never hashed or snapshotted, rebuilt whenever the costs change.
+    /// Derived state, like the cost fields: never hashed or snapshotted, rebuilt whenever the costs change. Repairs rely
+    /// on every cell costing at least 1 (<see cref="CostFields.CellCost"/> guarantees it), so a route always gets
+    /// strictly cheaper toward the goal and directions never form a loop.
     /// </para>
     /// </summary>
     public sealed class FlowField
@@ -32,8 +34,10 @@ namespace GodGame.Sim
         /// <summary>Direction of a cell that can't reach the goal (or is impassable itself).</summary>
         public const byte NoDirection = 255;
 
-        /// <summary>Neighbour offsets, counter-clockwise from east; a direction is an index into this list.</summary>
-        public static readonly (int Dx, int Dy)[] Offsets =
+        /// <summary>Neighbour offset for a direction (0 to 7, counter-clockwise from east).</summary>
+        public static (int Dx, int Dy) Offset(int direction) => Offsets[direction];
+
+        private static readonly (int Dx, int Dy)[] Offsets =
         {
             (1, 0),
             (1, 1),
@@ -112,8 +116,10 @@ namespace GodGame.Sim
 
         public CellRect Goal { get; }
 
-        /// <summary>The terrain version the field last caught up with; Debug reads check it, like the cost fields.</summary>
-        public int BuiltFromVersion { get; private set; } = -1;
+        /// <summary>The cost-field rebuild (<see cref="CostFields.RebuildCount"/>) the field last caught up with; -1 before the first build.</summary>
+        public int BuiltFromRebuild { get; private set; } = -1;
+
+        public bool IsBuilt => BuiltFromRebuild >= 0;
 
         public Terrain Terrain => _terrain;
 
@@ -124,7 +130,7 @@ namespace GodGame.Sim
             return _distance[_terrain.Index(x, y)];
         }
 
-        /// <summary>An index into <see cref="Offsets"/>, <see cref="AtGoal"/> or <see cref="NoDirection"/>.</summary>
+        /// <summary>An index for <see cref="Offset"/>, <see cref="AtGoal"/> or <see cref="NoDirection"/>.</summary>
         public byte Direction(int x, int y)
         {
             AssertFresh();
@@ -164,7 +170,7 @@ namespace GodGame.Sim
         [Conditional("DEBUG")]
         private void AssertFresh() =>
             Debug.Assert(
-                BuiltFromVersion == _costs.BuiltFromVersion
+                BuiltFromRebuild == _costs.RebuildCount
                     && _costs.BuiltFromVersion == _terrain.Version,
                 "Flow field read after a cost change without Rebuild or Repair."
             );
@@ -262,7 +268,7 @@ namespace GodGame.Sim
                     _direction[_terrain.Index(x, y)] = ComputeDirection(costs, x, y);
                 }
             }
-            BuiltFromVersion = _costs.BuiltFromVersion;
+            BuiltFromRebuild = _costs.RebuildCount;
         }
 
         private void Link(int cell, long distance, int ring)
@@ -304,14 +310,14 @@ namespace GodGame.Sim
         /// </summary>
         public void Repair(CellRect dirtyCosts)
         {
-            if (BuiltFromVersion < 0)
+            if (BuiltFromRebuild == _costs.RebuildCount)
             {
-                Rebuild();
-                return;
+                return; // nothing was rebuilt since this field caught up
             }
-            if (dirtyCosts.IsEmpty)
+            if (BuiltFromRebuild != _costs.RebuildCount - 1 || dirtyCosts.IsEmpty)
             {
-                BuiltFromVersion = _costs.BuiltFromVersion;
+                // Never built, or more than one cost rebuild since (their dirty areas are unknown here): start over.
+                Rebuild();
                 return;
             }
             var costs = _costs.Of(MovementClass);
@@ -422,7 +428,7 @@ namespace GodGame.Sim
                     }
                 }
             }
-            BuiltFromVersion = _costs.BuiltFromVersion;
+            BuiltFromRebuild = _costs.RebuildCount;
         }
 
         // Dijkstra from whatever is on the heap (repairs, whose seeds lie at many distances; a full build uses the

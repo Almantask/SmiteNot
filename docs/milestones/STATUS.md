@@ -31,7 +31,10 @@ Needs first: the map scale (working default: about 1.2 × 0.8 km with 1.5 m fiel
 ### Notes
 - Movement-class numbers (each class's steepest climb and slope cost) are placeholders in data/rules/movement-classes.json until spec pass S2; they only follow tech notes section 3 (siege cares about slope far more than infantry).
 - Heights are fixed during the battle for now, so Terrain and CostFields are derived state. When battle-time digs and fills arrive: hash the heights (a running hash per edit), write them into snapshots and rebuild after restore, apply edits serially in a fixed order, pin when they become visible relative to the navigation step, cover planning-phase edits in the plan hash, and widen DirtyAround for fields with a wider stencil.
-- Unity .meta files for sim/src/GodGame.Sim/Navigation and its two files are not committed yet: Unity's batch mode refused to start on 2026-11-02 ("No valid Unity Editor license found"); sign in to Unity Hub, open the project once and commit what it generates.
+- Navigation's attacker goal (the far quarter of the defender zone, or the whole zone for a class that can't stand in that quarter) and Reachability's target (the whole zone) differ on purpose until regiment AI picks real targets (M7): unify them then, so the 2x cap measures the route actually walked.
+- Crowd throughput over the bridge is about 4 soldiers a second on 20 m (real crowds manage about 25): steering tuning belongs with combat and morale in M5. The siege clearance (a 13.5 m corridor) and the all-cells rule make the reachability check refuse narrow gates that sit badly on its grid: both for spec pass S2 (routes.json).
+- Unity items 8 to 10 wait for a Unity sign-in: batch mode still reports "No valid Unity Editor license found" (2026-11-02).
+- Unity .meta files for sim/src/GodGame.Sim/Navigation and Movement and their files are not committed yet: Unity's batch mode refused to start on 2026-11-02 ("No valid Unity Editor license found"); sign in to Unity Hub, open the project once and commit what it generates.
 
 ## Done
 

@@ -77,7 +77,7 @@ public class M2ExitScenarios
         }
 
         TestContext.Out.WriteLine(
-            $"crossed by {crossedAt} s; peak queue {peakQueue}; peak pressure {peakPressureMm} mm; worst overlap {worstOverlapShare:P0} of contact; at most {worstCrushedShare:P2} of soldiers overlapping by over 25%; crossed per minute: "
+            $"crossed by {crossedAt} s; peak queue {peakQueue}; peak pressure {peakPressureMm} mm; worst overlap {worstOverlapShare.ToString("P0", System.Globalization.CultureInfo.InvariantCulture)} of contact; at most {worstCrushedShare.ToString("P2", System.Globalization.CultureInfo.InvariantCulture)} of soldiers overlapping by over 25%; crossed per minute: "
                 + string.Join(" ", crossedOverTime.Where((_, i) => (i + 1) % 12 == 0))
         );
         Assert.That(crossedAt, Is.GreaterThan(0), "all 10,000 crossed within 45 minutes");

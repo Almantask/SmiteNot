@@ -6,4 +6,4 @@
 - [Data loading and hashes](pattern_data_hashing.md) — lone surrogates/non-ASCII canonical, file-order plan hash, $comment hashed, map size caps
 - [Snapshots and replays](pattern_snapshots_replays.md) — five-place field lists, shallow pool validation, no battle id in snapshot, compare ignores headers
 - [Terrain and navigation](pattern_terrain_navigation.md) — cost margins, dirty radius, flow repair, coarse grid all-cells rule, preview mutates its Navigation
-- [Movement and steering](pattern_movement_steering.md) — single-chunk thread tests, 64-neighbour truncation, 2 m hash vs map caps, stale Pressure, formation prepass, spacing x count overflow
+- [Movement and steering](pattern_movement_steering.md) — thread tests miss crush regime, 64-neighbour truncation, 2 m hash vs map caps, stale Pressure, FarQuarter vs Reachability goal

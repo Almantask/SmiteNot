@@ -20,3 +20,8 @@ Check first when Movement/ or Navigation.cs changes (first audited 2026-11-02, M
 
 **Why:** These are the traps once crush, pushes over edges and battle-time terrain arrive (M2-M5).
 **How to apply:** count chunks in the thread tests, measure peak neighbour counts in the densest scenario, compare hash cell size with the map caps, and grep for readers of Pressure.
+
+M2 exit tuning (audited 2026-11-02, commit bc0afdf, SimVersion 4; no High):
+- Creep gate reads the kernel-local `pressure` (summed overlap from tick-start positions, integer sum, order-free), not the _pressure scratch array, so no stale-scratch hazard. Keep it that way: if a later change gates on `_s._pressure[u]` or a neighbour's pressure, it reads last tick's (and stale-after-restore) data.
+- The thread tests (DeterminismScenarios, golden) run m1-flat, which never reaches the deep-crush regime (pressure >= CreepPressureLimit). M2ExitScenarios uses ThreadedRunner(4) but compares nothing across runners. A scratch probe (m2-bridge, 700 s, per-second hashes on 1/4/7 threads) matched (last E4C49D27EC48F490). Re-run that probe when steering branches on crowd state.
+- Navigation.FarQuarter: goal is a quarter of the defender zone, but Reachability (route check and 2x cap) still targets the whole zone. A map whose far quarter is all impassable gives an empty flow field (FlowField seeds only passable goal cells): attackers stand still while the route check passes. Reachability and the live goal must agree.

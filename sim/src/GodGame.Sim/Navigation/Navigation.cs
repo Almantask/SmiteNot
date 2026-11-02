@@ -74,7 +74,10 @@ namespace GodGame.Sim
                     continue;
                 }
                 var movementClass = Rules.UnitTypes[world.RegimentUnitType[r]].MovementClass;
-                _regimentField[r] = FlowFields.GetOrAdd(movementClass, goal);
+                // A far quarter this class can't stand in at all (a lake, a cliff) would leave the field without a
+                // goal: march for the whole zone instead, which the reachability check measures too.
+                var classGoal = AnyPassable(movementClass, goal) ? goal : Terrain.CellsOf(target);
+                _regimentField[r] = FlowFields.GetOrAdd(movementClass, classGoal);
             }
             FlowFields.BuildPending(runner);
         }
@@ -104,6 +107,21 @@ namespace GodGame.Sim
             return dy >= 0
                 ? new RectMm(target.MinX, target.MaxY - quarterY, target.MaxX, target.MaxY)
                 : new RectMm(target.MinX, target.MinY, target.MaxX, target.MinY + quarterY);
+        }
+
+        private bool AnyPassable(MovementClass movementClass, CellRect cells)
+        {
+            for (int y = cells.MinY; y <= cells.MaxY; y++)
+            {
+                for (int x = cells.MinX; x <= cells.MaxX; x++)
+                {
+                    if (Costs.Cost(movementClass, x, y) != CostFields.Impassable)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         private bool TryZone(Side side, out RectMm area)

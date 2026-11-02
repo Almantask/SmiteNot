@@ -97,4 +97,22 @@ public class RoutePreviewTests
         Assert.That(routes, Has.Length.EqualTo(2));
         Assert.That(routes.All(r => r.Count == 0), Is.True);
     }
+
+    [Test]
+    public void AFarQuarterNoOneCanStandIn_FallsBackToTheWholeZone()
+    {
+        // The defender zone is x 105 to 120 m; its far quarter (x from 116.25 m) is a checkerboard of 5 m spikes,
+        // impassable to foot: the attackers still get a route, to the zone itself.
+        var map = TestBattles.Map((x, y) => x >= 77 && (x + y) % 2 == 0 ? 5_000 : 0, 80, 40);
+        var navigation = new Navigation(map, RepoData.Rules(), new SerialRunner());
+        var world = TestBattles
+            .Battle(map, new[] { ("attacker", "infantry", 50, 7.5, 7.5) })
+            .Start(new SerialRunner())
+            .World;
+
+        var route = RoutePreview.AttackerRoutes(navigation, world)[0];
+
+        Assert.That(route, Is.Not.Empty);
+        Assert.That(route[^1].X(), Is.InRange(105.0, 116.0));
+    }
 }

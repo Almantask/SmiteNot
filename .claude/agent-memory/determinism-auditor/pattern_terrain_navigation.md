@@ -30,3 +30,11 @@ Lethal distance (audited 2026-11-02, commit 8af20fc; no High):
 
 **Why:** Flow fields (M2 item 2) and terrain powers will read these fields every tick; staleness or a too-narrow dirty rect diverges silently.
 **How to apply:** re-derive the products, compare each dirty radius with each stencil, and ask where heights are hashed and snapshotted once anything edits them during a battle.
+
+Reachability (audited 2026-11-02, commit 8bc3078; one High, correctness not determinism):
+- Coarse "closed when under half its field cells are open" loses thin blockers: a 2-field-cell cliff line straddling a coarse boundary leaves both coarse cells open, so a full trap passes (verified: step at x=42 with coarseCells 3 -> Ok=True; 40/41/43 refused). Tests only use walls that happen to align. Any coarse or downsampled validation grid: test every alignment offset (0..k-1) of a minimal blocker, and want "closed if any blocking field cell line crosses it" (or edge-based closure) rather than a majority vote.
+- Dial early exit is exact here: the for-condition is checked only after a bucket drains, every tentative value <= current has been popped, and Trace only follows values below current, so lengths, tie-breaks (lowest cell) and traces match a full fill. Re-check if the exit moves inside the bucket loop or steps become 0 or > ring size.
+- Per-fill scratch (distance, bucket stacks incl. Array.Resize) is indexed by fill, clearance by class: thread-safe. The instance is not reentrant (two concurrent Check calls race).
+- Coarse cell size = coarseCells x map cellSizeMm, so clearance widths in metres vary per map.
+- No zone/usable-seed validation at construction; Zone() throws inside the kernel.
+- Same freshness gap as costs/flow: Update(rect) is trusted, no RebuildCount stamp.

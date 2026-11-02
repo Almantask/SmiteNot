@@ -112,8 +112,11 @@ namespace GodGame.Sim
     /// route may be at most a set multiple (2×) of the straight-line distance. Run on every placement drag, so it works
     /// on a coarse copy of the navigation grid (<see cref="RouteRules.CoarseCells"/> field cells a side).
     /// <para>
-    /// Only hard blockers count: a coarse cell is closed for a class when fewer than half its field cells are
-    /// passable (cliffs and, later, walls, boulders, deep water); costly ground stays open, because the cap counts
+    /// Only hard blockers count: a coarse cell is open for a class only when every one of its field cells is passable
+    /// (any cliff, and later any wall, boulder or deep water, closes it), so an open coarse route always means an open
+    /// field route and a thin blocker can't slip between two coarse cells. The price is that a gap narrower than two
+    /// coarse cells may read as closed when it is badly aligned: the check refuses a little too much, never too
+    /// little. Costly ground stays open, because the cap counts
     /// distance, not travel time, so slowing an army stays legal. A clearance map (distance to the nearest closed cell
     /// or the map edge, in coarse cells) keeps wide units out of narrow gaps. The distance fill is breadth-first with
     /// integer steps (5 straight, 7 diagonally, no corner cutting), from every open zone cell at once.
@@ -125,13 +128,15 @@ namespace GodGame.Sim
     /// </summary>
     public sealed class Reachability
     {
-        /// <summary>The land classes checked, in result order.</summary>
-        public static readonly MovementClass[] Classes =
+        private static readonly MovementClass[] Classes =
         {
             MovementClass.Foot,
             MovementClass.Horse,
             MovementClass.Wheeled,
         };
+
+        /// <summary>The land classes checked, in result order.</summary>
+        public static IReadOnlyList<MovementClass> CheckedClasses => Classes;
 
         private const int Straight = 5;
         private const int Diagonal = 7;
@@ -158,6 +163,8 @@ namespace GodGame.Sim
             _map = map ?? throw new ArgumentNullException(nameof(map));
             _rules = rules ?? throw new ArgumentNullException(nameof(rules));
             _terrain = costs.Terrain;
+            Zone(Side.Attacker); // both zones must exist: refuse the map here, not inside a parallel fill
+            Zone(Side.Defender);
             _k = rules.CoarseCells;
             _columns = (_terrain.Columns + _k - 1) / _k;
             _rows = (_terrain.Rows + _k - 1) / _k;
@@ -239,7 +246,7 @@ namespace GodGame.Sim
                                 }
                             }
                         }
-                        _open[c][cy * _columns + cx] = open * 2 >= total;
+                        _open[c][cy * _columns + cx] = open == total;
                     }
                 }
             }

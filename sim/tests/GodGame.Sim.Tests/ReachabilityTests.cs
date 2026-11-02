@@ -52,7 +52,7 @@ public class ReachabilityTests
     public void Decision_2026_10_09_NoPlacementMayFullyTrapEitherArmy_AWallAcrossTheMapIsRefused()
     {
         var closed = Check((x, y) => x == 40 ? Wall : 0, 80, 40);
-        var gap = Check((x, y) => x == 40 && (y < 15 || y > 25) ? Wall : 0, 80, 40);
+        var gap = Check((x, y) => x == 40 && (y < 11 || y > 29) ? Wall : 0, 80, 40); // a 28 m gate: wide enough for siege at any alignment
 
         Assert.That(closed.Ok, Is.False);
         var failure = closed.FirstFailure!.Value;
@@ -67,7 +67,7 @@ public class ReachabilityTests
     public void Decision_2026_10_09_NoPlacementMayFullyTrapEitherArmy_SiegeNeedsAWideGap()
     {
         // The open part of a 6-cell gap is about 6 m once the wall's steep sides are taken off: wide enough for foot
-        // and horse, too narrow for the siege engines' 9 m corridor.
+        // and horse, too narrow for the siege engines' 13.5 m corridor (routes.json).
         var narrow = Check((x, y) => x == 40 && (y < 17 || y > 22) ? Wall : 0, 80, 40);
 
         Assert.That(Find(narrow, Side.Attacker, MovementClass.Foot, RouteTarget.Enemy).Ok, Is.True);
@@ -190,5 +190,34 @@ public class ReachabilityTests
         {
             Assert.That(a.Route(i), Is.EqualTo(b.Route(i)));
         }
+    }
+
+    [TestCase(40)]
+    [TestCase(41)]
+    [TestCase(42)]
+    [TestCase(43)]
+    [TestCase(44)]
+    [TestCase(45)]
+    public void Decision_2026_10_09_NoPlacementMayFullyTrapEitherArmy_AThinCliffAtAnyAlignmentIsRefused(
+        int at
+    )
+    {
+        // The thinnest blockers: a one-step cliff (two field columns too steep) and a one-cell spike (three), at every
+        // offset against the coarse grid, and a diagonal one.
+        Assert.That(Check((x, y) => x >= at ? Wall : 0, 80, 40).Ok, Is.False, "step");
+        Assert.That(Check((x, y) => x == at ? Wall : 0, 80, 40).Ok, Is.False, "spike");
+        Assert.That(Check((x, y) => x == at - 20 + y ? Wall : 0, 80, 40).Ok, Is.False, "diagonal");
+    }
+
+    [Test]
+    public void AMapWithoutBothZones_IsRefusedUpFront()
+    {
+        string json =
+            "{\"version\":0,\"id\":\"nozones\",\"widthMm\":30000,\"depthMm\":15000,\"cellSizeMm\":1500,\"deployment\":[]}";
+        var map = MapData.Load(json);
+        var rules = RepoData.Rules();
+        var costs = new CostFields(new Terrain(map), rules, new SerialRunner());
+
+        Assert.Throws<InvalidOperationException>(() => new Reachability(costs, map, rules.Routes));
     }
 }

@@ -60,6 +60,7 @@ namespace GodGame.Rendering
         private Color32[] _pixels;
         private Material _groundMaterial;
         private GameObject _ground;
+        private Mesh _groundMeshAsset;
         private readonly List<GameObject> _lines = new List<GameObject>();
         private OverlayMode _mode = OverlayMode.None;
         private bool _showRoutes = true;
@@ -118,6 +119,7 @@ namespace GodGame.Rendering
             _units?.Dispose();
             foreach (var line in _lines)
             {
+                Destroy(line.GetComponent<LineRenderer>().sharedMaterial);
                 Destroy(line);
             }
             _lines.Clear();
@@ -132,6 +134,10 @@ namespace GodGame.Rendering
             if (_groundMaterial != null)
             {
                 Destroy(_groundMaterial);
+            }
+            if (_groundMeshAsset != null)
+            {
+                Destroy(_groundMeshAsset);
             }
             _host = null;
             _units = null;
@@ -213,6 +219,7 @@ namespace GodGame.Rendering
         {
             var terrain = _navigation.Terrain;
             var mesh = GroundMesh.Build(terrain, 2, out float minH, out float maxH);
+            _groundMeshAsset = mesh;
             _overlay = new Texture2D(terrain.Columns, terrain.Rows, TextureFormat.RGBA32, false)
             {
                 filterMode = FilterMode.Point,
@@ -262,6 +269,10 @@ namespace GodGame.Rendering
 
         private void Update()
         {
+            if (_host == null || _units == null)
+            {
+                return; // set-up failed (see the console)
+            }
             HandleKeys();
             _units.Draw(_host);
             float ms = Time.unscaledDeltaTime * 1000f;

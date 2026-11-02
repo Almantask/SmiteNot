@@ -142,12 +142,19 @@ namespace GodGame.Bridge
             }
             double sinceMs =
                 (Stopwatch.GetTimestamp() - current.PublishedTicks) * 1000.0 / Stopwatch.Frequency;
-            double tickMs = 1000.0 / SimConstants.TicksPerSecond / Math.Max(Speed, 1e-6);
+            if (Speed <= 0)
+            {
+                alpha = 1f; // paused: show the newest tick, not one behind
+                return;
+            }
+            double tickMs = 1000.0 / SimConstants.TicksPerSecond / Speed;
             alpha = (float)Math.Min(1.0, Math.Max(0.0, sinceMs / tickMs));
         }
 
         /// <summary>The exception that stopped the worker, if any (shown by the debug view).</summary>
-        public Exception Failure { get; private set; }
+        public Exception Failure => Volatile.Read(ref _failure);
+
+        private Exception _failure;
 
         private void Run()
         {
@@ -157,7 +164,7 @@ namespace GodGame.Bridge
             }
             catch (Exception e)
             {
-                Failure = e;
+                Volatile.Write(ref _failure, e);
             }
         }
 

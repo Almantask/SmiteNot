@@ -7,7 +7,7 @@ namespace GodGame.Sim.Rules
     /// <summary>
     /// Builds a <see cref="Ruleset"/> from rules files. The simulation reads no files itself: the host reads
     /// <c>data/rules/*.json</c> and passes (file name, text) pairs. v0 knows <c>unit-types.json</c> and
-    /// <c>movement-classes.json</c> and <c>hazards.json</c>, and needs all three.
+    /// <c>movement-classes.json</c>, <c>hazards.json</c> and <c>routes.json</c>, and needs all four.
     /// </summary>
     public static class RulesetLoader
     {
@@ -17,6 +17,8 @@ namespace GodGame.Sim.Rules
         public const string MovementClassesFile = "movement-classes.json";
         public const int HazardsVersion = 0;
         public const string HazardsFile = "hazards.json";
+        public const int RoutesVersion = 0;
+        public const string RoutesFile = "routes.json";
 
         /// <summary>Costs fit a ushort with room for the impassable marker.</summary>
         public const int MaxCost = 10_000;
@@ -45,6 +47,7 @@ namespace GodGame.Sim.Rules
             JsonValue? unitTypesJson = null;
             JsonValue? movementJson = null;
             JsonValue? hazardsJson = null;
+            JsonValue? routesJson = null;
             foreach (var file in files)
             {
                 var value = JsonReader.Parse(file.Value, file.Key);
@@ -60,6 +63,10 @@ namespace GodGame.Sim.Rules
                 else if (string.Equals(file.Key, HazardsFile, StringComparison.Ordinal))
                 {
                     hazardsJson = value;
+                }
+                else if (string.Equals(file.Key, RoutesFile, StringComparison.Ordinal))
+                {
+                    routesJson = value;
                 }
                 else
                 {
@@ -80,12 +87,24 @@ namespace GodGame.Sim.Rules
             {
                 throw new DataFormatException(HazardsFile + " is missing.");
             }
+            if (routesJson == null)
+            {
+                throw new DataFormatException(RoutesFile + " is missing.");
+            }
 
             bool placeholders = false;
             var unitTypes = ReadUnitTypes(unitTypesJson, ref placeholders);
             var movement = ReadMovementClasses(movementJson, ref placeholders);
             var hazards = ReadHazards(hazardsJson, ref placeholders);
-            return new Ruleset(unitTypes, movement, hazards, RulesetHash.Of(parsed), placeholders);
+            var routes = ReadRoutes(routesJson, ref placeholders);
+            return new Ruleset(
+                unitTypes,
+                movement,
+                hazards,
+                routes,
+                RulesetHash.Of(parsed),
+                placeholders
+            );
         }
 
         private static MovementClassRules[] ReadMovementClasses(
@@ -172,6 +191,32 @@ namespace GodGame.Sim.Rules
                 throw new DataFormatException(root.Path + ": unitTypes is empty.");
             }
             return list;
+        }
+
+        private static RouteRules ReadRoutes(JsonValue root, ref bool placeholders)
+        {
+            root.OnlyKeys(
+                "$comment",
+                "version",
+                "status",
+                "capPercent",
+                "coarseCells",
+                "clearanceCells"
+            );
+            if (root.Int("version") != RoutesVersion)
+            {
+                throw new DataFormatException(root.Path + ": version must be 0.");
+            }
+            placeholders |= ReadStatus(root);
+            var clearance = root["clearanceCells"];
+            clearance.OnlyKeys("foot", "horse", "wheeled");
+            return new RouteRules(
+                root.Int("capPercent", 100, 1_000),
+                root.Int("coarseCells", 1, 16),
+                clearance.Int("foot", 1, 8),
+                clearance.Int("horse", 1, 8),
+                clearance.Int("wheeled", 1, 8)
+            );
         }
 
         private static HazardRules ReadHazards(JsonValue root, ref bool placeholders)

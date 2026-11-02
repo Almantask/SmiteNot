@@ -14,8 +14,8 @@ internal static class PinnedHashes
     /// <summary>World.AppendTo after WorldTests' seed-7 battle with despawns and a reused slot. Pinned 2026-11-01.</summary>
     public const ulong WorldBattleSeed7 = 6214903519218766211UL;
 
-    /// <summary>RulesetHash of data/rules (unit-types.json with speed, radius and formation, movement-classes.json and hazards.json, v0, placeholder values; canonical form without $comment). Pinned 2026-11-02.</summary>
-    public const ulong RulesV0 = 7883032191104309588UL;
+    /// <summary>RulesetHash of data/rules (unit-types.json with speed, radius and formation, movement-classes.json, hazards.json and routes.json, v0, placeholder values; canonical form without $comment). Pinned 2026-11-02.</summary>
+    public const ulong RulesV0 = 5492923142793659199UL;
 
     /// <summary>data/maps/m1-flat (map hash), data/plans/m1-ten-thousand.json (plan hash) and the world it deploys. Pinned 2026-11-01.</summary>
     public const ulong MapM1Flat = 0x59885A55C9609ABBUL;

@@ -286,6 +286,10 @@ public class CostFieldTests
                         RepoData.Read("data", "rules", "hazards.json")
                     ),
                     KeyValuePair.Create(
+                        "routes.json",
+                        RepoData.Read("data", "rules", "routes.json")
+                    ),
+                    KeyValuePair.Create(
                         "unit-types.json",
                         RepoData.Read("data", "rules", "unit-types.json")
                     ),

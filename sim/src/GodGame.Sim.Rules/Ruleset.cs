@@ -90,6 +90,32 @@ namespace GodGame.Sim.Rules
         public FormationRules Formation { get; }
     }
 
+    /// <summary>The guaranteed-route check, from <c>data/rules/routes.json</c>.</summary>
+    public sealed class RouteRules
+    {
+        private readonly int[] _clearance;
+
+        public RouteRules(int capPercent, int coarseCells, int foot, int horse, int wheeled)
+        {
+            CapPercent = capPercent;
+            CoarseCells = coarseCells;
+            _clearance = new[] { foot, horse, wheeled, 1 };
+            MaxClearance = System.Math.Max(foot, System.Math.Max(horse, wheeled));
+        }
+
+        /// <summary>The longest route allowed, in percent of the straight-line distance (200: the brief's 2×).</summary>
+        public int CapPercent { get; }
+
+        /// <summary>Field cells per side of a reachability cell.</summary>
+        public int CoarseCells { get; }
+
+        /// <summary>The largest clearance any class needs.</summary>
+        public int MaxClearance { get; }
+
+        /// <summary>How far, in reachability cells, a class must stay from a closed one (1: any open cell).</summary>
+        public int Clearance(MovementClass movementClass) => _clearance[(int)movementClass];
+    }
+
     /// <summary>World hazards from <c>data/rules/hazards.json</c>.</summary>
     public sealed class HazardRules
     {
@@ -147,12 +173,14 @@ namespace GodGame.Sim.Rules
             IReadOnlyList<UnitTypeRules> unitTypes,
             IReadOnlyList<MovementClassRules> movementClasses,
             HazardRules hazards,
+            RouteRules routes,
             ulong hash,
             bool hasPlaceholders
         )
         {
             MovementClasses = movementClasses;
             Hazards = hazards;
+            Routes = routes;
             UnitTypes = unitTypes;
             Hash = hash;
             HasPlaceholders = hasPlaceholders;
@@ -170,6 +198,8 @@ namespace GodGame.Sim.Rules
         public IReadOnlyList<MovementClassRules> MovementClasses { get; }
 
         public HazardRules Hazards { get; }
+
+        public RouteRules Routes { get; }
 
         public MovementClassRules Movement(MovementClass movementClass) =>
             MovementClasses[(int)movementClass];

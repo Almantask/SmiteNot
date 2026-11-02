@@ -36,6 +36,7 @@ internal static class RepoData
                 ),
                 KeyValuePair.Create("unit-types.json", unitTypesJson),
                 KeyValuePair.Create("hazards.json", Read("data", "rules", "hazards.json")),
+                KeyValuePair.Create("routes.json", Read("data", "rules", "routes.json")),
             }
         );
 }

@@ -1,0 +1,8 @@
+{
+  "$comment": "The guaranteed route (brief, 2026-10-09: no placement may fully trap either army, and the shortest open route may be at most twice the straight-line distance). capPercent is the brief's 2x; the brief calls it a tuning knob that may differ per map. coarseCells: field cells per side of the reachability grid (3 = 4.5 m cells, inside the tech notes' 4 to 8 m; it keeps the check within the 5 ms drag budget). clearanceCells: how far from a closed coarse cell each class must stay (1 = any open cell; 2 = a corridor three cells, 13.5 m, wide), so siege needs wide gaps; 13.5 m is wider than an engine needs and is the first number for S2 to revisit. No spec has set the grid or the clearances: spec pass S2 does, so the file is marked placeholder.",
+  "version": 0,
+  "status": "placeholder",
+  "capPercent": 200,
+  "coarseCells": 3,
+  "clearanceCells": { "foot": 1, "horse": 1, "wheeled": 2 }
+}

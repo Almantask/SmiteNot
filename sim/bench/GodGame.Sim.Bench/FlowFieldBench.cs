@@ -47,7 +47,9 @@ public class FlowFieldBench
             }
         }
         string json =
-            "{\"version\":0,\"id\":\"bench\",\"widthMm\":1200000,\"depthMm\":800000,\"cellSizeMm\":1500,\"deployment\":[]}";
+            "{\"version\":0,\"id\":\"bench\",\"widthMm\":1200000,\"depthMm\":800000,\"cellSizeMm\":1500,\"deployment\":["
+            + "{\"side\":\"attacker\",\"minXMm\":0,\"minYMm\":0,\"maxXMm\":200000,\"maxYMm\":800000},"
+            + "{\"side\":\"defender\",\"minXMm\":1000000,\"minYMm\":0,\"maxXMm\":1200000,\"maxYMm\":800000}]}";
         return MapData.Load(json, height);
     }
 

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Routes (the reachability check), ruleset v0",
+  "description": "Read by GodGame.Sim.Rules.RulesetLoader. Numbers are integers; unknown keys are rejected.",
+  "type": "object",
+  "required": ["version", "capPercent", "coarseCells", "clearanceCells"],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": { "type": "string" },
+    "version": { "const": 0 },
+    "status": { "enum": ["placeholder", "settled"], "description": "placeholder: numbers no spec has set yet" },
+    "capPercent": { "type": "integer", "minimum": 100, "maximum": 1000, "description": "Longest allowed route, percent of the straight-line distance" },
+    "coarseCells": { "type": "integer", "minimum": 1, "maximum": 16, "description": "Field cells per side of a reachability cell" },
+    "clearanceCells": {
+      "type": "object",
+      "required": ["foot", "horse", "wheeled"],
+      "additionalProperties": false,
+      "properties": {
+        "foot": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "horse": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "wheeled": { "type": "integer", "minimum": 1, "maximum": 8 }
+      }
+    }
+  }
+}

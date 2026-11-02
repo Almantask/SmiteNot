@@ -13,7 +13,7 @@ Check first when sim/src/GodGame.Sim/Navigation changes (first audited 2026-11-0
 - When battle-time height edits arrive, Terrain heights become state: they go in StateHash (or a running edit hash) and in snapshots, restore needs a full rebuild, edits are applied serially in a fixed order, and planning terrain edits must be covered by the plan hash.
 - Adding a rules file changes RulesetHash, which forces a header-only golden regeneration with no SimVersion bump. That is correct under CLAUDE.md rule 3, but sim-tests.md and the godsim help say "with a bump". Point out the mismatch rather than calling it a violation.
 - RulesetHash sorts by file name (ordinal), so host enumeration order is fine.
-- Navigation/ .meta files were missing (eighth time; ninth on 2026-11-02 for FlowField.cs, FlowFieldSet.cs). See [[pattern-overflow-assert-side-effects]].
+- Navigation/ .meta files were missing (eighth time; ninth on 2026-11-02 for FlowField.cs, FlowFieldSet.cs; eleventh for LethalDistance.cs). See [[pattern-overflow-assert-side-effects]].
 
 Flow fields (audited 2026-11-02, M2 item 2, commit a581895; no High):
 - Repair == Rebuild proof rests on: every changed edge has both ends in dirty+1 (diagonal corner cells included); old direction pointers trace exact old distances; all costs >= 1 so pointer paths strictly decrease (no zero-weight cycles). baseCost >= 1 is enforced only by RulesetLoader, not Ruleset/CellCost: a cost-0 source (future congestion, mud) silently breaks repair exactness. Re-check whenever a new cost input arrives.
@@ -21,6 +21,12 @@ Flow fields (audited 2026-11-02, M2 item 2, commit a581895; no High):
 - Versions are terrain versions only: when costs gain non-terrain inputs, the staleness asserts stop seeing changes.
 - Dial ring = maxCost*14+1; Rebuild walks every distance value (O(max distance)), so high slope costs cost time, not correctness.
 - FlowField.Offsets is a public static readonly array (mutable contents). FlowFieldSet indices depend on GetOrAdd order: never hash or snapshot them unless restore re-adds in the same order.
+
+Lethal distance (audited 2026-11-02, commit 8af20fc; no High):
+- Two-pass 3x3 chamfer is exact on an unobstructed grid when orth <= diag <= 2*orth (optimal paths are monotone; each quadrant's path can be reordered so one pass does it). Windowed rebuild is exact because a window is convex (a monotone path enters once) and cells beyond cap/orth cells can't feel the edit. Breaks if lethal cells ever block propagation (obstacles) or the cap/window margin changes: re-prove then.
+- Same freshness gap as flow fields: Rebuild(dirty) sets BuiltFromVersion to the current version whatever rect it got, so a missed edit is invisible. Want dirty-union accumulation per tick.
+- Map edge cells are lethal (distance 0) and deployment zones may touch the edge: check once teeter/landing rules read it.
+- Header-only golden check: git show <commit> -- sim/tests/golden must show only the rulesetHash line; StateHash excludes RulesetHash.
 
 **Why:** Flow fields (M2 item 2) and terrain powers will read these fields every tick; staleness or a too-narrow dirty rect diverges silently.
 **How to apply:** re-derive the products, compare each dirty radius with each stencil, and ask where heights are hashed and snapshotted once anything edits them during a battle.

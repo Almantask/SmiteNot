@@ -5,6 +5,7 @@ One file per decision that is expensive to reverse (engine, Burst or not, backen
 | ADR | Decision | Status |
 |---|---|---|
 | [0001](0001-engine-unity.md) | Unity 6 (URP) presents; an engine-free C# simulation decides | Accepted |
+| [0002](0002-no-burst-for-the-simulation.md) | The simulation stays managed C#; no Burst for now | Accepted |
 
 ## Template
 

@@ -22,6 +22,33 @@ namespace GodGame.Sim
     /// </summary>
     public sealed class World
     {
+        /// <summary>
+        /// The world fields (water, wetness, mud, …), or null in a world built without them (tests of units alone).
+        /// Hashed and snapshotted with the rest of the world.
+        /// </summary>
+        public FieldStore? Fields { get; private set; }
+
+        /// <summary>Gives the world its fields; once, before the first tick.</summary>
+        public void AttachFields(FieldStore fields)
+        {
+            if (Fields != null)
+            {
+                throw new InvalidOperationException("The world already has its fields.");
+            }
+            Fields = fields ?? throw new ArgumentNullException(nameof(fields));
+        }
+
+        /// <summary>An empty world of the same capacities and field layout, for restoring a snapshot into.</summary>
+        public World CreateBlank()
+        {
+            var blank = new World(Units.Capacity, Regiments.Capacity);
+            if (Fields != null)
+            {
+                blank.AttachFields(new FieldStore(Fields.Rules, Fields.Columns, Fields.Rows));
+            }
+            return blank;
+        }
+
         public World(int unitCapacity, int regimentCapacity)
         {
             Units = new EntityPool(unitCapacity);
@@ -219,6 +246,8 @@ namespace GodGame.Sim
         /// </summary>
         internal void WriteTo(ByteWriter writer)
         {
+            writer.WriteByte(Fields == null ? (byte)0 : (byte)1);
+            Fields?.WriteTo(writer);
             Units.WriteTo(writer);
             Regiments.WriteTo(writer);
             int units = Units.Capacity;
@@ -375,6 +404,12 @@ namespace GodGame.Sim
 
         internal void ReadFrom(ByteReader reader)
         {
+            byte hasFields = reader.ReadByte();
+            if (hasFields != (Fields == null ? 0 : 1))
+            {
+                throw new FormatException("The snapshot's fields don't match this world's.");
+            }
+            Fields?.ReadFrom(reader);
             Units.ReadFrom(reader);
             Regiments.ReadFrom(reader);
             for (int u = 0; u < Units.Capacity; u++)
@@ -425,6 +460,7 @@ namespace GodGame.Sim
         {
             Units.AppendTo(hash);
             Regiments.AppendTo(hash);
+            Fields?.AppendTo(hash);
             for (int u = 0; u < Units.HighWater; u++)
             {
                 if (!Units.IsAlive(u))

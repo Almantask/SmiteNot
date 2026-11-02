@@ -84,7 +84,7 @@ namespace GodGame.Sim
                 throw new ArgumentNullException(nameof(snapshot));
             }
             // Read into a scratch world first, so a bad snapshot leaves this simulation untouched.
-            var scratch = new World(World.Units.Capacity, World.Regiments.Capacity);
+            var scratch = World.CreateBlank();
             var (battleId, tick, seed) = Snapshot.Read(snapshot, scratch);
             if (battleId != BattleId)
             {

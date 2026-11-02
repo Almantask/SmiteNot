@@ -101,6 +101,12 @@ namespace GodGame.Sim.Math
 
         public void AppendInt32s(ReadOnlySpan<int> values)
         {
+            if (BitConverter.IsLittleEndian)
+            {
+                // The ints' memory is already their little-endian bytes: the same bytes as one at a time, in one pass.
+                Append(System.Runtime.InteropServices.MemoryMarshal.AsBytes(values));
+                return;
+            }
             for (int i = 0; i < values.Length; i++)
             {
                 AppendInt32(values[i]);

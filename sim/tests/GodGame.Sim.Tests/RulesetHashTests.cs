@@ -25,19 +25,22 @@ internal static class RepoData
 
     public static Ruleset Rules() => RulesWithUnitTypes(Read("data", "rules", "unit-types.json"));
 
-    /// <summary>The repo's movement classes with the given unit-types file.</summary>
+    /// <summary>Every rules file in data/rules, as (file name, text), in ordinal name order.</summary>
+    public static KeyValuePair<string, string>[] RuleFiles() =>
+        Directory
+            .GetFiles(Path.Combine(Root, "data", "rules"), "*.json")
+            .OrderBy(f => Path.GetFileName(f), StringComparer.Ordinal)
+            .Select(f => KeyValuePair.Create(Path.GetFileName(f), File.ReadAllText(f)))
+            .ToArray();
+
+    /// <summary>The repo's rules with the given unit-types file in place of the repo's.</summary>
     public static Ruleset RulesWithUnitTypes(string unitTypesJson) =>
         RulesetLoader.Load(
-            new[]
-            {
-                KeyValuePair.Create(
-                    "movement-classes.json",
-                    Read("data", "rules", "movement-classes.json")
-                ),
-                KeyValuePair.Create("unit-types.json", unitTypesJson),
-                KeyValuePair.Create("hazards.json", Read("data", "rules", "hazards.json")),
-                KeyValuePair.Create("routes.json", Read("data", "rules", "routes.json")),
-            }
+            RuleFiles()
+                .Select(f =>
+                    f.Key == "unit-types.json" ? KeyValuePair.Create(f.Key, unitTypesJson) : f
+                )
+                .ToArray()
         );
 }
 

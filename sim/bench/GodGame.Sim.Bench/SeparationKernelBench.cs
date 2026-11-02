@@ -36,10 +36,24 @@ public class SeparationKernelBench
         _py = new long[_x.Length];
         _pr = new long[_x.Length];
         Separation();
-        Console.WriteLine("separation_checksum " + SeparationKernel.Checksum(_px, _py, _pr).ToString("X16"));
+        Console.WriteLine(
+            "separation_checksum " + SeparationKernel.Checksum(_px, _py, _pr).ToString("X16")
+        );
     }
 
     [Benchmark]
     public void Separation() =>
-        SeparationKernel.Run(_x, _y, _columns, _rows, _cellStart, _cellUnits, _px, _py, _pr, 0, _x.Length);
+        SeparationKernel.Run(
+            _x,
+            _y,
+            _columns,
+            _rows,
+            _cellStart,
+            _cellUnits,
+            _px,
+            _py,
+            _pr,
+            0,
+            _x.Length
+        );
 }

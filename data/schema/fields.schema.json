@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fields, ruleset v0",
+  "description": "Read by GodGame.Sim.Rules.RulesetLoader. Numbers are integers; unknown keys are rejected. At most 16 fields.",
+  "type": "object",
+  "required": ["version", "tileCells", "sleepAfterSteps", "fields", "interactions"],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": { "type": "string" },
+    "version": { "const": 0 },
+    "status": { "enum": ["placeholder", "settled"] },
+    "tileCells": { "type": "integer", "minimum": 4, "maximum": 64, "description": "Cells per side of an activity tile" },
+    "sleepAfterSteps": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Quiet field steps before a tile sleeps" },
+    "fields": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "required": ["id", "unit", "min", "max", "initial"],
+        "additionalProperties": false,
+        "properties": {
+          "$comment": { "type": "string" },
+          "id": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" },
+          "unit": { "enum": ["mm", "scale", "centidegrees", "cmPerS"], "description": "mm within ±10 km; scale 0 to 65535; centidegrees and cmPerS within ±10000" },
+          "min": { "type": "integer" },
+          "max": { "type": "integer" },
+          "initial": { "type": "integer" }
+        }
+      }
+    },
+    "interactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source", "target", "rate"],
+        "additionalProperties": false,
+        "properties": {
+          "$comment": { "type": "string" },
+          "id": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$", "description": "The rule's name; the model that applies it documents its scale" },
+          "source": { "type": "string", "description": "A field id listed above" },
+          "target": { "type": "string", "description": "A field id listed above" },
+          "rate": { "type": "integer", "minimum": -1000000, "maximum": 1000000 },
+          "threshold": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

@@ -47,8 +47,9 @@ public class SnapshotIntegrityTests
     {
         var simulation = ThreeSoldiersOneDespawned();
         byte[] snapshot = simulation.CaptureSnapshot();
-        // Unit pool: 4 counts (16 bytes), generations (4 + 3 × 4), free stack (4 + 3 × 4), then one alive byte per slot.
-        int aliveFlagOfSlot1 = HeaderBytes + 16 + 16 + 16 + 1;
+        // The fields flag (one byte; this world has none), then the unit pool: 4 counts (16 bytes), generations
+        // (4 + 3 × 4), free stack (4 + 3 × 4), then one alive byte per slot.
+        int aliveFlagOfSlot1 = HeaderBytes + 1 + 16 + 16 + 16 + 1;
         Assert.That(snapshot[aliveFlagOfSlot1], Is.EqualTo(0), "slot 1 was despawned");
         snapshot[aliveFlagOfSlot1] = 1; // now alive and on the free stack at once
         snapshot = WithFreshChecksum(snapshot);

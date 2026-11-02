@@ -19,6 +19,9 @@
   </ItemGroup>
   <ItemGroup>
     <!-- The Burst decision's kernel: the identical source Unity runs under Mono, IL2CPP and (ported) Burst. -->
-    <Compile Include="../../../unity/Assets/_Game/Benchmarks/SeparationKernel.cs" Link="SeparationKernel.cs" />
+    <Compile
+      Include="../../../unity/Assets/_Game/Benchmarks/SeparationKernel.cs"
+      Link="SeparationKernel.cs"
+    />
   </ItemGroup>
 </Project>

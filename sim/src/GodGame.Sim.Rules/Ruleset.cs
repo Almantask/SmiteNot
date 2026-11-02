@@ -174,6 +174,7 @@ namespace GodGame.Sim.Rules
             IReadOnlyList<MovementClassRules> movementClasses,
             HazardRules hazards,
             RouteRules routes,
+            FieldRules fields,
             ulong hash,
             bool hasPlaceholders
         )
@@ -181,6 +182,7 @@ namespace GodGame.Sim.Rules
             MovementClasses = movementClasses;
             Hazards = hazards;
             Routes = routes;
+            Fields = fields;
             UnitTypes = unitTypes;
             Hash = hash;
             HasPlaceholders = hasPlaceholders;
@@ -200,6 +202,8 @@ namespace GodGame.Sim.Rules
         public HazardRules Hazards { get; }
 
         public RouteRules Routes { get; }
+
+        public FieldRules Fields { get; }
 
         public MovementClassRules Movement(MovementClass movementClass) =>
             MovementClasses[(int)movementClass];

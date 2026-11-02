@@ -7,7 +7,8 @@ namespace GodGame.Sim.Rules
     /// <summary>
     /// Builds a <see cref="Ruleset"/> from rules files. The simulation reads no files itself: the host reads
     /// <c>data/rules/*.json</c> and passes (file name, text) pairs. v0 knows <c>unit-types.json</c> and
-    /// <c>movement-classes.json</c>, <c>hazards.json</c> and <c>routes.json</c>, and needs all four.
+    /// <c>movement-classes.json</c>, <c>hazards.json</c>, <c>routes.json</c> and <c>fields.json</c>, and needs all
+    /// five.
     /// </summary>
     public static class RulesetLoader
     {
@@ -19,6 +20,8 @@ namespace GodGame.Sim.Rules
         public const string HazardsFile = "hazards.json";
         public const int RoutesVersion = 0;
         public const string RoutesFile = "routes.json";
+        public const int FieldsVersion = 0;
+        public const string FieldsFile = "fields.json";
 
         /// <summary>Costs fit a ushort with room for the impassable marker.</summary>
         public const int MaxCost = 10_000;
@@ -37,6 +40,11 @@ namespace GodGame.Sim.Rules
         /// <summary>A formation is at most 1 km wide and deep, so squared distances across it stay far inside a long.</summary>
         public const int MaxFormationMm = 1_000_000;
 
+        /// <summary>Field values in mm stay within ±10 km, like ground heights.</summary>
+        public const int MaxFieldMm = 10_000_000;
+
+        public const int MaxFields = 16;
+
         public static Ruleset Load(IReadOnlyList<KeyValuePair<string, string>> files)
         {
             if (files == null)
@@ -48,6 +56,7 @@ namespace GodGame.Sim.Rules
             JsonValue? movementJson = null;
             JsonValue? hazardsJson = null;
             JsonValue? routesJson = null;
+            JsonValue? fieldsJson = null;
             foreach (var file in files)
             {
                 var value = JsonReader.Parse(file.Value, file.Key);
@@ -67,6 +76,10 @@ namespace GodGame.Sim.Rules
                 else if (string.Equals(file.Key, RoutesFile, StringComparison.Ordinal))
                 {
                     routesJson = value;
+                }
+                else if (string.Equals(file.Key, FieldsFile, StringComparison.Ordinal))
+                {
+                    fieldsJson = value;
                 }
                 else
                 {
@@ -91,17 +104,23 @@ namespace GodGame.Sim.Rules
             {
                 throw new DataFormatException(RoutesFile + " is missing.");
             }
+            if (fieldsJson == null)
+            {
+                throw new DataFormatException(FieldsFile + " is missing.");
+            }
 
             bool placeholders = false;
             var unitTypes = ReadUnitTypes(unitTypesJson, ref placeholders);
             var movement = ReadMovementClasses(movementJson, ref placeholders);
             var hazards = ReadHazards(hazardsJson, ref placeholders);
             var routes = ReadRoutes(routesJson, ref placeholders);
+            var fields = ReadFields(fieldsJson, ref placeholders);
             return new Ruleset(
                 unitTypes,
                 movement,
                 hazards,
                 routes,
+                fields,
                 RulesetHash.Of(parsed),
                 placeholders
             );
@@ -191,6 +210,129 @@ namespace GodGame.Sim.Rules
                 throw new DataFormatException(root.Path + ": unitTypes is empty.");
             }
             return list;
+        }
+
+        /// <summary>Field units the data rules allow, with their value ranges.</summary>
+        private static bool UnitRange(string unit, out int min, out int max)
+        {
+            switch (unit)
+            {
+                case "mm":
+                    min = -MaxFieldMm;
+                    max = MaxFieldMm;
+                    return true;
+                case "scale":
+                    min = 0;
+                    max = 65_535;
+                    return true;
+                case "centidegrees":
+                    min = -10_000;
+                    max = 10_000;
+                    return true;
+                case "cmPerS":
+                    min = -10_000;
+                    max = 10_000;
+                    return true;
+                default:
+                    min = max = 0;
+                    return false;
+            }
+        }
+
+        private static FieldRules ReadFields(JsonValue root, ref bool placeholders)
+        {
+            root.OnlyKeys(
+                "$comment",
+                "version",
+                "status",
+                "tileCells",
+                "sleepAfterSteps",
+                "fields",
+                "interactions"
+            );
+            if (root.Int("version") != FieldsVersion)
+            {
+                throw new DataFormatException(root.Path + ": version must be 0.");
+            }
+            placeholders |= ReadStatus(root);
+            var fields = new List<FieldDefinition>();
+            foreach (var item in root.Array("fields"))
+            {
+                item.OnlyKeys("$comment", "id", "unit", "min", "max", "initial");
+                string id = DataIds.Require(item["id"]);
+                foreach (var existing in fields)
+                {
+                    if (string.Equals(existing.Id, id, StringComparison.Ordinal))
+                    {
+                        throw new DataFormatException(
+                            item.Path + ": duplicate field \"" + id + "\"."
+                        );
+                    }
+                }
+                string unit = item.Str("unit");
+                if (!UnitRange(unit, out int lowest, out int highest))
+                {
+                    throw new DataFormatException(
+                        item.Path + ": unit must be mm, scale, centidegrees or cmPerS."
+                    );
+                }
+                int min = item.Int("min", lowest, highest);
+                int max = item.Int("max", lowest, highest);
+                if (max < min)
+                {
+                    throw new DataFormatException(item.Path + ": max is below min.");
+                }
+                fields.Add(
+                    new FieldDefinition(
+                        fields.Count,
+                        id,
+                        unit,
+                        min,
+                        max,
+                        item.Int("initial", min, max)
+                    )
+                );
+            }
+            if (fields.Count > MaxFields)
+            {
+                throw new DataFormatException(root.Path + ": at most 16 fields.");
+            }
+            var rules = new FieldRules(
+                root.Int("tileCells", 4, 64),
+                root.Int("sleepAfterSteps", 1, 100),
+                fields,
+                new List<FieldInteraction>()
+            );
+            var interactions = new List<FieldInteraction>();
+            foreach (var item in root.Array("interactions"))
+            {
+                item.OnlyKeys("$comment", "id", "source", "target", "rate", "threshold");
+                string id = DataIds.Require(item["id"]);
+                if (rules.Interaction(id) != null || interactions.Exists(r => r.Id == id))
+                {
+                    throw new DataFormatException(
+                        item.Path + ": duplicate interaction \"" + id + "\"."
+                    );
+                }
+                int source = rules.IndexOf(item.Str("source"));
+                int target = rules.IndexOf(item.Str("target"));
+                if (source < 0 || target < 0)
+                {
+                    throw new DataFormatException(
+                        item.Path + ": source and target must be fields listed above."
+                    );
+                }
+                interactions.Add(
+                    new FieldInteraction(
+                        id,
+                        source,
+                        target,
+                        item.Int("rate", -1_000_000, 1_000_000),
+                        item.Has("threshold") ? item.Int("threshold", -MaxFieldMm, MaxFieldMm) : 0
+                    )
+                );
+            }
+            return new FieldRules(rules.TileCells, rules.SleepAfterSteps, fields, interactions);
         }
 
         private static RouteRules ReadRoutes(JsonValue root, ref bool placeholders)

@@ -302,6 +302,30 @@ namespace GodGame.Sim
                     throw new FormatException("A dead unit slot is not zero.");
                 }
             }
+            // Formation slots are unique within a regiment: mark each in a block per regiment.
+            var slotStart = new long[Regiments.Capacity + 1];
+            for (int r = 0; r < Regiments.Capacity; r++)
+            {
+                slotStart[r + 1] =
+                    slotStart[r] + (Regiments.IsAlive(r) ? RegimentStartingSize[r] : 0);
+            }
+            if (slotStart[Regiments.Capacity] > (long)Units.Capacity * 16)
+            {
+                throw new FormatException("Regiment starting sizes are implausibly large.");
+            }
+            var slotTaken = new bool[slotStart[Regiments.Capacity]];
+            for (int u = 0; u < Units.Capacity; u++)
+            {
+                if (Units.IsAlive(u))
+                {
+                    long at = slotStart[UnitRegiment[u]] + FormationSlot[u];
+                    if (slotTaken[at])
+                    {
+                        throw new FormatException("Two soldiers share a formation slot.");
+                    }
+                    slotTaken[at] = true;
+                }
+            }
             for (int r = 0; r < Regiments.Capacity; r++)
             {
                 if (Regiments.IsAlive(r))
@@ -318,6 +342,7 @@ namespace GodGame.Sim
                     int anchor = RegimentAnchor[r];
                     if (
                         RegimentFiles[r] < 1
+                        || RegimentFiles[r] > System.Math.Max(1, RegimentStartingSize[r])
                         || anchor < -1
                         || anchor >= Units.Capacity
                         || (anchor >= 0 && (!Units.IsAlive(anchor) || UnitRegiment[anchor] != r))

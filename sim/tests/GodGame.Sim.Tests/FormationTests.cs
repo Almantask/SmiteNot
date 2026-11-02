@@ -1,3 +1,4 @@
+using GodGame.Sim.Hosting;
 using GodGame.Sim.Math;
 
 namespace GodGame.Sim.Tests;
@@ -12,8 +13,19 @@ public class FormationTests
         int r = world.UnitRegiment[u];
         int anchor = world.RegimentAnchor[r];
         var rules = RepoData.Rules().UnitTypes[world.UnitType[u]].Formation;
-        var slot =
+        Fix fileSpacing = Fix.FromRatio(rules.FileSpacingMm, 1000);
+        Fix rankSpacing = Fix.FromRatio(rules.RankSpacingMm, 1000);
+        var origin =
             world.Position[anchor]
+            - Formation.SlotOffset(
+                world.FormationSlot[anchor],
+                world.RegimentFiles[r],
+                fileSpacing,
+                rankSpacing,
+                world.RegimentFacing[r]
+            );
+        var slot =
+            origin
             + Formation.SlotOffset(
                 world.FormationSlot[u],
                 world.RegimentFiles[r],
@@ -81,6 +93,35 @@ public class FormationTests
 
         Assert.That(world.RegimentAnchor[0], Is.EqualTo(1));
         Assert.That(world.FormationSlot[world.RegimentAnchor[0]], Is.EqualTo(1));
+        // The formation forms on where the old officer stood: nobody's slot jumped.
+        Assert.That(
+            TestBattles.LiveUnits(world).Where(u => u != 1).Max(u => SlotError(world, u)),
+            Is.LessThan(1.0)
+        );
+    }
+
+    [Test]
+    public void FormationsWiderOrDeeperThanAKilometre_AreRefused()
+    {
+        string wide = RepoData
+            .Read("data", "rules", "unit-types.json")
+            .Replace(
+                "\"files\": 20, \"fileSpacingMm\": 1000",
+                "\"files\": 1000, \"fileSpacingMm\": 1100"
+            );
+        string deep = RepoData
+            .Read("data", "rules", "unit-types.json")
+            .Replace(
+                "\"files\": 20, \"fileSpacingMm\": 1000, \"rankSpacingMm\": 1200",
+                "\"files\": 1, \"fileSpacingMm\": 1000, \"rankSpacingMm\": 6000"
+            );
+
+        Assert.Throws<GodGame.Sim.Rules.Json.DataFormatException>(() =>
+            RepoData.RulesWithUnitTypes(wide)
+        );
+        Assert.Throws<GodGame.Sim.Rules.Json.DataFormatException>(() =>
+            RepoData.RulesWithUnitTypes(deep)
+        );
     }
 
     [Test]
@@ -135,5 +176,63 @@ public class FormationTests
             .OrderBy(e => e)
             .ToArray();
         Assert.That(errors[errors.Length / 2], Is.LessThan(0.5), "back in formation");
+    }
+}
+
+[TestFixture, Category("Slow")]
+public class FormationCrowdTests
+{
+    [Test]
+    public void OfficersFallingMidBattle_AreTheSameOnAnyThreadCount_AndAcrossARestoreWithoutOfficers()
+    {
+        var map = TestBattles.Map((x, y) => x == 60 && (y < 25 || y > 35) ? 5_000 : 0, 160, 60);
+        var regiments = Enumerable
+            .Range(0, 60)
+            .Select(i =>
+                (
+                    "attacker",
+                    i % 4 == 1 ? "cavalry" : "infantry",
+                    50,
+                    4.0 + (i % 3) * 4.0,
+                    5.0 + (i / 3) * 4.0
+                )
+            );
+        var battle = TestBattles.Battle(map, regiments);
+
+        static void KillEveryOtherOfficer(World world)
+        {
+            for (int r = 0; r < world.Regiments.HighWater; r += 2)
+            {
+                if (world.RegimentAnchor[r] >= 0)
+                {
+                    world.DespawnUnit(world.Units.IdOf(world.RegimentAnchor[r]));
+                }
+            }
+        }
+
+        ulong Run(IParallelRunner runner)
+        {
+            var simulation = battle.Start(runner);
+            simulation.Step(100);
+            KillEveryOtherOfficer(simulation.World);
+            simulation.Step(60);
+            KillEveryOtherOfficer(simulation.World);
+            simulation.Step(100);
+            return simulation.StateHash();
+        }
+
+        ulong serial = Run(new SerialRunner());
+        Assert.That(Run(new ThreadedRunner(8)), Is.EqualTo(serial));
+
+        var original = battle.Start(new ThreadedRunner(4));
+        original.Step(100);
+        KillEveryOtherOfficer(original.World);
+        byte[] leaderless = original.CaptureSnapshot(); // regiments without an officer, before promotion
+        var restored = battle.Start(new ThreadedRunner(3));
+        restored.RestoreSnapshot(leaderless);
+        restored.Step(60);
+        KillEveryOtherOfficer(restored.World);
+        restored.Step(100);
+        Assert.That(restored.StateHash(), Is.EqualTo(serial));
     }
 }

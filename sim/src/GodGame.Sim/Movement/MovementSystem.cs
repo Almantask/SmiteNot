@@ -31,7 +31,7 @@ namespace GodGame.Sim
         public const int ChunkSize = 512;
 
         /// <summary>Spatial-hash cell edge.</summary>
-        public static readonly Fix HashCellSize = Fix.FromInt(2);
+        public static readonly Fix HashCellSize = Fix.FromRatio(MapData.NeighbourGridCellMm, 1000);
 
         /// <summary>The gap at which a soldier walks at full speed behind someone standing still; it brakes in proportion below (placeholder).</summary>
         public static readonly Fix BrakeDistance = Fix.FromRatio(1, 2);
@@ -87,6 +87,7 @@ namespace GodGame.Sim
         private long[]?[] _regimentDistances = new long[]?[0];
         private FixVec2[] _anchorPosition = new FixVec2[0];
         private FixVec2[] _anchorVelocity = new FixVec2[0];
+        private FixVec2[] _formationOrigin = new FixVec2[0]; // where slot 0 would stand: the officer, less his own slot's offset
         private bool[] _leaderless = new bool[0];
         private bool[] _officerWaits = new bool[0];
         private int[] _stragglers = new int[0];
@@ -187,6 +188,7 @@ namespace GodGame.Sim
                 _regimentDistances = new long[]?[regiments];
                 _anchorPosition = new FixVec2[regiments];
                 _anchorVelocity = new FixVec2[regiments];
+                _formationOrigin = new FixVec2[regiments];
                 _sumX = new long[regiments];
                 _sumY = new long[regiments];
             }
@@ -243,6 +245,7 @@ namespace GodGame.Sim
                 {
                     _anchorPosition[r] = FixVec2.Zero;
                     _anchorVelocity[r] = FixVec2.Zero;
+                    _formationOrigin[r] = FixVec2.Zero;
                     continue;
                 }
                 FixVec2 v = world.Velocity[anchor];
@@ -262,6 +265,18 @@ namespace GodGame.Sim
                     );
                     world.RegimentFacing[r] = facing + Angle.FromUnits(delta);
                 }
+                // A promoted officer keeps his own slot's place: the formation forms on where slot 0 would be, so
+                // nobody's slot jumps when the standard changes hands.
+                int type = world.RegimentUnitType[r];
+                _formationOrigin[r] =
+                    _anchorPosition[r]
+                    - Formation.SlotOffset(
+                        world.FormationSlot[anchor],
+                        world.RegimentFiles[r],
+                        _typeFileSpacing[type],
+                        _typeRankSpacing[type],
+                        world.RegimentFacing[r]
+                    );
             }
 
             // Stragglers: soldiers further from their officer than the formation's depth plus ReformDistance. While
@@ -359,7 +374,7 @@ namespace GodGame.Sim
                     else
                     {
                         FixVec2 slot =
-                            _s._anchorPosition[regiment]
+                            _s._formationOrigin[regiment]
                             + Formation.SlotOffset(
                                 _world.FormationSlot[u],
                                 _world.RegimentFiles[regiment],

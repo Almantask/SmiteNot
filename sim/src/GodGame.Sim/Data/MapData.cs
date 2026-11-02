@@ -62,10 +62,10 @@ namespace GodGame.Sim
         public const long MaxCells = 16_000_000;
 
         /// <summary>
-        /// 64 km² (8 × 8 km): the movement step's 2 m neighbour grid has at most 16 million cells too. Far above the
-        /// working map (about 1 km²).
+        /// The movement step's neighbour grid (SpatialHash, 2 m cells) holds at most 16 million cells too, so a map is
+        /// at most about 64 km² (8 × 8 km), far above the working map (about 1 km²).
         /// </summary>
-        public const long MaxAreaSquareMetres = 64_000_000;
+        public const int NeighbourGridCellMm = 2_000;
 
         /// <summary>Ground heights within ±10 km.</summary>
         public const int MaxHeightMm = 10_000_000;
@@ -178,9 +178,13 @@ namespace GodGame.Sim
 
             int columns = (width + cell - 1) / cell;
             int rows = (depth + cell - 1) / cell;
-            if ((long)width * depth / 1_000_000 > MaxAreaSquareMetres)
+            long gridColumns = (width + NeighbourGridCellMm - 1) / NeighbourGridCellMm;
+            long gridRows = (depth + NeighbourGridCellMm - 1) / NeighbourGridCellMm;
+            if (gridColumns * gridRows > SpatialHash.MaxCells)
             {
-                throw new DataFormatException("map.json: the map is larger than 64 km².");
+                throw new DataFormatException(
+                    "map.json: the map is larger than the movement step's neighbour grid holds (about 64 km²)."
+                );
             }
             if ((long)columns * rows > MaxCells)
             {

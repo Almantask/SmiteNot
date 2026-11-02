@@ -32,6 +32,9 @@ namespace GodGame.Sim.Rules
         /// <summary>No regiment, of any type, above this; the plan's army cap (10,000) still applies on top.</summary>
         public const int MaxRegimentSoldiers = 10_000;
 
+        /// <summary>A formation is at most 1 km wide and deep, so squared distances across it stay far inside a long.</summary>
+        public const int MaxFormationMm = 1_000_000;
+
         public static Ruleset Load(IReadOnlyList<KeyValuePair<string, string>> files)
         {
             if (files == null)
@@ -191,13 +194,18 @@ namespace GodGame.Sim.Rules
             {
                 throw new DataFormatException(item.Path + ": maxSoldiers is below minSoldiers.");
             }
-            return new FormationRules(
-                item.Int("files", 1, 1_000),
-                item.Int("fileSpacingMm", MinRadiusMm, 20_000),
-                item.Int("rankSpacingMm", MinRadiusMm, 20_000),
-                min,
-                max
-            );
+            int files = item.Int("files", 1, 1_000);
+            int fileSpacing = item.Int("fileSpacingMm", MinRadiusMm, 20_000);
+            int rankSpacing = item.Int("rankSpacingMm", MinRadiusMm, 20_000);
+            // The largest regiment's block must fit in a kilometre each way: movement squares distances across it.
+            long depth = (long)((max - 1 + files - 1) / files) * rankSpacing;
+            if ((long)files * fileSpacing > MaxFormationMm || depth > MaxFormationMm)
+            {
+                throw new DataFormatException(
+                    item.Path + ": the largest regiment's formation is wider or deeper than 1 km."
+                );
+            }
+            return new FormationRules(files, fileSpacing, rankSpacing, min, max);
         }
 
         private static bool ReadStatus(JsonValue root)

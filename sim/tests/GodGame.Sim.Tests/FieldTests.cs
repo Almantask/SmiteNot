@@ -49,7 +49,6 @@ internal sealed class DiffusionModel : IFieldModel
             for (int k = start; k < end; k++)
             {
                 var r = _grid.TileRect(_tiles[k]);
-                bool changed = false;
                 for (int y = r.MinY; y <= r.MaxY; y++)
                 {
                     for (int x = r.MinX; x <= r.MaxX; x++)
@@ -62,18 +61,38 @@ internal sealed class DiffusionModel : IFieldModel
                             + Get(x, y + 1, c);
                         int next = (int)((4L * c + sum) / 8);
                         _grid.Next[y * _grid.Columns + x] = next;
-                        changed |= next != c;
                     }
-                }
-                if (changed)
-                {
-                    _grid.MarkChanged(_tiles[k]);
                 }
             }
         }
 
         private int Get(int x, int y, int fallback) =>
             x < 0 || y < 0 || x >= _grid.Columns || y >= _grid.Rows ? fallback : _grid.Get(x, y);
+    }
+}
+
+/// <summary>A careless test model: raises every other cell far past the field's maximum and leaves the rest alone.</summary>
+internal sealed class CarelessModel : IFieldModel
+{
+    public string FieldId => "water";
+
+    public TickRate Rate => TickRate.EveryTick;
+
+    public bool Staggered => false;
+
+    public void Step(FieldStepContext context, FieldGrid grid, ReadOnlySpan<int> tiles)
+    {
+        foreach (int tile in tiles)
+        {
+            var r = grid.TileRect(tile);
+            for (int y = r.MinY; y <= r.MaxY; y++)
+            {
+                for (int x = r.MinX + (y & 1); x <= r.MaxX; x += 2)
+                {
+                    grid.Next[y * grid.Columns + x] = grid.Get(x, y) + 70_000;
+                }
+            }
+        }
     }
 }
 
@@ -276,5 +295,36 @@ public class FieldTests
         Assert.That(fields.Count, Is.EqualTo(3));
         Assert.That(fields.Columns * fields.Rows, Is.EqualTo(800 * 534));
         Assert.That(simulation.CaptureSnapshot().Length, Is.LessThan(4 * 1024 * 1024));
+    }
+
+    [Test]
+    public void AModelThatSkipsCellsAndOvershoots_IsClampedAndRestoresExactly()
+    {
+        Simulation Make()
+        {
+            var world = new World(1, 1);
+            world.AttachFields(new FieldStore(Rules(), 60, 40));
+            var systems = TickOrder.CreateDefault();
+            systems[(int)TickStep.Fields] = new FieldSystem(
+                new IFieldModel[] { new CarelessModel() }
+            );
+            return new Simulation(world, 3, new SerialRunner(), systems);
+        }
+
+        var live = Make();
+        var water = live.World.Fields!.Get("water");
+        water.Set(30, 20, 10);
+        live.Step(3);
+        byte[] snapshot = live.CaptureSnapshot();
+        live.Step(3);
+
+        var restored = Make();
+        restored.Step(5); // the next buffer now holds other leftovers
+        restored.RestoreSnapshot(snapshot);
+        restored.Step(3);
+
+        Assert.That(water.Values.Max(), Is.EqualTo(100_000), "clamped to the field's maximum");
+        Assert.That(water.Get(31, 20), Is.Zero, "a cell the model skipped kept its value");
+        Assert.That(restored.StateHash(), Is.EqualTo(live.StateHash()));
     }
 }

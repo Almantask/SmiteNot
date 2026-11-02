@@ -6,9 +6,10 @@ namespace GodGame.Sim
     /// <summary>
     /// One field's behaviour (water, wetness and mud, temperature, …). The field system calls models in the fixed
     /// interaction order (plan, section 3.4); each steps the tiles it is given, reading <see cref="FieldGrid.Values"/>
-    /// and writing every cell of those tiles into the grid's next buffer (<see cref="FieldGrid.Next"/>), marking
-    /// tiles whose values moved. Kernels go through the parallel runner, one chunk per range of tiles. A model keeps
-    /// no state between steps: everything lasting lives in the grids.
+    /// and writing the cells it changes into the grid's next buffer (<see cref="FieldGrid.Next"/>, which starts as a
+    /// copy of the tiles' values); the commit finds which tiles changed. Kernels go through the parallel runner, one
+    /// chunk per range of tiles, each writing only its own tiles. A model keeps no state between steps: everything
+    /// lasting lives in the grids.
     /// </summary>
     public interface IFieldModel
     {
@@ -114,6 +115,7 @@ namespace GodGame.Sim
                     continue;
                 }
                 var tiles = new ReadOnlySpan<int>(_due, 0, due);
+                grid.PrepareStep(tiles);
                 model.Step(step, grid, tiles);
                 grid.Commit(tiles);
             }

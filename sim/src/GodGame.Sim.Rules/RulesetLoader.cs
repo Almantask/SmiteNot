@@ -308,7 +308,7 @@ namespace GodGame.Sim.Rules
             {
                 item.OnlyKeys("$comment", "id", "source", "target", "rate", "threshold");
                 string id = DataIds.Require(item["id"]);
-                if (rules.Interaction(id) != null || interactions.Exists(r => r.Id == id))
+                if (interactions.Exists(r => string.Equals(r.Id, id, StringComparison.Ordinal)))
                 {
                     throw new DataFormatException(
                         item.Path + ": duplicate interaction \"" + id + "\"."

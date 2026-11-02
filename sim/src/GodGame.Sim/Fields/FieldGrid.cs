@@ -77,7 +77,10 @@ namespace GodGame.Sim
         /// <summary>Row-major cell values as of the last commit. Models read these; only writes through this class keep activity right.</summary>
         public int[] Values { get; }
 
-        /// <summary>The step's output buffer: a model writes every cell of each tile it steps, and nothing else (models only).</summary>
+        /// <summary>
+        /// The step's output buffer (models only): it holds each stepped tile's current values when the model starts;
+        /// the model writes the cells it changes, in the tiles it was given and nowhere else.
+        /// </summary>
         public int[] Next { get; }
 
         public int Get(int x, int y) => Values[y * Columns + x];
@@ -101,7 +104,7 @@ namespace GodGame.Sim
 
         /// <summary>
         /// Sets one cell from outside the field step (a cast, a terrain piece, a unit's action), clamped to the field's
-        /// range; wakes its tile and the tiles around it.
+        /// range; wakes its tile and the tiles around it. Serial code only, never from a parallel kernel.
         /// </summary>
         public void Set(int x, int y, int value)
         {
@@ -140,22 +143,46 @@ namespace GodGame.Sim
             }
         }
 
-        /// <summary>For a model's kernel: this tile's new values differ from the old (each chunk marks only its own tiles).</summary>
-        public void MarkChanged(int tile) => _changed[tile] = true;
-
         /// <summary>
-        /// Copies the stepped tiles' new values in, then updates activity: a changed tile and its neighbours stay
-        /// awake; a quiet stepped tile counts one step closer to sleep. Serial, in the given (ascending) tile order.
+        /// Before a model steps: fills the stepped tiles' next buffer with their current values, so a cell the model
+        /// leaves alone stays as it was and the step depends only on hashed state.
         /// </summary>
-        internal void Commit(ReadOnlySpan<int> steppedTiles)
+        internal void PrepareStep(ReadOnlySpan<int> steppedTiles)
         {
             for (int k = 0; k < steppedTiles.Length; k++)
             {
                 var r = TileRect(steppedTiles[k]);
                 for (int y = r.MinY; y <= r.MaxY; y++)
                 {
-                    Array.Copy(Next, y * Columns + r.MinX, Values, y * Columns + r.MinX, r.Width);
+                    Array.Copy(Values, y * Columns + r.MinX, Next, y * Columns + r.MinX, r.Width);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Copies the stepped tiles' new values in, clamped to the field's range, then updates activity: a tile whose
+        /// values moved, and its neighbours, stay awake; a quiet stepped tile counts one step closer to sleep. Serial,
+        /// in the given (ascending) tile order; whether a tile changed is read off the two buffers, not reported by the
+        /// model.
+        /// </summary>
+        internal void Commit(ReadOnlySpan<int> steppedTiles)
+        {
+            for (int k = 0; k < steppedTiles.Length; k++)
+            {
+                int tile = steppedTiles[k];
+                var r = TileRect(tile);
+                bool changed = false;
+                for (int y = r.MinY; y <= r.MaxY; y++)
+                {
+                    int row = y * Columns;
+                    for (int x = r.MinX; x <= r.MaxX; x++)
+                    {
+                        int next = Clamp(Next[row + x]);
+                        changed |= next != Values[row + x];
+                        Values[row + x] = next;
+                    }
+                }
+                _changed[tile] = changed;
             }
             for (int k = 0; k < steppedTiles.Length; k++)
             {
@@ -199,7 +226,8 @@ namespace GodGame.Sim
         /// <summary>Sparse by tile: a tile whose cells all hold the initial value is one byte.</summary>
         internal void WriteTo(ByteWriter writer)
         {
-            writer.WriteInt32(Values.Length);
+            writer.WriteInt32(Columns);
+            writer.WriteInt32(Rows);
             for (int t = 0; t < TileCount; t++)
             {
                 writer.WriteByte(_quiet[t]);
@@ -232,7 +260,7 @@ namespace GodGame.Sim
 
         internal void ReadFrom(ByteReader reader)
         {
-            if (reader.ReadInt32() != Values.Length)
+            if (reader.ReadInt32() != Columns || reader.ReadInt32() != Rows)
             {
                 throw new FormatException("Snapshot field " + Definition.Id + " has another size.");
             }

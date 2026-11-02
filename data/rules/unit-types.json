@@ -1,11 +1,23 @@
 {
-  "$comment": "Unit types (ruleset v0). The four base types come from the brief (pillar 3) and the movement classes from the data rules. Health, morale, speed and body radius have no spec yet: spec pass S2 sets the roster, so the file is marked placeholder. Health and morale start at 100; speeds are a march (1.5 m/s), a trot (3.5 m/s) and an ox-drawn engine (0.8 m/s); radii are a soldier's shoulders (0.35 m), a horse (0.7 m) and an engine (1.5 m).",
+  "$comment": "Unit types (ruleset v0). The four base types come from the brief (pillar 3) and the movement classes from the data rules. Health, morale, speed, body radius and formation have no spec yet: spec pass S2 sets the roster, so the file is marked placeholder. Health and morale start at 100; speeds are a march (1.5 m/s), a trot (3.5 m/s) and an ox-drawn engine (0.8 m/s); radii are a soldier's shoulders (0.35 m), a horse (0.7 m) and an engine (1.5 m). Formations: files across, spacing centre to centre; regiments of 50 to 200 follow tech notes section 4 (\"roughly 50 to 200\") for every type until S2.",
   "version": 0,
   "status": "placeholder",
   "unitTypes": [
-    { "id": "infantry", "movementClass": "foot", "health": 100, "morale": 100, "speedMmPerS": 1500, "radiusMm": 350 },
-    { "id": "cavalry", "movementClass": "horse", "health": 100, "morale": 100, "speedMmPerS": 3500, "radiusMm": 700 },
-    { "id": "ranged", "movementClass": "foot", "health": 100, "morale": 100, "speedMmPerS": 1500, "radiusMm": 350 },
-    { "id": "siege", "movementClass": "wheeled", "health": 100, "morale": 100, "speedMmPerS": 800, "radiusMm": 1500 }
+    {
+      "id": "infantry", "movementClass": "foot", "health": 100, "morale": 100, "speedMmPerS": 1500, "radiusMm": 350,
+      "formation": { "files": 20, "fileSpacingMm": 1000, "rankSpacingMm": 1200, "minSoldiers": 50, "maxSoldiers": 200 }
+    },
+    {
+      "id": "cavalry", "movementClass": "horse", "health": 100, "morale": 100, "speedMmPerS": 3500, "radiusMm": 700,
+      "formation": { "files": 10, "fileSpacingMm": 1800, "rankSpacingMm": 3000, "minSoldiers": 50, "maxSoldiers": 200 }
+    },
+    {
+      "id": "ranged", "movementClass": "foot", "health": 100, "morale": 100, "speedMmPerS": 1500, "radiusMm": 350,
+      "formation": { "files": 25, "fileSpacingMm": 1100, "rankSpacingMm": 1400, "minSoldiers": 50, "maxSoldiers": 200 }
+    },
+    {
+      "id": "siege", "movementClass": "wheeled", "health": 100, "morale": 100, "speedMmPerS": 800, "radiusMm": 1500,
+      "formation": { "files": 5, "fileSpacingMm": 4500, "rankSpacingMm": 6000, "minSoldiers": 50, "maxSoldiers": 200 }
+    }
   ]
 }

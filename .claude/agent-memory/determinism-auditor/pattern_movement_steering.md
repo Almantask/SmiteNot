@@ -1,0 +1,18 @@
+---
+name: pattern-movement-steering
+description: Checks for MovementSystem/Navigation (flow-field steering, separation, crowd pressure) - single-chunk thread tests, 64-neighbour truncation bias, fixed 2 m spatial hash vs map caps, stale Pressure scratch, tunnelling past thin walls
+metadata:
+  type: project
+---
+
+Check first when Movement/ or Navigation.cs changes (first audited 2026-11-02, M2 item 3, commit fc69e50; no High):
+- Thread-count tests must exceed ChunkSize (512) by several chunks. MovementTests' test had 360 units = one chunk, so ThreadedRunner never split it. A scratch probe with 3000 units (6 chunks, cavalry+siege, 60 s at a gap) matched on 1/3/8 threads. Count chunks in every new thread-count test.
+- Neighbour buffer (MaxNeighbours 64) is filled in row-major cell order and the query reach includes the LARGEST radius in the ruleset (siege 1.5 m), so infantry query 2.35 m. 3000 infantry at a 6 m gap reached 61/64 (self included) and was still rising; the 10k golden peaks near 30. Truncation drops NE neighbours: one-sided pushes, under-read pressure. Deterministic, but it decides crush deaths later.
+- MovementSystem hard-codes a 2 m SpatialHash over the whole map: anything over ~16M hash cells (about 8 x 8 km) throws on tick 1 although MapData allows 30 km sides. Map caps and hash cell counts must agree.
+- Raw-long margins (Fix 16 bits): QueryRadius rejects per axis, so dx,dy <= reach (<= 5.5 m, 3.6e5 raw); products stay below 1e12. Re-derive if MaxRadiusMm, BrakeDistance or MaxQueryRadius grows.
+- Derived scratch (Pressure, means, directions, hash) is safe while nothing reads it before Movement in the tick; Pressure keeps stale values for dead slots and after a restore until the next run.
+- Only the target cell is checked for passability: a step of push cap (one radius) plus speed can cross a one-cell wall when radius is about the cell size (siege 1.5 m at 1.5 m cells).
+- Movement/ and Navigation/ folders and files still have no .meta files (tenth time). See [[pattern-overflow-assert-side-effects]].
+
+**Why:** These are the traps once crush, pushes over edges and battle-time terrain arrive (M2-M5).
+**How to apply:** count chunks in the thread tests, measure peak neighbour counts in the densest scenario, compare hash cell size with the map caps, and grep for readers of Pressure.

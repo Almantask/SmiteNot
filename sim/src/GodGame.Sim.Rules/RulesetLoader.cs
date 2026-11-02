@@ -27,6 +27,9 @@ namespace GodGame.Sim.Rules
 
         public const int MaxRadiusMm = 2_500;
 
+        /// <summary>No regiment, of any type, above this; the plan's army cap (10,000) still applies on top.</summary>
+        public const int MaxRegimentSoldiers = 10_000;
+
         public static Ruleset Load(IReadOnlyList<KeyValuePair<string, string>> files)
         {
             if (files == null)
@@ -122,7 +125,15 @@ namespace GodGame.Sim.Rules
             var seen = new HashSet<string>(StringComparer.Ordinal);
             foreach (var item in root.Array("unitTypes"))
             {
-                item.OnlyKeys("id", "movementClass", "health", "morale", "speedMmPerS", "radiusMm");
+                item.OnlyKeys(
+                    "id",
+                    "movementClass",
+                    "health",
+                    "morale",
+                    "speedMmPerS",
+                    "radiusMm",
+                    "formation"
+                );
                 string id = DataIds.Require(item["id"]);
                 if (!seen.Add(id))
                 {
@@ -136,7 +147,8 @@ namespace GodGame.Sim.Rules
                         item.Int("health", 1, 1_000_000),
                         item.Int("morale", 0, 1_000_000),
                         item.Int("speedMmPerS", 1, MaxSpeedMmPerSecond),
-                        item.Int("radiusMm", MinRadiusMm, MaxRadiusMm)
+                        item.Int("radiusMm", MinRadiusMm, MaxRadiusMm),
+                        ReadFormation(item["formation"])
                     )
                 );
             }
@@ -145,6 +157,24 @@ namespace GodGame.Sim.Rules
                 throw new DataFormatException(root.Path + ": unitTypes is empty.");
             }
             return list;
+        }
+
+        private static FormationRules ReadFormation(JsonValue item)
+        {
+            item.OnlyKeys("files", "fileSpacingMm", "rankSpacingMm", "minSoldiers", "maxSoldiers");
+            int min = item.Int("minSoldiers", 1, MaxRegimentSoldiers);
+            int max = item.Int("maxSoldiers", 1, MaxRegimentSoldiers);
+            if (max < min)
+            {
+                throw new DataFormatException(item.Path + ": maxSoldiers is below minSoldiers.");
+            }
+            return new FormationRules(
+                item.Int("files", 1, 1_000),
+                item.Int("fileSpacingMm", MinRadiusMm, 20_000),
+                item.Int("rankSpacingMm", MinRadiusMm, 20_000),
+                min,
+                max
+            );
         }
 
         private static bool ReadStatus(JsonValue root)

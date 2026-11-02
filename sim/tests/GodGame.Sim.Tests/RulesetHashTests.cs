@@ -217,7 +217,7 @@ public class MapAndPlanTests
         "{\"version\":0,\"map\":\"small\",\"army\":[" + army + "],\"terrain\":[],\"casts\":[]}";
 
     private const string Regiment =
-        "{\"id\":\"r1\",\"side\":\"attacker\",\"unitType\":\"infantry\",\"soldiers\":9,\"xMm\":5000,\"yMm\":7500,\"facingCentiDegrees\":0}";
+        "{\"id\":\"r1\",\"side\":\"attacker\",\"unitType\":\"infantry\",\"soldiers\":50,\"xMm\":5000,\"yMm\":7500,\"facingCentiDegrees\":0}";
 
     [Test]
     public void Map_LoadsSizeZonesAndHeight()
@@ -295,11 +295,11 @@ public class MapAndPlanTests
         string tooMany = string.Join(
             ",",
             Enumerable
-                .Range(0, 11)
+                .Range(0, 51)
                 .Select(i =>
                     Regiment
                         .Replace("\"r1\"", $"\"r{i:00}\"")
-                        .Replace("\"soldiers\":9", "\"soldiers\":1000")
+                        .Replace("\"soldiers\":50", "\"soldiers\":200")
                 )
         );
         var badHeight = new byte[20 * 10 * 4];
@@ -346,7 +346,7 @@ public class MapAndPlanTests
     }
 
     [Test]
-    public void Deploy_CentresASquareBlockOnThePlanPoint()
+    public void Deploy_FormsRanksBehindTheOfficer_CentredOnThePlanPoint()
     {
         var map = MapData.Load(SmallMap);
         var rules = RepoData.Rules();
@@ -354,12 +354,32 @@ public class MapAndPlanTests
 
         var world = BattleSetup.Deploy(map, plan, rules);
 
-        Assert.That(world.Units.AliveCount, Is.EqualTo(9));
-        var xs = Enumerable.Range(0, 9).Select(u => world.Position[u].X.Raw).ToArray();
-        var ys = Enumerable.Range(0, 9).Select(u => world.Position[u].Y.Raw).ToArray();
-        Assert.That(xs.Average(), Is.EqualTo(5L << 16).Within(2));
-        Assert.That(ys.Average(), Is.EqualTo(7.5 * 65536).Within(2));
-        Assert.That(xs.Max() - xs.Min(), Is.EqualTo(3L << 16).Within(2), "three ranks 1.5 m apart");
+        // 50 infantry facing east: the officer, then ranks of 20, 20 and 9, 1.2 m apart, files 1 m apart.
+        double X(int u) => world.Position[u].X.Raw / 65536.0;
+        double Y(int u) => world.Position[u].Y.Raw / 65536.0;
+        Assert.That(world.Units.AliveCount, Is.EqualTo(50));
+        Assert.That(world.RegimentAnchor[0], Is.Zero);
+        Assert.That(world.RegimentFiles[0], Is.EqualTo(20));
+        Assert.That(
+            Enumerable.Range(1, 49).All(u => X(u) < X(0)),
+            Is.True,
+            "the officer is in front"
+        );
+        Assert.That(
+            Enumerable.Range(1, 20).Select(X).Distinct().Count(),
+            Is.EqualTo(1),
+            "one rank"
+        );
+        Assert.That(X(1) - X(21), Is.EqualTo(1.2).Within(1e-4));
+        Assert.That(Y(10) - Y(11), Is.EqualTo(1.0).Within(1e-4), "files from the left (north) end");
+        // (the 19 m rank is wider than this 15 m test map, so the end files are clamped to its edges)
+        Assert.That(
+            (X(0) + X(49)) / 2,
+            Is.EqualTo(5.0).Within(1e-4),
+            "officer to last rank centres on x"
+        );
+        Assert.That(Enumerable.Range(1, 20).Average(Y), Is.EqualTo(7.5).Within(1e-4));
+        Assert.That(world.FormationSlot[37], Is.EqualTo(37));
         Assert.That(world.Health[0], Is.EqualTo(rules.UnitType("infantry").Health));
     }
 
@@ -368,21 +388,43 @@ public class MapAndPlanTests
     {
         var map = MapData.Load(SmallMap);
         var rules = RepoData.Rules();
-        string pair = Regiment.Replace("\"soldiers\":9", "\"soldiers\":2");
-        var east = BattleSetup.Deploy(map, BattlePlan.Load(Plan(pair), map, rules), rules);
+        var east = BattleSetup.Deploy(map, BattlePlan.Load(Plan(Regiment), map, rules), rules);
         var north = BattleSetup.Deploy(
             map,
             BattlePlan.Load(
-                Plan(pair.Replace("\"facingCentiDegrees\":0", "\"facingCentiDegrees\":9000")),
+                Plan(Regiment.Replace("\"facingCentiDegrees\":0", "\"facingCentiDegrees\":9000")),
                 map,
                 rules
             ),
             rules
         );
 
-        // Two soldiers stand side by side across the facing: along Y when facing east, along X when facing north.
-        Assert.That(east.Position[0].X, Is.EqualTo(east.Position[1].X));
-        Assert.That(north.Position[0].Y, Is.EqualTo(north.Position[1].Y));
+        // A rank stands across the facing: along Y when facing east, along X when facing north.
+        Assert.That(east.Position[1].X, Is.EqualTo(east.Position[2].X));
+        Assert.That(north.Position[1].Y, Is.EqualTo(north.Position[2].Y));
+        Assert.That(north.RegimentFacing[0], Is.EqualTo(GodGame.Sim.Math.Angle.QuarterTurn));
+    }
+
+    [Test]
+    public void Plan_RefusesRegimentsOutsideTheTypesSizeLimits()
+    {
+        var map = MapData.Load(SmallMap);
+        var rules = RepoData.Rules();
+
+        Assert.Throws<DataFormatException>(() =>
+            BattlePlan.Load(
+                Plan(Regiment.Replace("\"soldiers\":50", "\"soldiers\":49")),
+                map,
+                rules
+            )
+        );
+        Assert.Throws<DataFormatException>(() =>
+            BattlePlan.Load(
+                Plan(Regiment.Replace("\"soldiers\":50", "\"soldiers\":201")),
+                map,
+                rules
+            )
+        );
     }
 
     [Test]

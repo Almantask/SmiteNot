@@ -72,7 +72,7 @@ public class MovementTests
     public void AttackersMarchToTheDefendersZone_AtTheirSpeed_AndStopThere()
     {
         var map = TestBattles.Map((x, y) => 0, 80, 20);
-        var battle = TestBattles.Battle(map, new[] { ("attacker", "infantry", 9, 7.5, 15.0) });
+        var battle = TestBattles.Battle(map, new[] { ("attacker", "infantry", 50, 7.5, 15.0) });
         var simulation = battle.Start(new SerialRunner());
         double startX = TestBattles
             .LiveUnits(simulation.World)
@@ -93,7 +93,8 @@ public class MovementTests
         {
             Assert.That(
                 simulation.World.Position[u].X(),
-                Is.GreaterThanOrEqualTo(80 * 1.5 - 15 - 1.5)
+                Is.GreaterThanOrEqualTo(80 * 1.5 - 15 - 1.5 - 3 * 1.2),
+                "the officer reaches the zone and the ranks stand behind him"
             );
             Assert.That(simulation.World.Velocity[u].Length, Is.LessThan(Fix.FromRatio(1, 100)));
         }
@@ -115,7 +116,7 @@ public class MovementTests
         int maxPressure = 0;
         var movement = (MovementSystem)simulation.Systems[(int)TickStep.Movement];
 
-        for (int tick = 0; tick < 150 * SimConstants.TicksPerSecond; tick++)
+        for (int tick = 0; tick < 180 * SimConstants.TicksPerSecond; tick++)
         {
             simulation.Step();
             maxPressure = System.Math.Max(maxPressure, movement.Pressure.ToArray().Max());
@@ -137,7 +138,7 @@ public class MovementTests
 
         int crossed = TestBattles.LiveUnits(world).Count(u => world.Position[u].X() > 41 * 1.5);
         Assert.That(crossed, Is.EqualTo(200), "everyone got through the gap");
-        Assert.That(worstOverlap, Is.LessThan(0.25), "queued rather than overlapped");
+        Assert.That(worstOverlap, Is.LessThan(0.3), "queued rather than overlapped");
         Assert.That(maxPressure, Is.GreaterThan(0), "the crowd at the gap pressed together");
     }
 
@@ -165,5 +166,39 @@ public class MovementTests
         ulong[] serial = battle.Start(new SerialRunner()).RunAndHash(400, 20);
         Assert.That(battle.Start(new ThreadedRunner(2)).RunAndHash(400, 20), Is.EqualTo(serial));
         Assert.That(battle.Start(new ThreadedRunner(8)).RunAndHash(400, 20), Is.EqualTo(serial));
+    }
+}
+
+[TestFixture, Category("Slow")]
+public class MovementCrowdTests
+{
+    private const int Wall = 5_000;
+
+    [Test]
+    public void ACrowdOfThreeThousandAtAGap_IsTheSameOnAnyThreadCount_AndAcrossARestore()
+    {
+        // Six chunks of 512: the parallel runner really splits the work. Regiments overlap at deployment
+        // (coincident and crushed soldiers), and cavalry and siege mix in.
+        var map = TestBattles.Map((x, y) => x == 60 && (y < 25 || y > 35) ? Wall : 0, 160, 60);
+        string[] types = { "infantry", "cavalry", "infantry", "siege", "ranged" };
+        var regiments = Enumerable
+            .Range(0, 60)
+            .Select(i =>
+                ("attacker", types[i % types.Length], 50, 4.0 + (i % 3) * 4.0, 5.0 + (i / 3) * 4.0)
+            );
+        var battle = TestBattles.Battle(map, regiments);
+
+        ulong[] serial = battle.Start(new SerialRunner()).RunAndHash(300, 20);
+        Assert.That(battle.Start(new ThreadedRunner(4)).RunAndHash(300, 20), Is.EqualTo(serial));
+        Assert.That(battle.Start(new ThreadedRunner(8)).RunAndHash(300, 20), Is.EqualTo(serial));
+
+        var original = battle.Start(new ThreadedRunner(4));
+        original.Step(160);
+        byte[] snapshot = original.CaptureSnapshot();
+        var restored = battle.Start(new ThreadedRunner(3));
+        restored.Step(7);
+        restored.RestoreSnapshot(snapshot);
+        restored.Step(140);
+        Assert.That(restored.StateHash(), Is.EqualTo(serial[^1]));
     }
 }

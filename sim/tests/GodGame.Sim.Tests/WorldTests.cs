@@ -219,6 +219,14 @@ public class WorldTests
             ),
             ("regiment morale", () => world.RegimentMorale[1]--, () => world.RegimentMorale[1]++),
             ("regiment alive", () => world.RegimentAlive[1]--, () => world.RegimentAlive[1]++),
+            ("formation slot", () => world.FormationSlot[3]++, () => world.FormationSlot[3]--),
+            ("regiment anchor", () => world.RegimentAnchor[1]++, () => world.RegimentAnchor[1]--),
+            (
+                "regiment facing",
+                () => world.RegimentFacing[1] += GodGame.Sim.Math.Angle.FromUnits(1),
+                () => world.RegimentFacing[1] -= GodGame.Sim.Math.Angle.FromUnits(1)
+            ),
+            ("regiment files", () => world.RegimentFiles[1]++, () => world.RegimentFiles[1]--),
         };
 
         foreach (var (field, change, undo) in changes)

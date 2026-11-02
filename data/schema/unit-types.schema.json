@@ -33,7 +33,8 @@
           "health",
           "morale",
           "speedMmPerS",
-          "radiusMm"
+          "radiusMm",
+          "formation"
         ],
         "additionalProperties": false,
         "properties": {
@@ -73,6 +74,18 @@
             "minimum": 100,
             "maximum": 2500,
             "description": "Body radius on the ground plane, mm"
+          },
+          "formation": {
+            "type": "object",
+            "required": ["files", "fileSpacingMm", "rankSpacingMm", "minSoldiers", "maxSoldiers"],
+            "additionalProperties": false,
+            "properties": {
+              "files": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Soldiers side by side in a rank" },
+              "fileSpacingMm": { "type": "integer", "minimum": 100, "maximum": 20000, "description": "Neighbours in a rank, centre to centre, mm" },
+              "rankSpacingMm": { "type": "integer", "minimum": 100, "maximum": 20000, "description": "One rank to the next, centre to centre, mm" },
+              "minSoldiers": { "type": "integer", "minimum": 1, "maximum": 10000, "description": "Smallest regiment a plan may field, officer included" },
+              "maxSoldiers": { "type": "integer", "minimum": 1, "maximum": 10000, "description": "Largest regiment a plan may field" }
+            }
           }
         }
       }

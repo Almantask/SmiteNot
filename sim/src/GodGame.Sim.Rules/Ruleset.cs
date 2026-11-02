@@ -53,7 +53,8 @@ namespace GodGame.Sim.Rules
             int health,
             int morale,
             int speedMmPerSecond,
-            int radiusMm
+            int radiusMm,
+            FormationRules formation
         )
         {
             Index = index;
@@ -63,6 +64,7 @@ namespace GodGame.Sim.Rules
             Morale = morale;
             SpeedMmPerSecond = speedMmPerSecond;
             RadiusMm = radiusMm;
+            Formation = formation;
         }
 
         /// <summary>Position in the ruleset, which is what <c>World.UnitType</c> stores.</summary>
@@ -84,6 +86,41 @@ namespace GodGame.Sim.Rules
 
         /// <summary>The body's radius on the ground plane, in mm: how close another soldier may stand.</summary>
         public int RadiusMm { get; }
+
+        public FormationRules Formation { get; }
+    }
+
+    /// <summary>How a unit type's regiments form up, and how big they may be (tech notes, section 4: about 50 to 200).</summary>
+    public sealed class FormationRules
+    {
+        public FormationRules(
+            int files,
+            int fileSpacingMm,
+            int rankSpacingMm,
+            int minSoldiers,
+            int maxSoldiers
+        )
+        {
+            Files = files;
+            FileSpacingMm = fileSpacingMm;
+            RankSpacingMm = rankSpacingMm;
+            MinSoldiers = minSoldiers;
+            MaxSoldiers = maxSoldiers;
+        }
+
+        /// <summary>Soldiers side by side in a rank (fewer when the regiment is smaller).</summary>
+        public int Files { get; }
+
+        /// <summary>Between neighbours in a rank, centre to centre.</summary>
+        public int FileSpacingMm { get; }
+
+        /// <summary>Between one rank and the next, centre to centre.</summary>
+        public int RankSpacingMm { get; }
+
+        /// <summary>Regiment size limits a plan must respect, officer included.</summary>
+        public int MinSoldiers { get; }
+
+        public int MaxSoldiers { get; }
     }
 
     /// <summary>

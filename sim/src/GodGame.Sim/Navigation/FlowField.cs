@@ -171,6 +171,13 @@ namespace GodGame.Sim
             return _direction;
         }
 
+        /// <summary>Checks freshness once, for hot loops that then index the array directly.</summary>
+        internal long[] FreshDistances()
+        {
+            AssertFresh();
+            return _distance;
+        }
+
         public static FixVec2 DirectionVector(byte direction) =>
             direction < AtGoal ? Unit[direction] : FixVec2.Zero;
 

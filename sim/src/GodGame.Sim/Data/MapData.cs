@@ -61,6 +61,12 @@ namespace GodGame.Sim
         /// <summary>16 million cells (a 1.2 × 0.8 km map at 1.5 m is about 430,000).</summary>
         public const long MaxCells = 16_000_000;
 
+        /// <summary>
+        /// 64 km² (8 × 8 km): the movement step's 2 m neighbour grid has at most 16 million cells too. Far above the
+        /// working map (about 1 km²).
+        /// </summary>
+        public const long MaxAreaSquareMetres = 64_000_000;
+
         /// <summary>Ground heights within ±10 km.</summary>
         public const int MaxHeightMm = 10_000_000;
 
@@ -172,6 +178,10 @@ namespace GodGame.Sim
 
             int columns = (width + cell - 1) / cell;
             int rows = (depth + cell - 1) / cell;
+            if ((long)width * depth / 1_000_000 > MaxAreaSquareMetres)
+            {
+                throw new DataFormatException("map.json: the map is larger than 64 km².");
+            }
             if ((long)columns * rows > MaxCells)
             {
                 throw new DataFormatException("map.json: too many cells; use a larger cellSizeMm.");

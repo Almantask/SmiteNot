@@ -126,7 +126,8 @@ namespace GodGame.Sim
                     );
                 }
                 var side = SideNames.Parse(item["side"]);
-                string unitType = rules.UnitType(item.Str("unitType")).Id;
+                var type = rules.UnitType(item.Str("unitType"));
+                string unitType = type.Id;
                 int x = item.Int("xMm", 0, map.WidthMm - 1);
                 int y = item.Int("yMm", 0, map.DepthMm - 1);
                 RectMm zone = map.ZoneOf(side).Area;
@@ -141,7 +142,11 @@ namespace GodGame.Sim
                         id,
                         side,
                         unitType,
-                        item.Int("soldiers", 1, 10_000),
+                        item.Int(
+                            "soldiers",
+                            type.Formation.MinSoldiers,
+                            type.Formation.MaxSoldiers
+                        ),
                         x,
                         y,
                         item.Int("facingCentiDegrees", 0, 35_999)

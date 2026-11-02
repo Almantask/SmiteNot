@@ -34,12 +34,20 @@ namespace GodGame.Sim
             Health = new int[unitCapacity];
             Morale = new int[unitCapacity];
             Flags = new UnitFlags[unitCapacity];
+            FormationSlot = new int[unitCapacity];
 
             RegimentSide = new Side[regimentCapacity];
             RegimentUnitType = new int[regimentCapacity];
             RegimentStartingSize = new int[regimentCapacity];
             RegimentAlive = new int[regimentCapacity];
             RegimentMorale = new int[regimentCapacity];
+            RegimentAnchor = new int[regimentCapacity];
+            RegimentFacing = new Angle[regimentCapacity];
+            RegimentFiles = new int[regimentCapacity];
+            for (int r = 0; r < regimentCapacity; r++)
+            {
+                RegimentAnchor[r] = -1;
+            }
         }
 
         public EntityPool Units { get; }
@@ -67,6 +75,13 @@ namespace GodGame.Sim
 
         public UnitFlags[] Flags { get; }
 
+        /// <summary>
+        /// The soldier's place in its regiment's formation, 0 for the officer or standard-bearer: soldiers are numbered
+        /// in the order they joined, and slot k ≥ 1 stands in file (k - 1) mod files, rank (k - 1) / files behind
+        /// the officer (<see cref="Formation"/>).
+        /// </summary>
+        public int[] FormationSlot { get; }
+
         // Per regiment, indexed by regiment slot.
 
         public Side[] RegimentSide { get; }
@@ -80,8 +95,30 @@ namespace GodGame.Sim
 
         public int[] RegimentMorale { get; }
 
-        public EntityId AddRegiment(Side side, int unitType, int morale)
+        /// <summary>
+        /// The unit slot of the officer or standard-bearer the formation forms on, or -1 when it has fallen and no one
+        /// has taken the standard yet (the movement step promotes the soldier with the lowest formation slot).
+        /// </summary>
+        public int[] RegimentAnchor { get; }
+
+        /// <summary>Which way the formation faces; the officer's heading turns it, at a limited rate.</summary>
+        public Angle[] RegimentFacing { get; }
+
+        /// <summary>How many soldiers stand side by side in a rank.</summary>
+        public int[] RegimentFiles { get; }
+
+        public EntityId AddRegiment(
+            Side side,
+            int unitType,
+            int morale,
+            int files = 1,
+            Angle facing = default
+        )
         {
+            if (files < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(files));
+            }
             EntityId id = Regiments.Allocate();
             int r = id.Index;
             RegimentSide[r] = side;
@@ -89,10 +126,16 @@ namespace GodGame.Sim
             RegimentStartingSize[r] = 0;
             RegimentAlive[r] = 0;
             RegimentMorale[r] = morale;
+            RegimentAnchor[r] = -1;
+            RegimentFacing[r] = facing;
+            RegimentFiles[r] = files;
             return id;
         }
 
-        /// <summary>A soldier of the regiment's unit type, standing still, with no flags.</summary>
+        /// <summary>
+        /// A soldier of the regiment's unit type, standing still, with no flags, in the next formation slot; the
+        /// regiment's first soldier is its officer and anchor.
+        /// </summary>
         public EntityId SpawnUnit(EntityId regiment, FixVec2 position, int health, int morale)
         {
             if (!Regiments.IsAlive(regiment))
@@ -109,6 +152,11 @@ namespace GodGame.Sim
             Health[u] = health;
             Morale[u] = morale;
             Flags[u] = UnitFlags.None;
+            FormationSlot[u] = RegimentStartingSize[r];
+            if (RegimentStartingSize[r] == 0)
+            {
+                RegimentAnchor[r] = u;
+            }
             RegimentStartingSize[r]++;
             RegimentAlive[r]++;
             return id;
@@ -122,6 +170,11 @@ namespace GodGame.Sim
             }
             int u = unit.Index;
             RegimentAlive[UnitRegiment[u]]--;
+            if (RegimentAnchor[UnitRegiment[u]] == u)
+            {
+                RegimentAnchor[UnitRegiment[u]] = -1;
+            }
+            FormationSlot[u] = 0;
             Position[u] = FixVec2.Zero;
             Velocity[u] = FixVec2.Zero;
             UnitType[u] = 0;
@@ -154,6 +207,9 @@ namespace GodGame.Sim
             RegimentUnitType[r] = 0;
             RegimentStartingSize[r] = 0;
             RegimentMorale[r] = 0;
+            RegimentAnchor[r] = -1;
+            RegimentFacing[r] = Angle.Zero;
+            RegimentFiles[r] = 0;
             Regiments.Free(regiment);
         }
 
@@ -177,6 +233,7 @@ namespace GodGame.Sim
                 writer.WriteInt32(Health[u]);
                 writer.WriteInt32(Morale[u]);
                 writer.WriteInt32(unchecked((int)Flags[u]));
+                writer.WriteInt32(FormationSlot[u]);
             }
             for (int r = 0; r < Regiments.Capacity; r++)
             {
@@ -185,6 +242,9 @@ namespace GodGame.Sim
                 writer.WriteInt32(RegimentStartingSize[r]);
                 writer.WriteInt32(RegimentAlive[r]);
                 writer.WriteInt32(RegimentMorale[r]);
+                writer.WriteInt32(RegimentAnchor[r]);
+                writer.WriteInt32(RegimentFacing[r].Units);
+                writer.WriteInt32(RegimentFiles[r]);
             }
         }
 
@@ -220,6 +280,12 @@ namespace GodGame.Sim
                     {
                         throw new FormatException("A unit has unknown flag bits.");
                     }
+                    if (FormationSlot[u] < 0 || FormationSlot[u] >= RegimentStartingSize[r])
+                    {
+                        throw new FormatException(
+                            "A unit's formation slot is outside its regiment."
+                        );
+                    }
                     counted[r]++;
                 }
                 else if (
@@ -230,6 +296,7 @@ namespace GodGame.Sim
                     || Health[u] != 0
                     || Morale[u] != 0
                     || Flags[u] != UnitFlags.None
+                    || FormationSlot[u] != 0
                 )
                 {
                     throw new FormatException("A dead unit slot is not zero.");
@@ -248,6 +315,18 @@ namespace GodGame.Sim
                             "A regiment's soldier counts do not match its units."
                         );
                     }
+                    int anchor = RegimentAnchor[r];
+                    if (
+                        RegimentFiles[r] < 1
+                        || anchor < -1
+                        || anchor >= Units.Capacity
+                        || (anchor >= 0 && (!Units.IsAlive(anchor) || UnitRegiment[anchor] != r))
+                    )
+                    {
+                        throw new FormatException(
+                            "A regiment's formation (files or anchor) is invalid."
+                        );
+                    }
                 }
                 else if (
                     RegimentSide[r] != Side.Attacker
@@ -255,6 +334,9 @@ namespace GodGame.Sim
                     || RegimentStartingSize[r] != 0
                     || RegimentAlive[r] != 0
                     || RegimentMorale[r] != 0
+                    || RegimentAnchor[r] != -1
+                    || RegimentFacing[r] != Angle.Zero
+                    || RegimentFiles[r] != 0
                 )
                 {
                     throw new FormatException("A dead regiment slot is not zero.");
@@ -281,6 +363,7 @@ namespace GodGame.Sim
                 Health[u] = reader.ReadInt32();
                 Morale[u] = reader.ReadInt32();
                 Flags[u] = unchecked((UnitFlags)reader.ReadInt32());
+                FormationSlot[u] = reader.ReadInt32();
             }
             for (int r = 0; r < Regiments.Capacity; r++)
             {
@@ -294,6 +377,14 @@ namespace GodGame.Sim
                 RegimentStartingSize[r] = reader.ReadInt32();
                 RegimentAlive[r] = reader.ReadInt32();
                 RegimentMorale[r] = reader.ReadInt32();
+                RegimentAnchor[r] = reader.ReadInt32();
+                int facing = reader.ReadInt32();
+                if (facing < 0 || facing >= Angle.UnitsPerTurn)
+                {
+                    throw new FormatException("Snapshot facing is out of range.");
+                }
+                RegimentFacing[r] = Angle.FromUnits(facing);
+                RegimentFiles[r] = reader.ReadInt32();
             }
         }
 
@@ -320,6 +411,7 @@ namespace GodGame.Sim
                 hash.AppendInt32(Health[u]);
                 hash.AppendInt32(Morale[u]);
                 hash.AppendInt32(unchecked((int)Flags[u]));
+                hash.AppendInt32(FormationSlot[u]);
             }
             for (int r = 0; r < Regiments.HighWater; r++)
             {
@@ -332,6 +424,9 @@ namespace GodGame.Sim
                 hash.AppendInt32(RegimentStartingSize[r]);
                 hash.AppendInt32(RegimentAlive[r]);
                 hash.AppendInt32(RegimentMorale[r]);
+                hash.AppendInt32(RegimentAnchor[r]);
+                hash.AppendInt32(RegimentFacing[r].Units);
+                hash.AppendInt32(RegimentFiles[r]);
             }
         }
     }

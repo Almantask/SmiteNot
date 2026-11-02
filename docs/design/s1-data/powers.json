@@ -1,0 +1,38 @@
+{
+  "$comment": "Powers (spec pass S1 draft, 2026-11-02; docs/design/spec-s1-water.md section 8). DRAFT: not loaded yet; the implementer moves it to data/rules/ with a schema. Integers only. Units: mm, um/s (micrometres of water depth per second), ticks at 20 per second. The range rule distance is settled (brief 2026-10-08); every other number is a proposal for the user to confirm, hence status placeholder. Energy cost is deliberately absent: spec pass S5 sets prices.",
+  "version": 1,
+  "status": "placeholder",
+  "powers": [
+    {
+      "id": "rain",
+      "status": "placeholder",
+      "$comment": "Palette: wide, slow; raises wetness and feeds rivers over time. Rain writes only water; the soil takes its share as wetness (fields.json water_to_wetness), so there is one source of truth. Rate tuned against the M3 flood test (spec section 13), allowed tuning band 2000-5000 um/s.",
+      "area": {
+        "$comment": "Circle with a player-chosen radius (decision D2). Must lie wholly inside the map, else refused while planning.",
+        "shape": "circle",
+        "minRadiusMm": 40000,
+        "maxRadiusMm": 100000,
+        "defaultRadiusMm": 80000
+      },
+      "rangeRule": {
+        "$comment": "Brief 2026-10-08: whole area at least 100 m from both armies' regiment outlines at the firing tick, else fizzle. checkAt castTick = the queued tick, when the wind-up begins (decision D1). Outline: coarse 4.5 m cells holding at least minSoldiersPerCoarseCell soldiers of the regiment, swept soldiers included (decision D9).",
+        "minDistanceMm": 100000,
+        "checkAt": "castTick",
+        "minSoldiersPerCoarseCell": 2,
+        "fizzleReasons": ["TooCloseToAttacker", "TooCloseToDefender"]
+      },
+      "windUpTicks": 200,
+      "durationTicks": 1200,
+      "writes": [
+        {
+          "$comment": "Uniform over the area for durationTicks after the wind-up, applied at each field step from one per-cast remainder accumulator. Overlapping rains add.",
+          "field": "water",
+          "rateUmPerS": 3000
+        }
+      ],
+      "stopsEarly": false,
+      "belowFreezing": "reserved-S3-snow",
+      "driftsWithWind": false
+    }
+  ]
+}

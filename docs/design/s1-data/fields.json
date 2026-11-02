@@ -1,0 +1,114 @@
+{
+  "$comment": "Fields v1 (spec pass S1 draft, 2026-11-02; docs/design/spec-s1-water.md sections 2-7, 11, 12). DRAFT: not loaded yet; the implementer moves it to data/rules/ with a schema. Integers only. Units: mm, um (micrometres), um/s, mm/s, L/s, ticks at 20 per second, permille, wetness and mud on 0-65535. depthSpeed is depth mm x flow mm/s / 1000 (mm*m/s; 600 = 0.6 m2/s). Settled from the brief: deep or fast water is lethal and closed, shallow water and mud are slow but open (2026-10-09); soldiers never walk into lethal cells and react only to what is lethal now (2026-10-09, 2026-10-11). Grid facts from the code and plan: 1.5 m cells, fields every 4 ticks on active tiles. Everything else is a proposal, hence status placeholder.",
+  "version": 1,
+  "status": "placeholder",
+  "fieldStep": {
+    "ticksPerStep": 4,
+    "order": ["rain_to_water", "source_to_water", "water_flow", "sink_outflow", "water_to_wetness", "wetness_drying", "wetness_to_mud", "traffic_to_mud"]
+  },
+  "water": {
+    "$comment": "Virtual pipes (tech notes section 5). Two substeps per field step keep sqrt(g*h)*dt under half a cell to about 5.7 m depth. pipeGainPermille = g*dt/cell = 9.81*0.1/1.5. Damping is a friction stand-in, tuned so the M3 river runs about 0.5-1.0 m/s at base flow.",
+    "substepsPerFieldStep": 2,
+    "gravityMmPerS2": 9810,
+    "pipeGainPermille": 654,
+    "fluxDampingPermillePerSubstep": 990,
+    "dryDepthUm": 5000,
+    "velocityMinDepthUm": 20000,
+    "maxFlowSpeedMmPerS": 5000,
+    "tileSleep": { "quietSteps": 5, "maxDepthChangeUm": 1000, "maxFluxUmPerS": 1000 }
+  },
+  "mapWater": {
+    "$comment": "Sources add a constant discharge evenly over their cells; sinks are free outflow (outside surface = edge ground height); other edges are closed. Maps ship a settled depth and flux layer baked offline by the same kernel. A channel whose bed lies below an adjacent tick-0 water surface counts as filled to that surface for the reachability check.",
+    "sinkMode": "freeOutflow",
+    "closedEdgesByDefault": true,
+    "initialStateBakedToSteady": true
+  },
+  "wetness": {
+    "$comment": "1 um absorbed = 2 wetness units, so full (65535) is about 32.8 mm absorbed. Infiltration from rain or standing water (>= dry depth) at 1 mm/s. Drying only without surface water: full to dry in about 10 minutes, longer than a 3-minute battle. Heat drying is reserved for S3.",
+    "soilCapacityUm": 32768,
+    "unitsPerUm": 2,
+    "infiltrationUmPerS": 1000,
+    "defaultInitial": 8192,
+    "dryingPerS": 110
+  },
+  "mud": {
+    "$comment": "No traffic field in M3: churn writes mud directly. base(w) = max(0, w - baseStart); cap(w) = max(0, w - capStart) * capNum / capDen; mud = clamp(max(base, mud + churn), 0, cap * soil.capPermille / 1000). Churn per moving unit per field step = churnWeight[class] * churnAtFullWetness * soil.churnPermille / 1000 * max(0, w - capStart) / (65535 - capStart). About five 200-strong infantry regiments take a road cell from soft to deep.",
+    "baseStart": 32768,
+    "capStart": 16384,
+    "capNum": 4,
+    "capDen": 3,
+    "churnAtFullWetness": 96,
+    "churnWeight": { "foot": 1, "horse": 6, "wheeled": 25 },
+    "soilMarks": { "soft": 32767, "deep": 65535 }
+  },
+  "soils": [
+    { "id": "earth", "churnPermille": 1000, "capPermille": 1000 },
+    { "id": "road", "$comment": "Firm road: gets soft, never deep.", "churnPermille": 250, "capPermille": 500 }
+  ],
+  "movement": {
+    "$comment": "Speed in permille, linear between points. Cost multiplier = 1000000 / speed permille. maxEnterDepthMm: deeper is closed to the class's own steering. Swept (lethal, closed): depth >= sweptDepthMm, or depth >= sweptMinDepthMm and depthSpeed >= sweptDepthSpeed. Ford limits from terrain-weather brainstorm #7 (wheeled 0.5 m, horse 1.2 m); horses stand deeper but current takes them sooner (tech notes section 5). Per-unit-type armour modifiers wait for S2. Flow-field water costs refresh at most once per refreshTicks per dirty tile, with a 100 mm hysteresis; the per-tick lethal check in movement is immediate.",
+    "refreshTicks": 20,
+    "costHysteresisMm": 100,
+    "classes": {
+      "foot": {
+        "waterSpeed": [[0, 1000], [100, 1000], [300, 800], [600, 550], [900, 350]],
+        "maxEnterDepthMm": 1000,
+        "sweptDepthMm": 1000,
+        "sweptDepthSpeed": 600,
+        "sweptMinDepthMm": 300,
+        "mudSpeed": [[0, 1000], [32767, 800], [65535, 500]]
+      },
+      "horse": {
+        "waterSpeed": [[0, 1000], [200, 1000], [500, 800], [900, 550], [1200, 400]],
+        "maxEnterDepthMm": 1200,
+        "sweptDepthMm": 1200,
+        "sweptDepthSpeed": 450,
+        "sweptMinDepthMm": 400,
+        "mudSpeed": [[0, 1000], [32767, 700], [65535, 350]]
+      },
+      "wheeled": {
+        "waterSpeed": [[0, 1000], [100, 900], [300, 600], [500, 300]],
+        "maxEnterDepthMm": 500,
+        "sweptDepthMm": 900,
+        "sweptDepthSpeed": 400,
+        "sweptMinDepthMm": 300,
+        "mudSpeed": [[0, 1000], [32767, 500], [65535, 150]]
+      }
+    }
+  },
+  "swept": {
+    "$comment": "Swept soldiers drift with the flow and paddle toward the nearest cell where they could regain footing (below regainPermille of both thresholds); the drowning timer runs. Bank exit: stunned, then rejoin; the timer resets. Swept soldiers stay in their regiment's outline for the range rule (decision D9). Cold-water timers come with ice in S3.",
+    "regainPermille": 750,
+    "bankExitStunTicks": 40,
+    "classes": {
+      "foot": { "carryPermille": 900, "paddleMmPerS": 400, "drownTicks": 300 },
+      "horse": { "carryPermille": 900, "paddleMmPerS": 600, "drownTicks": 400 },
+      "wheeled": { "carryPermille": 1000, "paddleMmPerS": 0, "drownTicks": 120 }
+    }
+  },
+  "causeTags": {
+    "$comment": "Decision D7: water carries the cause of its most recent adder, per tile. Rain stamps its cast id on the tiles of its area while it rains; springs stamp their piece id; base river water is map:river. A tile takes a neighbour's newer tag when the net inflow from it exceeds adoptInflowUm (averaged over the tile) in one field step; ties go to the larger inflow, then the lower tile index. 'river overflowed' fires once per tile when a cell first turns lethal for foot that was not lethal at tick 0; 'regiment swept' at most once per regiment per sweptEventCooldownTicks.",
+    "tileCells": 16,
+    "adoptInflowUm": 1000,
+    "sweptEventCooldownTicks": 100
+  },
+  "interactions": [
+    { "id": "rain_to_water", "reads": ["casts:rain"], "writes": ["water"], "status": "placeholder" },
+    { "id": "source_to_water", "reads": ["map:sources", "terrain:spring"], "writes": ["water"], "status": "placeholder" },
+    { "id": "water_flow", "reads": ["ground", "water"], "writes": ["water", "flux", "flowVelocity"], "status": "placeholder" },
+    { "id": "sink_outflow", "reads": ["map:sinks"], "writes": ["water"], "status": "placeholder" },
+    { "id": "water_to_wetness", "reads": ["water", "wetness"], "writes": ["water", "wetness"], "status": "placeholder" },
+    { "id": "wetness_drying", "reads": ["water", "wetness"], "writes": ["wetness"], "status": "placeholder" },
+    { "id": "wetness_to_mud", "reads": ["wetness", "soil"], "writes": ["mud"], "status": "placeholder" },
+    { "id": "traffic_to_mud", "reads": ["units:moving", "wetness", "soil"], "writes": ["mud"], "status": "placeholder" },
+    { "id": "water_to_movement", "reads": ["water", "flowVelocity"], "writes": ["speed", "cost", "closed", "lethal"], "status": "placeholder" },
+    { "id": "mud_to_movement", "reads": ["mud"], "writes": ["speed", "cost"], "status": "placeholder" },
+    { "id": "heat_dries_wetness", "status": "reserved-S3" },
+    { "id": "heat_evaporates_water", "status": "reserved-S3" },
+    { "id": "cold_freezes_water", "status": "reserved-S3" },
+    { "id": "heat_melts_ice", "status": "reserved-S3" },
+    { "id": "wetness_damps_fire", "status": "reserved-S3" },
+    { "id": "rain_to_snow", "status": "reserved-S3" },
+    { "id": "wind_drifts_rain", "status": "reserved-M6" }
+  ]
+}

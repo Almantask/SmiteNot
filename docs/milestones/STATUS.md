@@ -1,13 +1,22 @@
 # Milestone status
 
-## Current: M2 — Armies that march
-Started: 2026-11-01
+## Current: M3 — Water: first field, first power, first deaths
+Not started: run /milestone to set it up from the plan (section 9).
+
+### Carried over from M2
+- [ ] Measure on the floor laptop (a 2020-or-later laptop with Intel Iris Xe or Radeon 680M graphics): the 10,000-unit tick against the 6 ms floor budget (`godsim run --map data/maps/m2-bridge --plan data/plans/m2-bridge-ten-thousand.json --seconds 900 --threads 4`), and the debug view at 20 fps or better (`unity/Builds/DebugViewPlayer/GodGameDebugView.exe -repo <repo> -measure-fps fps.txt`, built by GodGame → Build → Debug View Player). Record both in sim/bench/GodGame.Sim.Bench/budgets.json and ADR 0002 if the Burst numbers there change.
+- [ ] Add the GitHub secrets UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD so the GameCI workflow runs, and check its first run.
+
+## Done
+
+### M2 — Armies that march (2026-11-01 to 2026-11-02)
+Started: 2026-11-01. Closed 2026-11-02 with the two floor-laptop measurements carried into M3 (the user's call).
 
 Goal: armies totalling 10,000 soldiers march, bunch and queue across a real heightfield, within the tick budget.
 
 Needs first: the map scale (working default: about 1.2 × 0.8 km with 1.5 m field cells, plan section 10) and a floor test laptop (integrated graphics, plan section 8), so budgets are measured on minimum-spec hardware from here on.
 
-### Checklist
+#### Checklist
 - [x] 1. Heightfield terrain, navigation grid, movement classes (foot, horse, wheeled, water), per-class cost fields — Terrain (sim/src/GodGame.Sim/Navigation): the map's heightfield on its 1.5 m field grid, integer bilinear height, slope as the steepest 4-neighbour step; CostFields: a ushort cost per class per cell from slope (impassable past each class's limit; water impassable until M3), built on creation, rebuilt by rectangle in parallel rows, with a version check against stale reads; data/rules/movement-classes.json (placeholder numbers until spec pass S2). Desktop: full rebuild of 430,000 cells 12.7 ms serial, 3.8 ms on 4 threads; one-cell edit 0.13 µs. The golden was regenerated header-only (ruleset hash; all 180 per-second hashes identical, no SimVersion bump). determinism-auditor: no High findings
 - [x] 2. Flow fields per regiment goal with incremental tile rebuilds — FlowField (sim/src/GodGame.Sim/Navigation): per (movement class, goal area), integer distances over 8 neighbours (step = mean of the two cells' costs × 10, diagonals × 14, no corner cutting), directions as the cheapest neighbour with fixed tie order; full build by Dial's bucket queue, repair after an edit clears the cells whose route ran through the changed area and refills them (cell-exact rather than whole tiles), and gives bit for bit the field a full build gives (60 random edits checked); FlowFieldSet keeps fields in first-asked order and builds or repairs them one per parallel chunk; shortest distances checked against Bellman-Ford; pinned hash. Desktop, 800 × 534 cells with a bridged river: one full field 23 ms; six fields 154 ms serial, 77 ms on 4 threads (battle start); a one-cell edit on the main route, costs plus all six fields repaired, 18 ms serial, 9.5 ms on 4 threads (budget 50 ms)
 - [x] 3. Local steering (separation, alignment, obstacle avoidance) and crowd pressure through the spatial hash — Navigation (cost fields, flow fields, which field each regiment follows; working default until regiment AI: attackers march to the defender zone, defenders hold) and MovementSystem replace the placeholder wander: each soldier aims four flow-field steps ahead, keeps pace with whoever is in its path (car-following, creeping at 1/8 speed when blocked so jams unwind), blends in its regiment's mean velocity, is pushed apart from overlapping neighbours (the overlap is its crowd pressure, in mm) and never enters a cell its class can't (moves slide along walls); the spatial hash is built at the start of the movement step; unit types gain speedMmPerS and radiusMm (placeholders). 200 soldiers queue through a 7.5 m gap in a wall without entering a closed cell or overlapping more than 0.25 m; identical on 1, 2 and 8 threads. SimVersion 2, golden regenerated. Desktop, 10,000 units on m1-flat over 180 s: 3.2 ms per tick serial, 1.4 ms on 4 threads (budget 3.3 ms)
@@ -19,23 +28,22 @@ Needs first: the map scale (working default: about 1.2 × 0.8 km with 1.5 m fiel
 - [x] 9. Unity CI with GameCI for Edit and Play Mode tests — .github/workflows/unity.yml runs game-ci/unity-test-runner (Edit and Play Mode, Linux editor image, Library cached) on pushes touching unity, sim/src, data or the goldens; it skips with a notice until the repository secrets UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD are added (not yet run in GitHub)
 - [x] 10. The Burst decision: benchmark the hot kernels on .NET, IL2CPP and Burst; record it in an ADR — ADR 0002: no Burst for now. The separation kernel (one source on every runtime): .NET 2.94 ms, IL2CPP 2.90 ms, Burst in the IL2CPP player 1.92 ms, Mono 4.17 ms, all with the same checksum; a whole tick on one thread: .NET 2.8 ms, IL2CPP 4.5 ms, Mono 11.0 ms. Players get their speed from a Unity parallel runner (M4) instead
 
-### Exit criteria
+#### Exit criteria
 - [x] 10,000 attackers cross 1 km through a bridge chokepoint; congestion emerges and regiments queue rather than overlap — M2ExitScenarios (Slow) on data/maps/m2-bridge (a 20 m river with one 20 m bridge) and data/plans/m2-bridge-ten-thousand.json (10,000 attackers in 103 regiments): all cross in 44.5 game minutes (about 4 a second over the bridge), a queue of up to 2,900 builds before it, no soldier ever stands in a closed cell, and at most 0.7% of soldiers overlap a neighbour by more than a quarter of contact (worst pair 36%). Throughput is lower than real crowds (about 1.3 a metre a second): tuning for M5
 - [ ] The reachability check rejects a full trap and a route longer than 2× in ≤ 5 ms per drag
-- [ ] The tick stays within both budgets at 10,000 units (fields not yet on), on the floor laptop and the recommended machine, and stays deterministic across the M1 matrix — desktop (SimVersion 4): m1-flat 2.8 ms serial, 1.4 ms on 4 threads; the m2-bridge crush 6.0 ms serial, 2.4 ms on 4 threads, so within the recommended 3.3 ms on threads; baseline m2_2026_11_02 in budgets.json. Deterministic across threads, snapshot and restore, Windows and Linux CI and the golden; the SimVersion 4 golden also matches in the Unity Mono editor and the IL2CPP player (2026-11-02); still open: the floor laptop, and a Unity runner that uses several cores in players (M4; the debug view's worker runs one thread at 4.5 to 4.8 ms a tick)
-- [ ] The debug view runs at 60 fps with 10,000 capsules on the recommended machine and at 20 fps or better on the floor laptop — recommended met 2026-11-02: the IL2CPP debug-view player (GodGame → Build → Debug View Player, run with -measure-fps) on the RTX 3090 at 1920 × 1080: 141.8 fps mean, 7.1 ms 95th percentile, 10,000 capsules on m2-bridge; the floor laptop is still to measure
+- [ ] (carried to M3: floor laptop) The tick stays within both budgets at 10,000 units (fields not yet on), on the floor laptop and the recommended machine, and stays deterministic across the M1 matrix — desktop (SimVersion 4): m1-flat 2.8 ms serial, 1.4 ms on 4 threads; the m2-bridge crush 6.0 ms serial, 2.4 ms on 4 threads, so within the recommended 3.3 ms on threads; baseline m2_2026_11_02 in budgets.json. Deterministic across threads, snapshot and restore, Windows and Linux CI and the golden; the SimVersion 4 golden also matches in the Unity Mono editor and the IL2CPP player (2026-11-02); still open: the floor laptop, and a Unity runner that uses several cores in players (M4; the debug view's worker runs one thread at 4.5 to 4.8 ms a tick)
+- [ ] (carried to M3: floor laptop) The debug view runs at 60 fps with 10,000 capsules on the recommended machine and at 20 fps or better on the floor laptop — recommended met 2026-11-02: the IL2CPP debug-view player (GodGame → Build → Debug View Player, run with -measure-fps) on the RTX 3090 at 1920 × 1080: 141.8 fps mean, 7.1 ms 95th percentile, 10,000 capsules on m2-bridge; the floor laptop is still to measure
 
-### Decisions needed
+#### Decisions needed
 - Map scale (plan section 10, needed by M2; working default above)
 
-### Notes
+#### Notes
 - Movement-class numbers (each class's steepest climb and slope cost) are placeholders in data/rules/movement-classes.json until spec pass S2; they only follow tech notes section 3 (siege cares about slope far more than infantry).
 - Heights are fixed during the battle for now, so Terrain and CostFields are derived state. When battle-time digs and fills arrive: hash the heights (a running hash per edit), write them into snapshots and rebuild after restore, apply edits serially in a fixed order, pin when they become visible relative to the navigation step, cover planning-phase edits in the plan hash, and widen DirtyAround for fields with a wider stencil.
 - Navigation's attacker goal (the far quarter of the defender zone, or the whole zone for a class that can't stand in that quarter) and Reachability's target (the whole zone) differ on purpose until regiment AI picks real targets (M7): unify them then, so the 2x cap measures the route actually walked.
 - The debug view's BattleHost hands the main thread two snapshots and refills the oldest on the next tick, so a frame longer than a tick (likely at 16x speed on a slow machine) can draw a half-written snapshot: visual only. Replace with an acquire-release triple buffer when M4 builds the real playback buffer. The map authoring RAW import assumes row 0 is the south edge (many tools write north first: add a flip toggle when a real map needs it).
 - Crowd throughput over the bridge is about 4 soldiers a second on 20 m (real crowds manage about 25): steering tuning belongs with combat and morale in M5. The siege clearance (a 13.5 m corridor) and the all-cells rule make the reachability check refuse narrow gates that sit badly on its grid: both for spec pass S2 (routes.json).
 
-## Done
 
 ### M1 — Deterministic core (2026-11-01)
 ### Checklist

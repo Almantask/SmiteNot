@@ -1,0 +1,68 @@
+name: unity
+
+# Unity Edit and Play Mode tests with GameCI (plan, M2 item 9), on Linux in the GameCI editor image. Play Mode
+# replays the golden battles under the editor's Mono, so this is also a cross-runtime determinism check.
+#
+# Needs the repository secrets UNITY_LICENSE (the contents of your Unity_lic.ulf), UNITY_EMAIL and UNITY_PASSWORD
+# (GameCI: https://game.ci/docs/github/activation). Without them the job reports that it skipped and passes, so
+# pushes stay green until the secrets are added.
+on:
+  push:
+    paths:
+      - "unity/**"
+      - "sim/src/**"
+      - "data/**"
+      - "sim/tests/golden/**"
+      - ".github/workflows/unity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+concurrency:
+  group: unity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: edit and play mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+    steps:
+      - name: Skip without a Unity license
+        if: env.UNITY_LICENSE == ''
+        run: echo "::notice::UNITY_LICENSE is not set; skipping the Unity tests (see the comment at the top of unity.yml)."
+
+      - uses: actions/checkout@v6
+        if: env.UNITY_LICENSE != ''
+        with:
+          lfs: true
+
+      - uses: actions/cache@v4
+        if: env.UNITY_LICENSE != ''
+        with:
+          path: unity/Library
+          key: unity-library-${{ hashFiles('unity/Packages/packages-lock.json', 'unity/ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: unity-library-
+
+      - name: Edit and Play Mode tests
+        if: env.UNITY_LICENSE != ''
+        uses: game-ci/unity-test-runner@v4
+        with:
+          projectPath: unity
+          unityVersion: 6000.6.7f1
+          testMode: all
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          checkName: unity test results
+          artifactsPath: unity-test-results
+
+      - uses: actions/upload-artifact@v4
+        if: always() && env.UNITY_LICENSE != ''
+        with:
+          name: unity-test-results
+          path: unity-test-results

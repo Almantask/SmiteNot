@@ -282,6 +282,10 @@ public class CostFieldTests
                 {
                     KeyValuePair.Create("movement-classes.json", ThreeClasses),
                     KeyValuePair.Create(
+                        "hazards.json",
+                        RepoData.Read("data", "rules", "hazards.json")
+                    ),
+                    KeyValuePair.Create(
                         "unit-types.json",
                         RepoData.Read("data", "rules", "unit-types.json")
                     ),

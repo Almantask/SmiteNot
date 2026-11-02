@@ -13,6 +13,9 @@ Check first when Movement/ or Navigation.cs changes (first audited 2026-11-02, M
 - Derived scratch (Pressure, means, directions, hash) is safe while nothing reads it before Movement in the tick; Pressure keeps stale values for dead slots and after a restore until the next run.
 - Only the target cell is checked for passability: a step of push cap (one radius) plus speed can cross a one-cell wall when radius is about the cell size (siege 1.5 m at 1.5 m cells).
 - Movement/ and Navigation/ folders and files still have no .meta files (tenth time). See [[pattern-overflow-assert-side-effects]].
+- Formations (audited 2026-11-02, commit 660c642; no High): the serial prepass (UpdateRegiments) is the only writer of RegimentAnchor/RegimentFacing; the kernel reads copies (_anchorPosition/_anchorVelocity) and writes _newPosition, applied serially. A scratch probe killing every other officer twice in the 3000-unit crowd, snapshotting with anchor == -1, matched on 1/8 threads and across a restore. Re-check this shape whenever a new per-regiment field is written during Movement.
+- Data-reachable long overflow: straggler reach = ReformDistance + rankSpacing x ranks, squared. Loader allows files 1, rankSpacing 20 m, 10,000 soldiers (reach about 200 km, square about 1.7e20). Any "spacing x count" product squared needs a loader cap or a clamp to the map diagonal (IL2CPP signed overflow is UB).
+- Map area caps vs hash cells: an area cap (m²) is not a cell cap; ceil per axis overshoots (8001 x 7999 m passes 64 km², hash needs 16,004,000 > 16M cells). Compare with the exact ceil formula of SpatialHash.
 
 **Why:** These are the traps once crush, pushes over edges and battle-time terrain arrive (M2-M5).
 **How to apply:** count chunks in the thread tests, measure peak neighbour counts in the densest scenario, compare hash cell size with the map caps, and grep for readers of Pressure.

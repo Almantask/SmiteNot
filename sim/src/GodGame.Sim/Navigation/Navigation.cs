@@ -4,9 +4,10 @@ using GodGame.Sim.Rules;
 namespace GodGame.Sim
 {
     /// <summary>
-    /// The battle's navigation: terrain, cost fields, the flow fields regiments follow, and which field each regiment
-    /// follows. All of it is derived from the map, the rules and the world (regiment side and unit type), so it needs
-    /// no place in the state hash or snapshots: <see cref="AssignRegiments"/> recomputes the assignment every tick.
+    /// The battle's navigation: terrain, cost fields, the distance to lethal cells, the flow fields regiments follow,
+    /// and which field each regiment follows. All of it is derived from the map, the rules and the world (regiment
+    /// side and unit type), so it needs no place in the state hash or snapshots: <see cref="AssignRegiments"/>
+    /// recomputes the assignment every tick.
     /// <para>
     /// M2 goals are a working default until regiment AI arrives (M7, ai-engineer): attacking regiments march to the
     /// defender's deployment zone, defending regiments hold where they stand.
@@ -22,6 +23,7 @@ namespace GodGame.Sim
             Rules = rules ?? throw new ArgumentNullException(nameof(rules));
             Terrain = new Terrain(map);
             Costs = new CostFields(Terrain, rules, runner);
+            Lethal = new LethalDistance(Terrain, rules.Hazards.LethalDropMm);
             FlowFields = new FlowFieldSet(Costs);
         }
 
@@ -34,6 +36,9 @@ namespace GodGame.Sim
         public CostFields Costs { get; }
 
         public FlowFieldSet FlowFields { get; }
+
+        /// <summary>Distance to the nearest lethal cell (cliff tops and the map edge for now).</summary>
+        public LethalDistance Lethal { get; }
 
         /// <summary>The flow field a regiment follows, or null when it holds its ground.</summary>
         public FlowField? FieldOf(int regiment)

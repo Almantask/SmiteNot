@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hazards, ruleset v0",
+  "description": "Read by GodGame.Sim.Rules.RulesetLoader. Numbers are integers; unknown keys are rejected.",
+  "type": "object",
+  "required": ["version", "lethalDropMm"],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": { "type": "string" },
+    "version": { "const": 0 },
+    "status": { "enum": ["placeholder", "settled"], "description": "placeholder: numbers no spec has set yet" },
+    "lethalDropMm": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 1000000,
+      "description": "A drop to a 4-neighbour at least this high (mm) makes a cell a lethal cliff top"
+    }
+  }
+}

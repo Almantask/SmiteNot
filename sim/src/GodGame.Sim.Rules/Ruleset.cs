@@ -90,6 +90,18 @@ namespace GodGame.Sim.Rules
         public FormationRules Formation { get; }
     }
 
+    /// <summary>World hazards from <c>data/rules/hazards.json</c>.</summary>
+    public sealed class HazardRules
+    {
+        public HazardRules(int lethalDropMm)
+        {
+            LethalDropMm = lethalDropMm;
+        }
+
+        /// <summary>A cell with a 4-neighbour at least this much lower is a lethal cliff top.</summary>
+        public int LethalDropMm { get; }
+    }
+
     /// <summary>How a unit type's regiments form up, and how big they may be (tech notes, section 4: about 50 to 200).</summary>
     public sealed class FormationRules
     {
@@ -134,11 +146,13 @@ namespace GodGame.Sim.Rules
         internal Ruleset(
             IReadOnlyList<UnitTypeRules> unitTypes,
             IReadOnlyList<MovementClassRules> movementClasses,
+            HazardRules hazards,
             ulong hash,
             bool hasPlaceholders
         )
         {
             MovementClasses = movementClasses;
+            Hazards = hazards;
             UnitTypes = unitTypes;
             Hash = hash;
             HasPlaceholders = hasPlaceholders;
@@ -154,6 +168,8 @@ namespace GodGame.Sim.Rules
 
         /// <summary>Indexed by <see cref="Rules.MovementClass"/>: all four classes, in enum order.</summary>
         public IReadOnlyList<MovementClassRules> MovementClasses { get; }
+
+        public HazardRules Hazards { get; }
 
         public MovementClassRules Movement(MovementClass movementClass) =>
             MovementClasses[(int)movementClass];

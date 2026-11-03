@@ -137,7 +137,7 @@ namespace GodGame.Sim
                 grid.Commit(tiles);
                 foreach (string id in model.AlsoWrites)
                 {
-                    fields.Get(id).Commit(tiles);
+                    fields.Get(id).Commit(tiles, countQuiet: false);
                 }
             }
         }

@@ -11,7 +11,7 @@ namespace GodGame.Sim
     /// <list type="bullet">
     /// <item>Standing water soaks into soil that isn't full, at <see cref="GroundRules.InfiltrationUmPerS"/>, and
     /// leaves the water field.</item>
-    /// <item>Ground with no water dries at <see cref="GroundRules.DryingPerS"/> down to the field's initial wetness
+    /// <item>Ground with no water at all dries at <see cref="GroundRules.DryingPerS"/> down to the field's initial wetness
     /// (the map's natural moisture), so a dry map stays asleep.</item>
     /// <item>Mud follows wetness between two curves: untrodden wet ground is mud of (wetness − base start) by
     /// itself, and the most mud a wetness allows is (wetness − cap start) × num / den, scaled by the cell's soil.</item>
@@ -34,7 +34,6 @@ namespace GodGame.Sim
 
         private readonly Ruleset _rules;
         private readonly GroundRules _ground;
-        private readonly int _dryDepthUm;
         private readonly long _infiltrationPerStep;
         private readonly int _dryingPerStep;
         private readonly byte[] _soil; // soil index per cell
@@ -45,6 +44,7 @@ namespace GodGame.Sim
         private int[] _touched = new int[0];
         private bool[] _due = new bool[0];
         private int[] _awake = new int[0];
+        private int[] _tileList = new int[0];
 
         public GroundModel(Terrain terrain, MapData map, Ruleset rules, TickRate rate)
         {
@@ -57,7 +57,6 @@ namespace GodGame.Sim
             _ground =
                 rules.Fields.Ground
                 ?? throw new ArgumentException("The rules have no ground section.", nameof(rules));
-            _dryDepthUm = rules.Fields.Water?.DryDepthUm ?? 0;
             Rate = rate;
             int stepMs = rate.Period * 1000 / SimConstants.TicksPerSecond;
             _infiltrationPerStep = (long)_ground.InfiltrationUmPerS * stepMs / 1000;
@@ -150,9 +149,14 @@ namespace GodGame.Sim
                 _due = new bool[grid.TileCount];
             }
             Array.Clear(_due, 0, _due.Length);
-            foreach (int tile in tiles)
+            if (_tileList.Length < tiles.Length)
             {
-                _due[tile] = true;
+                _tileList = new int[grid.TileCount];
+            }
+            for (int t = 0; t < tiles.Length; t++)
+            {
+                _due[tiles[t]] = true;
+                _tileList[t] = tiles[t];
             }
 
             // Serial, in slot order: every moving soldier on a stepping tile adds its churn to its cell.
@@ -195,11 +199,7 @@ namespace GodGame.Sim
                 _churn[i] += churn;
             }
 
-            context.Runner.For(
-                tiles.Length,
-                4,
-                new Kernel(this, grid, mud, water, tiles.ToArray())
-            );
+            context.Runner.For(tiles.Length, 4, new Kernel(this, grid, mud, water, _tileList));
 
             for (int k = 0; k < touched; k++)
             {
@@ -247,7 +247,7 @@ namespace GodGame.Sim
                             if (d > 0 && w < Full)
                             {
                                 // Soak: as much as the rate, the water and the soil's room allow.
-                                long room = (Full - w + g.UnitsPerUm - 1) / g.UnitsPerUm;
+                                long room = (Full - w) / g.UnitsPerUm; // rounded down: no water soaks into nowhere
                                 long soak = System.Math.Min(
                                     _m._infiltrationPerStep,
                                     System.Math.Min(d, room)
@@ -255,7 +255,7 @@ namespace GodGame.Sim
                                 w = System.Math.Min(Full, w + soak * g.UnitsPerUm);
                                 d -= soak;
                             }
-                            else if (d < _m._dryDepthUm && w > natural)
+                            else if (d == 0 && w > natural)
                             {
                                 w = System.Math.Max(natural, w - _m._dryingPerStep);
                             }

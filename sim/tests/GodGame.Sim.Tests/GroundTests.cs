@@ -62,7 +62,11 @@ public class GroundTests
 
         simulation.Step(60 * SimConstants.TicksPerSecond);
 
-        Assert.That(wetness.Get(10, 10), Is.EqualTo(GroundModel.Full), "soaked full");
+        Assert.That(
+            wetness.Get(10, 10),
+            Is.GreaterThanOrEqualTo(GroundModel.Full - 1),
+            "soaked full (to the unit: 1 µm is 2 units)"
+        );
         long soaked = wetness.Values.Sum(w => (long)w - 8_192) / 2;
         long left = water.Values.Sum(v => (long)v);
         Assert.That(
@@ -202,5 +206,98 @@ public class GroundTests
         Assert.Throws<GodGame.Sim.Rules.Json.DataFormatException>(() =>
             new GroundModel(new Terrain(map), map, RepoData.Rules(), TickOrder.FieldsRate)
         );
+    }
+
+    [Test]
+    public void WaterSleepsOnItsOwnSchedule_WhenTheGroundModelAlsoWritesIt()
+    {
+        // A pond on soil that is already full: the ground takes no water, so both runs should send the pond's tiles
+        // to sleep on the same tick.
+        int SleepTick(bool withGround)
+        {
+            var map = Map(30, 20);
+            var rules = RepoData.Rules();
+            var terrain = new Terrain(map);
+            var world = new World(1, 1);
+            world.AttachFields(new FieldStore(rules.Fields, map.Columns, map.Rows));
+            var models = new List<IFieldModel>
+            {
+                new WaterModel(terrain, map, rules.Fields.Water!, TickOrder.FieldsRate),
+            };
+            if (withGround)
+            {
+                models.Add(new GroundModel(terrain, map, rules, TickOrder.FieldsRate));
+            }
+            var systems = TickOrder.CreateDefault();
+            systems[(int)TickStep.Fields] = new FieldSystem(models);
+            var simulation = new Simulation(world, 1, new SerialRunner(), systems);
+            var water = world.Fields!.Get(WaterModel.Depth);
+            var wetness = world.Fields!.Get(GroundModel.Wetness);
+            for (int y = 0; y < 20; y++)
+            {
+                for (int x = 0; x < 30; x++)
+                {
+                    wetness.Set(x, y, GroundModel.Full);
+                    water.Set(x, y, 200_000);
+                }
+            }
+            var tiles = new int[water.TileCount];
+            while (water.AwakeTiles(tiles) > 0)
+            {
+                simulation.Step();
+                Assert.That(simulation.Tick, Is.LessThan(2_000), "the pond never went quiet");
+            }
+            return simulation.Tick;
+        }
+
+        Assert.That(SleepTick(withGround: true), Is.EqualTo(SleepTick(withGround: false)));
+    }
+
+    [Test]
+    public void Churn_IsTheSameOnAnyRunner_AndAcrossARestore()
+    {
+        Simulation Make(IParallelRunner runner)
+        {
+            var map = Map(60, 40);
+            var world = new World(1_500, 3);
+            for (int r = 0; r < 3; r++)
+            {
+                var regiment = world.AddRegiment(Side.Attacker, r == 1 ? 1 : 0, 100);
+                for (int i = 0; i < 500; i++)
+                {
+                    int u = world
+                        .SpawnUnit(
+                            regiment,
+                            FixVec2.FromInts(3 + (i % 50) + r, 3 + i / 50 + r * 10),
+                            100,
+                            100
+                        )
+                        .Index;
+                    world.Velocity[u] = FixVec2.FromInts(1, 0) / 20;
+                }
+            }
+            var simulation = Run(map, world, runner);
+            var wetness = world.Fields!.Get(GroundModel.Wetness);
+            for (int y = 0; y < 40; y++)
+            {
+                for (int x = 0; x < 60; x++)
+                {
+                    wetness.Set(x, y, 40_000 + 300 * ((x + y) % 50));
+                }
+            }
+            return simulation;
+        }
+
+        ulong[] serial = Make(new SerialRunner()).RunAndHash(200, 20);
+        Assert.That(Make(new ThreadedRunner(4)).RunAndHash(200, 20), Is.EqualTo(serial));
+
+        var original = Make(new ThreadedRunner(4));
+        original.Step(100);
+        byte[] snapshot = original.CaptureSnapshot();
+        var restored = Make(new ThreadedRunner(3));
+        restored.Step(17);
+        restored.RestoreSnapshot(snapshot);
+        restored.Step(100);
+        Assert.That(restored.StateHash(), Is.EqualTo(serial[^1]));
     }
 }

@@ -168,7 +168,12 @@ namespace GodGame.Sim
         /// in the given (ascending) tile order; whether a tile changed is read off the two buffers, not reported by the
         /// model.
         /// </summary>
-        internal void Commit(ReadOnlySpan<int> steppedTiles)
+        /// <param name="countQuiet">
+        /// False for a grid a model writes on the side (another model's field, or its own outflows): its changes still
+        /// wake tiles, but an unchanged tile isn't counted as a quiet step, so each field's sleep timing belongs to
+        /// the model that owns it however many models write it.
+        /// </param>
+        internal void Commit(ReadOnlySpan<int> steppedTiles, bool countQuiet = true)
         {
             for (int k = 0; k < steppedTiles.Length; k++)
             {
@@ -190,7 +195,7 @@ namespace GodGame.Sim
             for (int k = 0; k < steppedTiles.Length; k++)
             {
                 int tile = steppedTiles[k];
-                if (!_changed[tile] && _quiet[tile] < _sleepAfter)
+                if (countQuiet && !_changed[tile] && _quiet[tile] < _sleepAfter)
                 {
                     _quiet[tile]++;
                 }

@@ -112,6 +112,104 @@ namespace GodGame.Sim.Rules
         public int DryDepthUm { get; }
     }
 
+    /// <summary>How a soil takes churn and how deep its mud may get (spec S1, section 6).</summary>
+    public sealed class SoilRules
+    {
+        public SoilRules(int index, string id, int churnPermille, int capPermille)
+        {
+            Index = index;
+            Id = id;
+            ChurnPermille = churnPermille;
+            CapPermille = capPermille;
+        }
+
+        /// <summary>Position in the rules file; the first soil is the map default.</summary>
+        public int Index { get; }
+
+        public string Id { get; }
+
+        /// <summary>The share of churn the soil takes (a road resists it).</summary>
+        public int ChurnPermille { get; }
+
+        /// <summary>The share of the wetness cap its mud may reach (a road gets soft, never deep).</summary>
+        public int CapPermille { get; }
+    }
+
+    /// <summary>
+    /// Wetness and mud (spec S1, sections 5 and 6). Wetness is how much water the soil holds, on 0-65535; mud is on
+    /// 0-65535 too, bounded by two curves of wetness and raised by soldiers churning wet ground.
+    /// </summary>
+    public sealed class GroundRules
+    {
+        public GroundRules(
+            int unitsPerUm,
+            int infiltrationUmPerS,
+            int dryingPerS,
+            int baseStart,
+            int capStart,
+            int capNum,
+            int capDen,
+            int churnAtFullWetness,
+            int[] churnWeight,
+            IReadOnlyList<SoilRules> soils
+        )
+        {
+            UnitsPerUm = unitsPerUm;
+            InfiltrationUmPerS = infiltrationUmPerS;
+            DryingPerS = dryingPerS;
+            BaseStart = baseStart;
+            CapStart = capStart;
+            CapNum = capNum;
+            CapDen = capDen;
+            ChurnAtFullWetness = churnAtFullWetness;
+            _churnWeight = churnWeight;
+            Soils = soils;
+        }
+
+        private readonly int[] _churnWeight;
+
+        /// <summary>Wetness units per µm of water soaked in (2: full, 65535, is about 32.8 mm).</summary>
+        public int UnitsPerUm { get; }
+
+        /// <summary>How fast standing water (at least the dry depth) soaks into soil that isn't full.</summary>
+        public int InfiltrationUmPerS { get; }
+
+        /// <summary>Wetness lost per second where no water stands, down to the field's initial (natural) level.</summary>
+        public int DryingPerS { get; }
+
+        /// <summary>Above this wetness, untrodden ground is mud of (wetness − baseStart) by itself.</summary>
+        public int BaseStart { get; }
+
+        /// <summary>Above this wetness mud may form; the most it may reach is (wetness − capStart) × capNum / capDen.</summary>
+        public int CapStart { get; }
+
+        public int CapNum { get; }
+
+        public int CapDen { get; }
+
+        /// <summary>Mud one foot soldier moving through a cell adds in one field step, on full wetness and earth.</summary>
+        public int ChurnAtFullWetness { get; }
+
+        /// <summary>The churn a moving unit of this class adds, relative to a foot soldier (roughly its mass).</summary>
+        public int ChurnWeight(MovementClass movementClass) => _churnWeight[(int)movementClass];
+
+        /// <summary>In file order; the first is the default for every cell no soil area covers.</summary>
+        public IReadOnlyList<SoilRules> Soils { get; }
+
+        /// <summary>The soil's index, or -1.</summary>
+        public int SoilIndex(string id)
+        {
+            for (int i = 0; i < Soils.Count; i++)
+            {
+                if (string.Equals(Soils[i].Id, id, StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+    }
+
     /// <summary>The field framework's rules: the fields, their tiles and the interaction table.</summary>
     public sealed class FieldRules
     {
@@ -120,10 +218,12 @@ namespace GodGame.Sim.Rules
             int sleepAfterSteps,
             IReadOnlyList<FieldDefinition> fields,
             IReadOnlyList<FieldInteraction> interactions,
-            WaterRules? water = null
+            WaterRules? water = null,
+            GroundRules? ground = null
         )
         {
             Water = water;
+            Ground = ground;
             TileCells = tileCells;
             SleepAfterSteps = sleepAfterSteps;
             Fields = fields ?? throw new ArgumentNullException(nameof(fields));
@@ -143,6 +243,9 @@ namespace GodGame.Sim.Rules
 
         /// <summary>The water model's numbers (spec S1, section 2); null for field sets without water.</summary>
         public WaterRules? Water { get; }
+
+        /// <summary>Wetness, mud and soils (spec S1, sections 5 and 6); null for field sets without them.</summary>
+        public GroundRules? Ground { get; }
 
         /// <summary>The field's index, or -1.</summary>
         public int IndexOf(string id)

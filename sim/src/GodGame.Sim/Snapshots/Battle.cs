@@ -45,24 +45,32 @@ namespace GodGame.Sim
         }
 
         /// <summary>
-        /// The tick so far: the fields step (water), navigation (regiment goals and flow fields) and movement; every
-        /// other step is still empty. The navigation's cost fields are built with <paramref name="runner"/>, which
-        /// never changes the result.
+        /// The tick so far: the fields step (water, wetness and mud), navigation (regiment goals and flow fields) and
+        /// movement; every other step is still empty. The navigation's cost fields are built with
+        /// <paramref name="runner"/>, which never changes the result.
         /// </summary>
         public ISimSystem[] CreateSystems(IParallelRunner runner)
         {
             var navigation = new Navigation(Map, Rules, runner);
             var systems = TickOrder.CreateDefault();
-            // Water at the fields' 5 Hz; wetness and mud arrive with M3 item 4.
-            var water = Rules.Fields.Water;
-            systems[(int)TickStep.Fields] = new FieldSystem(
-                water == null
-                    ? Array.Empty<IFieldModel>()
-                    : new IFieldModel[]
-                    {
-                        new WaterModel(navigation.Terrain, Map, water, TickOrder.FieldsRate),
-                    }
-            );
+            // The fields at 5 Hz, in the interaction order (plan, section 3.4): water, then wetness and mud.
+            var models = new List<IFieldModel>();
+            if (Rules.Fields.Water != null)
+            {
+                models.Add(
+                    new WaterModel(
+                        navigation.Terrain,
+                        Map,
+                        Rules.Fields.Water,
+                        TickOrder.FieldsRate
+                    )
+                );
+            }
+            if (Rules.Fields.Ground != null)
+            {
+                models.Add(new GroundModel(navigation.Terrain, Map, Rules, TickOrder.FieldsRate));
+            }
+            systems[(int)TickStep.Fields] = new FieldSystem(models);
             systems[(int)TickStep.Navigation] = new NavigationSystem(navigation);
             systems[(int)TickStep.Movement] = new MovementSystem(navigation);
             return systems;

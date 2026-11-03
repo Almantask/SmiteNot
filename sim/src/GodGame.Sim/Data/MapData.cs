@@ -49,6 +49,19 @@ namespace GodGame.Sim
         }
     }
 
+    /// <summary>An area of the map with a named soil (spec S1, section 6: a firm road); elsewhere the rules' default soil.</summary>
+    public readonly struct SoilArea
+    {
+        public readonly string Soil;
+        public readonly RectMm Area;
+
+        public SoilArea(string soil, RectMm area)
+        {
+            Soil = soil;
+            Area = area;
+        }
+    }
+
     public readonly struct DeploymentZone
     {
         public readonly Side Side;
@@ -95,9 +108,11 @@ namespace GodGame.Sim
             DeploymentZone[] zones,
             WaterSource[] sources,
             RectMm[] sinks,
+            SoilArea[] soils,
             ulong hash
         )
         {
+            SoilAreas = soils;
             WaterSources = sources;
             WaterSinks = sinks;
             Id = id;
@@ -133,6 +148,9 @@ namespace GodGame.Sim
 
         public IReadOnlyList<DeploymentZone> DeploymentZones { get; }
 
+        /// <summary>Soil areas in file order; a later area wins where two overlap.</summary>
+        public IReadOnlyList<SoilArea> SoilAreas { get; }
+
         /// <summary>Constant discharges into the map, in file order.</summary>
         public IReadOnlyList<WaterSource> WaterSources { get; }
 
@@ -165,7 +183,8 @@ namespace GodGame.Sim
                 "depthMm",
                 "cellSizeMm",
                 "deployment",
-                "water"
+                "water",
+                "soils"
             );
             if (root.Int("version") != FormatVersion)
             {
@@ -248,6 +267,17 @@ namespace GodGame.Sim
             hash.AppendInt32(canonical.Length);
             hash.Append(canonical);
             hash.AppendInt32s(height);
+            var soils = new List<SoilArea>();
+            if (root.Has("soils"))
+            {
+                foreach (var item in root.Array("soils"))
+                {
+                    item.OnlyKeys("soil", "minXMm", "minYMm", "maxXMm", "maxYMm");
+                    soils.Add(
+                        new SoilArea(DataIds.Require(item["soil"]), ReadArea(item, width, depth))
+                    );
+                }
+            }
             var sources = new List<WaterSource>();
             var sinks = new List<RectMm>();
             if (root.Has("water"))
@@ -298,6 +328,7 @@ namespace GodGame.Sim
                 zones.ToArray(),
                 sources.ToArray(),
                 sinks.ToArray(),
+                soils.ToArray(),
                 hash.Digest()
             );
         }

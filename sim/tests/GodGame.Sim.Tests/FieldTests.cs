@@ -19,7 +19,7 @@ internal sealed class DiffusionModel : IFieldModel
 
     public IReadOnlyList<string> AlsoWrites => Array.Empty<string>();
 
-    public void BeforeStep(FieldStore fields) { }
+    public void BeforeStep(FieldStepContext context) { }
 
     public TickRate Rate { get; }
 
@@ -82,7 +82,7 @@ internal sealed class CarelessModel : IFieldModel
 
     public IReadOnlyList<string> AlsoWrites => Array.Empty<string>();
 
-    public void BeforeStep(FieldStore fields) { }
+    public void BeforeStep(FieldStepContext context) { }
 
     public TickRate Rate => TickRate.EveryTick;
 

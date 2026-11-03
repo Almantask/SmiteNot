@@ -14,6 +14,22 @@
     { "id": "mud", "unit": "scale", "min": 0, "max": 65535, "initial": 0 }
   ],
   "interactions": [],
+  "ground": {
+    "$comment": "S1 sections 5 and 6. Wetness: 2 units per um soaked in (full, 65535, is about 32.8 mm); standing water (at least the dry depth) soaks in at 1 mm/s; ground with no standing water dries at 110 a second, down to the field's initial wetness (the map's natural moisture; S1 says to dry, this stops it at the natural level so a dry map stays asleep). Mud: untrodden ground above 32768 wetness is mud of (wetness - 32768) by itself; the most mud a wetness allows is (wetness - 16384) x 4 / 3, times the soil's cap; each moving unit adds churnWeight[class] x 96 x soil churn x (wetness - 16384) / 49151 per field step. Churn weights are roughly mass ratios until S2.",
+    "unitsPerUm": 2,
+    "infiltrationUmPerS": 1000,
+    "dryingPerS": 110,
+    "mudBaseStart": 32768,
+    "mudCapStart": 16384,
+    "mudCapNum": 4,
+    "mudCapDen": 3,
+    "churnAtFullWetness": 96,
+    "churnWeight": { "foot": 1, "horse": 6, "wheeled": 25, "water": 0 },
+    "soils": [
+      { "id": "earth", "churnPermille": 1000, "capPermille": 1000 },
+      { "$comment": "A firm road: gets soft, never deep.", "id": "road", "churnPermille": 250, "capPermille": 500 }
+    ]
+  },
   "water": {
     "$comment": "S1 section 2. pipeGainPermille = g * dt / cell = 9.81 * 0.1 / 1.5. Bed friction (S1's damping stand-in, made depth-aware) is the shallow-water coefficient c_f in millionths, tuned so the M3 river runs about 0.5 to 1 m/s at base flow: 0.0042, a normal river bed. The deadbands (S1's 1 mm/s and 1 mm sleep thresholds) let still water go quiet: a flow under 1 mm/s with under 1 mm of head behind it stops.",
     "substepsPerFieldStep": 2,

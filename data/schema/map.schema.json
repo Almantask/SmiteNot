@@ -13,6 +13,20 @@
   ],
   "additionalProperties": false,
   "properties": {
+    "soils": {
+      "type": "array",
+      "description": "Areas of a named soil from data/rules/fields.json (a firm road); elsewhere the first soil. A later area wins where two overlap.",
+      "items": {
+        "type": "object",
+        "required": ["soil", "minXMm", "minYMm", "maxXMm", "maxYMm"],
+        "additionalProperties": false,
+        "properties": {
+          "soil": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" },
+          "minXMm": { "type": "integer" }, "minYMm": { "type": "integer" },
+          "maxXMm": { "type": "integer" }, "maxYMm": { "type": "integer" }
+        }
+      }
+    },
     "water": {
       "type": "object",
       "description": "Water entering and leaving the map (spec S1, section 7). Every map edge without a sink is closed.",

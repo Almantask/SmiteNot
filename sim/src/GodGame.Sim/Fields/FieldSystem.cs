@@ -32,8 +32,11 @@ namespace GodGame.Sim
         /// </summary>
         bool Staggered { get; }
 
-        /// <summary>Called every tick before the model's due tiles are chosen, to wake tiles it must step (a river's source).</summary>
-        void BeforeStep(FieldStore fields);
+        /// <summary>
+        /// Called every tick before the model's due tiles are chosen, to wake tiles it must step (a river's source,
+        /// wet ground under marching soldiers). Serial; reads anything, writes only tile activity.
+        /// </summary>
+        void BeforeStep(FieldStepContext context);
 
         void Step(FieldStepContext context, FieldGrid grid, ReadOnlySpan<int> tiles);
     }
@@ -95,7 +98,7 @@ namespace GodGame.Sim
             var step = new FieldStepContext(context, fields);
             foreach (var model in _models)
             {
-                model.BeforeStep(fields);
+                model.BeforeStep(step);
                 var grid = fields.Get(model.FieldId);
                 if (_awake.Length < grid.TileCount)
                 {

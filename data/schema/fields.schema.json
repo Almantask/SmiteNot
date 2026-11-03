@@ -3,7 +3,7 @@
   "title": "Fields, ruleset v0",
   "description": "Read by GodGame.Sim.Rules.RulesetLoader. Numbers are integers; unknown keys are rejected. At most 16 fields.",
   "type": "object",
-  "required": ["version", "tileCells", "sleepAfterSteps", "fields", "interactions", "water"],
+  "required": ["version", "tileCells", "sleepAfterSteps", "fields", "interactions", "water", "ground"],
   "additionalProperties": false,
   "properties": {
     "$comment": { "type": "string" },
@@ -25,6 +25,51 @@
           "min": { "type": "integer" },
           "max": { "type": "integer" },
           "initial": { "type": "integer" }
+        }
+      }
+    },
+    "ground": {
+      "type": "object",
+      "description": "Wetness, mud and soils (spec S1, sections 5 and 6)",
+      "required": ["unitsPerUm", "infiltrationUmPerS", "dryingPerS", "mudBaseStart", "mudCapStart", "mudCapNum", "mudCapDen", "churnAtFullWetness", "churnWeight", "soils"],
+      "additionalProperties": false,
+      "properties": {
+        "$comment": { "type": "string" },
+        "unitsPerUm": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "infiltrationUmPerS": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+        "dryingPerS": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "mudBaseStart": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "mudCapStart": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "mudCapNum": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "mudCapDen": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "churnAtFullWetness": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "churnWeight": {
+          "type": "object",
+          "required": ["foot", "horse", "wheeled", "water"],
+          "additionalProperties": false,
+          "properties": {
+            "foot": { "type": "integer", "minimum": 0, "maximum": 10000 },
+            "horse": { "type": "integer", "minimum": 0, "maximum": 10000 },
+            "wheeled": { "type": "integer", "minimum": 0, "maximum": 10000 },
+            "water": { "type": "integer", "minimum": 0, "maximum": 10000 }
+          }
+        },
+        "soils": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 255,
+          "description": "The first soil is the default for every cell no map soil area covers",
+          "items": {
+            "type": "object",
+            "required": ["id", "churnPermille", "capPermille"],
+            "additionalProperties": false,
+            "properties": {
+              "$comment": { "type": "string" },
+              "id": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" },
+              "churnPermille": { "type": "integer", "minimum": 0, "maximum": 10000 },
+              "capPermille": { "type": "integer", "minimum": 0, "maximum": 1000 }
+            }
+          }
         }
       }
     },

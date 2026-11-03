@@ -254,7 +254,8 @@ namespace GodGame.Sim.Rules
                 "sleepAfterSteps",
                 "fields",
                 "interactions",
-                "water"
+                "water",
+                "ground"
             );
             if (root.Int("version") != FieldsVersion)
             {
@@ -344,7 +345,71 @@ namespace GodGame.Sim.Rules
                 rules.SleepAfterSteps,
                 fields,
                 interactions,
-                ReadWater(root["water"])
+                ReadWater(root["water"]),
+                ReadGround(root["ground"])
+            );
+        }
+
+        private static GroundRules ReadGround(JsonValue item)
+        {
+            item.OnlyKeys(
+                "$comment",
+                "unitsPerUm",
+                "infiltrationUmPerS",
+                "dryingPerS",
+                "mudBaseStart",
+                "mudCapStart",
+                "mudCapNum",
+                "mudCapDen",
+                "churnAtFullWetness",
+                "churnWeight",
+                "soils"
+            );
+            var weights = item["churnWeight"];
+            weights.OnlyKeys("foot", "horse", "wheeled", "water");
+            var churnWeight = new[]
+            {
+                weights.Int("foot", 0, 10_000),
+                weights.Int("horse", 0, 10_000),
+                weights.Int("wheeled", 0, 10_000),
+                weights.Int("water", 0, 10_000),
+            };
+            var soils = new List<SoilRules>();
+            foreach (var soil in item.Array("soils"))
+            {
+                soil.OnlyKeys("$comment", "id", "churnPermille", "capPermille");
+                string id = DataIds.Require(soil["id"]);
+                if (soils.Exists(s => string.Equals(s.Id, id, StringComparison.Ordinal)))
+                {
+                    throw new DataFormatException(soil.Path + ": duplicate soil \"" + id + "\".");
+                }
+                soils.Add(
+                    new SoilRules(
+                        soils.Count,
+                        id,
+                        soil.Int("churnPermille", 0, 10_000),
+                        soil.Int("capPermille", 0, 1_000)
+                    )
+                );
+            }
+            if (soils.Count == 0 || soils.Count > 255)
+            {
+                throw new DataFormatException(
+                    item.Path + ": 1 to 255 soils, the first being the default."
+                );
+            }
+            int capDen = item.Int("mudCapDen", 1, 1_000);
+            return new GroundRules(
+                item.Int("unitsPerUm", 1, 1_000),
+                item.Int("infiltrationUmPerS", 0, 1_000_000),
+                item.Int("dryingPerS", 0, 65_535),
+                item.Int("mudBaseStart", 0, 65_535),
+                item.Int("mudCapStart", 0, 65_535),
+                item.Int("mudCapNum", 0, 1_000),
+                capDen,
+                item.Int("churnAtFullWetness", 0, 65_535),
+                churnWeight,
+                soils
             );
         }
 

@@ -175,7 +175,7 @@ namespace GodGame.Sim
         /// Keeps the tiles under every source awake before each field step: a river in exact balance changes no depth,
         /// and its source tile would otherwise fall asleep and stop adding water.
         /// </summary>
-        public void BeforeStep(FieldStore fields) => WakeSources(fields);
+        public void BeforeStep(FieldStepContext context) => WakeSources(context.Fields);
 
         /// <summary>Wakes the tiles under every source.</summary>
         public void WakeSources(FieldStore fields)

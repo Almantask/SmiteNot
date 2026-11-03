@@ -124,6 +124,9 @@ namespace GodGame.Sim
             : value > Definition.Max ? Definition.Max
             : (int)value;
 
+        /// <summary>Wakes one tile now (its neighbours stay as they are).</summary>
+        public void Wake(int tile) => _quiet[tile] = 0;
+
         /// <summary>Wakes a tile now and its 8 neighbours, which may receive its changes.</summary>
         public void WakeAround(int tile)
         {

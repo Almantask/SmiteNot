@@ -63,6 +63,55 @@ namespace GodGame.Sim.Rules
         public int Threshold { get; }
     }
 
+    /// <summary>
+    /// The water model's numbers (spec S1, section 2: virtual pipes on the heightfield). Depth is in µm, and each cell
+    /// keeps four outflows (east, north, west, south) in µm/s of its own depth.
+    /// </summary>
+    public sealed class WaterRules
+    {
+        public WaterRules(
+            int substepsPerFieldStep,
+            int pipeGainPermille,
+            int bedFrictionPpm,
+            int fluxDeadbandUmPerS,
+            int headDeadbandUm,
+            int dryDepthUm
+        )
+        {
+            HeadDeadbandUm = headDeadbandUm;
+            SubstepsPerFieldStep = substepsPerFieldStep;
+            PipeGainPermille = pipeGainPermille;
+            BedFrictionPpm = bedFrictionPpm;
+            FluxDeadbandUmPerS = fluxDeadbandUmPerS;
+            DryDepthUm = dryDepthUm;
+        }
+
+        /// <summary>Water substeps per field step (2: water at 10 Hz, stable to about 5.7 m deep).</summary>
+        public int SubstepsPerFieldStep { get; }
+
+        /// <summary>Outflow gained per substep per µm of head difference, in µm/s per µm (‰): g·dt / cell.</summary>
+        public int PipeGainPermille { get; }
+
+        /// <summary>
+        /// The bed friction coefficient in millionths (the shallow-water c_f: each substep slows a flow by
+        /// c_f × speed × dt / depth), so rivers settle at speed √(g·depth·slope / c_f): deep water runs faster than a
+        /// thin sheet on the same slope. 4,200 (0.0042) runs the M3 test river at about 0.7 m/s.
+        /// </summary>
+        public int BedFrictionPpm { get; }
+
+        /// <summary>
+        /// Outflows slower than this, with less than <see cref="HeadDeadbandUm"/> of head behind them, are dropped, so
+        /// still water goes quiet and its tiles sleep.
+        /// </summary>
+        public int FluxDeadbandUmPerS { get; }
+
+        /// <summary>The head difference below which a slow outflow counts as still water.</summary>
+        public int HeadDeadbandUm { get; }
+
+        /// <summary>Shallower water counts as dry for units and rendering.</summary>
+        public int DryDepthUm { get; }
+    }
+
     /// <summary>The field framework's rules: the fields, their tiles and the interaction table.</summary>
     public sealed class FieldRules
     {
@@ -70,9 +119,11 @@ namespace GodGame.Sim.Rules
             int tileCells,
             int sleepAfterSteps,
             IReadOnlyList<FieldDefinition> fields,
-            IReadOnlyList<FieldInteraction> interactions
+            IReadOnlyList<FieldInteraction> interactions,
+            WaterRules? water = null
         )
         {
+            Water = water;
             TileCells = tileCells;
             SleepAfterSteps = sleepAfterSteps;
             Fields = fields ?? throw new ArgumentNullException(nameof(fields));
@@ -89,6 +140,9 @@ namespace GodGame.Sim.Rules
         public IReadOnlyList<FieldDefinition> Fields { get; }
 
         public IReadOnlyList<FieldInteraction> Interactions { get; }
+
+        /// <summary>The water model's numbers (spec S1, section 2); null for field sets without water.</summary>
+        public WaterRules? Water { get; }
 
         /// <summary>The field's index, or -1.</summary>
         public int IndexOf(string id)

@@ -17,6 +17,8 @@ internal sealed class DiffusionModel : IFieldModel
 
     public string FieldId { get; }
 
+    public IReadOnlyList<string> AlsoWrites => Array.Empty<string>();
+
     public TickRate Rate { get; }
 
     public bool Staggered { get; }
@@ -76,6 +78,8 @@ internal sealed class CarelessModel : IFieldModel
 {
     public string FieldId => "water";
 
+    public IReadOnlyList<string> AlsoWrites => Array.Empty<string>();
+
     public TickRate Rate => TickRate.EveryTick;
 
     public bool Staggered => false;
@@ -128,15 +132,26 @@ public class FieldTests
 
         Assert.That(
             fields.Fields.Select(f => f.Id),
-            Is.EqualTo(new[] { "water", "wetness", "mud" })
+            Is.EqualTo(
+                new[]
+                {
+                    "water",
+                    "water_out_e",
+                    "water_out_n",
+                    "water_out_w",
+                    "water_out_s",
+                    "wetness",
+                    "mud",
+                }
+            )
         );
-        Assert.That(fields.Fields[0].Unit, Is.EqualTo("mm"));
+        Assert.That(fields.Fields[0].Unit, Is.EqualTo("um"));
         Assert.That(fields.TileCells, Is.EqualTo(16));
-        Assert.That(fields.IndexOf("mud"), Is.EqualTo(2));
+        Assert.That(fields.IndexOf("mud"), Is.EqualTo(6));
         Assert.That(fields.IndexOf("lava"), Is.EqualTo(-1));
     }
 
-    [TestCase("\"unit\": \"mm\"", "\"unit\": \"metres\"", "unit must be")]
+    [TestCase("\"unit\": \"um\"", "\"unit\": \"metres\"", "unit must be")]
     [TestCase("\"max\": 65535", "\"max\": 70000", "outside")]
     [TestCase(
         "\"interactions\": []",
@@ -292,7 +307,7 @@ public class FieldTests
         var simulation = RepoBattle.TenThousand().Start(new SerialRunner());
         var fields = simulation.World.Fields!;
 
-        Assert.That(fields.Count, Is.EqualTo(3));
+        Assert.That(fields.Count, Is.EqualTo(7));
         Assert.That(fields.Columns * fields.Rows, Is.EqualTo(800 * 534));
         Assert.That(simulation.CaptureSnapshot().Length, Is.LessThan(4 * 1024 * 1024));
     }

@@ -3,7 +3,7 @@
   "title": "Fields, ruleset v0",
   "description": "Read by GodGame.Sim.Rules.RulesetLoader. Numbers are integers; unknown keys are rejected. At most 16 fields.",
   "type": "object",
-  "required": ["version", "tileCells", "sleepAfterSteps", "fields", "interactions"],
+  "required": ["version", "tileCells", "sleepAfterSteps", "fields", "interactions", "water"],
   "additionalProperties": false,
   "properties": {
     "$comment": { "type": "string" },
@@ -21,11 +21,25 @@
         "properties": {
           "$comment": { "type": "string" },
           "id": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" },
-          "unit": { "enum": ["mm", "scale", "centidegrees", "cmPerS"], "description": "mm within ±10 km; scale 0 to 65535; centidegrees and cmPerS within ±10000" },
+          "unit": { "enum": ["mm", "um", "umPerS", "scale", "centidegrees", "cmPerS"], "description": "mm within ±10 km; um and umPerS within ±10^9; scale 0 to 65535; centidegrees and cmPerS within ±10000" },
           "min": { "type": "integer" },
           "max": { "type": "integer" },
           "initial": { "type": "integer" }
         }
+      }
+    },
+    "water": {
+      "type": "object",
+      "required": ["substepsPerFieldStep", "pipeGainPermille", "bedFrictionPpm", "fluxDeadbandUmPerS", "headDeadbandUm", "dryDepthUm"],
+      "additionalProperties": false,
+      "properties": {
+        "$comment": { "type": "string" },
+        "substepsPerFieldStep": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "pipeGainPermille": { "type": "integer", "minimum": 1, "maximum": 10000, "description": "g * dt / cell, in permille" },
+        "bedFrictionPpm": { "type": "integer", "minimum": 0, "maximum": 1000000, "description": "Bed friction coefficient c_f in millionths" },
+        "fluxDeadbandUmPerS": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+        "headDeadbandUm": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+        "dryDepthUm": { "type": "integer", "minimum": 0, "maximum": 1000000 }
       }
     },
     "interactions": {

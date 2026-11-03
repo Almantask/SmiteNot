@@ -1,13 +1,26 @@
 {
-  "$comment": "World fields (ruleset v0): integer grids on the map's field cells (tech notes, section 6; plan, section 3.3). The framework lands first (M3 item 1); the water, wetness and mud rules and the interaction rows come from spec pass S1, so the file is marked placeholder and has no interactions yet. tileCells: cells per side of an activity tile (16 = 24 m); sleepAfterSteps: quiet field steps before a tile sleeps.",
+  "$comment": "World fields (ruleset v0): integer grids on the map's field cells (tech notes, section 6; spec S1, docs/design/spec-s1-water.md). Water depth is in micrometres (S1: rain and runoff add fractions of a millimetre per step), and each cell keeps four outflows in um/s of its own depth (virtual pipes, S1 section 2). Wetness and mud are on 0-65535 and get their rules with M3 item 4. tileCells: cells per side of an activity tile (16 = 24 m); sleepAfterSteps: quiet field steps before a tile sleeps (S1: 5). The water numbers are S1 proposals, tuned against the M3 tests, so the file is marked placeholder.",
   "version": 0,
   "status": "placeholder",
   "tileCells": 16,
-  "sleepAfterSteps": 4,
+  "sleepAfterSteps": 5,
   "fields": [
-    { "id": "water", "unit": "mm", "min": 0, "max": 100000, "initial": 0 },
-    { "id": "wetness", "unit": "scale", "min": 0, "max": 65535, "initial": 0 },
+    { "id": "water", "unit": "um", "min": 0, "max": 100000000, "initial": 0 },
+    { "id": "water_out_e", "unit": "umPerS", "min": 0, "max": 1000000000, "initial": 0 },
+    { "id": "water_out_n", "unit": "umPerS", "min": 0, "max": 1000000000, "initial": 0 },
+    { "id": "water_out_w", "unit": "umPerS", "min": 0, "max": 1000000000, "initial": 0 },
+    { "id": "water_out_s", "unit": "umPerS", "min": 0, "max": 1000000000, "initial": 0 },
+    { "id": "wetness", "unit": "scale", "min": 0, "max": 65535, "initial": 8192 },
     { "id": "mud", "unit": "scale", "min": 0, "max": 65535, "initial": 0 }
   ],
-  "interactions": []
+  "interactions": [],
+  "water": {
+    "$comment": "S1 section 2. pipeGainPermille = g * dt / cell = 9.81 * 0.1 / 1.5. Bed friction (S1's damping stand-in, made depth-aware) is the shallow-water coefficient c_f in millionths, tuned so the M3 river runs about 0.5 to 1 m/s at base flow: 0.0042, a normal river bed. The deadbands (S1's 1 mm/s and 1 mm sleep thresholds) let still water go quiet: a flow under 1 mm/s with under 1 mm of head behind it stops.",
+    "substepsPerFieldStep": 2,
+    "pipeGainPermille": 654,
+    "bedFrictionPpm": 4200,
+    "fluxDeadbandUmPerS": 1000,
+    "headDeadbandUm": 1000,
+    "dryDepthUm": 5000
+  }
 }

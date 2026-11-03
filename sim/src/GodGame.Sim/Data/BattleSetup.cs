@@ -26,7 +26,25 @@ namespace GodGame.Sim
                 soldiers + extraUnitCapacity,
                 System.Math.Max(1, plan.Army.Count)
             );
-            world.AttachFields(new FieldStore(rules.Fields, map.Columns, map.Rows));
+            var fields = new FieldStore(rules.Fields, map.Columns, map.Rows);
+            world.AttachFields(fields);
+            // Wake the tiles under every water source, so rivers flow from the first field step.
+            if (rules.Fields.IndexOf(WaterModel.Depth) >= 0)
+            {
+                var water = fields.Get(WaterModel.Depth);
+                foreach (var source in map.WaterSources)
+                {
+                    var cells = new Terrain(map).CellsOf(source.Area);
+                    for (int y = cells.MinY; y <= cells.MaxY; y += water.TileCells)
+                    {
+                        for (int x = cells.MinX; x <= cells.MaxX; x += water.TileCells)
+                        {
+                            water.WakeAround(water.TileOf(x, y));
+                        }
+                    }
+                    water.WakeAround(water.TileOf(cells.MaxX, cells.MaxY));
+                }
+            }
             Fix maxX = map.Width - Fix.FromRaw(1);
             Fix maxY = map.Depth - Fix.FromRaw(1);
 

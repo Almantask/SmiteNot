@@ -13,6 +13,40 @@
   ],
   "additionalProperties": false,
   "properties": {
+    "water": {
+      "type": "object",
+      "description": "Water entering and leaving the map (spec S1, section 7). Every map edge without a sink is closed.",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": { "type": "string" },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["minXMm", "minYMm", "maxXMm", "maxYMm", "litresPerSecond"],
+            "additionalProperties": false,
+            "properties": {
+              "minXMm": { "type": "integer" }, "minYMm": { "type": "integer" },
+              "maxXMm": { "type": "integer" }, "maxYMm": { "type": "integer" },
+              "litresPerSecond": { "type": "integer", "minimum": 1, "maximum": 10000000, "description": "Constant discharge spread evenly over the area's cells" }
+            }
+          }
+        },
+        "sinks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["minXMm", "minYMm", "maxXMm", "maxYMm"],
+            "additionalProperties": false,
+            "description": "An area touching the map edge; its edge cells let water out freely",
+            "properties": {
+              "minXMm": { "type": "integer" }, "minYMm": { "type": "integer" },
+              "maxXMm": { "type": "integer" }, "maxYMm": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
     "$comment": {
       "type": "string"
     },

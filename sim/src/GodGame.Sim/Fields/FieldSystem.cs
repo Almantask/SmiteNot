@@ -16,6 +16,12 @@ namespace GodGame.Sim
         /// <summary>The field it steps (the grid whose next buffer it fills and which is committed after it).</summary>
         string FieldId { get; }
 
+        /// <summary>
+        /// Other fields it writes for the same tiles (water's four outflows): prepared and committed with the main one.
+        /// Which tiles step follows the main field's activity alone.
+        /// </summary>
+        IReadOnlyList<string> AlsoWrites { get; }
+
         /// <summary>How often it steps.</summary>
         TickRate Rate { get; }
 
@@ -116,8 +122,16 @@ namespace GodGame.Sim
                 }
                 var tiles = new ReadOnlySpan<int>(_due, 0, due);
                 grid.PrepareStep(tiles);
+                foreach (string id in model.AlsoWrites)
+                {
+                    fields.Get(id).PrepareStep(tiles);
+                }
                 model.Step(step, grid, tiles);
                 grid.Commit(tiles);
+                foreach (string id in model.AlsoWrites)
+                {
+                    fields.Get(id).Commit(tiles);
+                }
             }
         }
     }

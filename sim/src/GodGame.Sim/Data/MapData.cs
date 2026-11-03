@@ -33,6 +33,22 @@ namespace GodGame.Sim
     }
 
     /// <summary>A side's deployment zone, where its regiments start (brief: terrain pieces keep 100 m from these).</summary>
+    /// <summary>
+    /// Where water enters the map (spec S1, section 7): a constant discharge spread evenly over the cells of an area
+    /// (usually a short line at the map edge).
+    /// </summary>
+    public readonly struct WaterSource
+    {
+        public readonly RectMm Area;
+        public readonly int LitresPerSecond;
+
+        public WaterSource(RectMm area, int litresPerSecond)
+        {
+            Area = area;
+            LitresPerSecond = litresPerSecond;
+        }
+    }
+
     public readonly struct DeploymentZone
     {
         public readonly Side Side;
@@ -77,9 +93,13 @@ namespace GodGame.Sim
             int cellSizeMm,
             int[] heightMm,
             DeploymentZone[] zones,
+            WaterSource[] sources,
+            RectMm[] sinks,
             ulong hash
         )
         {
+            WaterSources = sources;
+            WaterSinks = sinks;
             Id = id;
             WidthMm = widthMm;
             DepthMm = depthMm;
@@ -113,6 +133,12 @@ namespace GodGame.Sim
 
         public IReadOnlyList<DeploymentZone> DeploymentZones { get; }
 
+        /// <summary>Constant discharges into the map, in file order.</summary>
+        public IReadOnlyList<WaterSource> WaterSources { get; }
+
+        /// <summary>Areas on the map edge where water leaves freely (S1, section 7); every other edge is closed.</summary>
+        public IReadOnlyList<RectMm> WaterSinks { get; }
+
         /// <summary>Over the canonical map.json and the height layer: what replays record as the map hash.</summary>
         public ulong Hash { get; }
 
@@ -138,7 +164,8 @@ namespace GodGame.Sim
                 "widthMm",
                 "depthMm",
                 "cellSizeMm",
-                "deployment"
+                "deployment",
+                "water"
             );
             if (root.Int("version") != FormatVersion)
             {
@@ -221,7 +248,76 @@ namespace GodGame.Sim
             hash.AppendInt32(canonical.Length);
             hash.Append(canonical);
             hash.AppendInt32s(height);
-            return new MapData(id, width, depth, cell, height, zones.ToArray(), hash.Digest());
+            var sources = new List<WaterSource>();
+            var sinks = new List<RectMm>();
+            if (root.Has("water"))
+            {
+                var water = root["water"];
+                water.OnlyKeys("$comment", "sources", "sinks");
+                if (water.Has("sources"))
+                {
+                    foreach (var item in water.Array("sources"))
+                    {
+                        item.OnlyKeys("minXMm", "minYMm", "maxXMm", "maxYMm", "litresPerSecond");
+                        sources.Add(
+                            new WaterSource(
+                                ReadArea(item, width, depth),
+                                item.Int("litresPerSecond", 1, MaxLitresPerSecond)
+                            )
+                        );
+                    }
+                }
+                if (water.Has("sinks"))
+                {
+                    foreach (var item in water.Array("sinks"))
+                    {
+                        item.OnlyKeys("minXMm", "minYMm", "maxXMm", "maxYMm");
+                        var area = ReadArea(item, width, depth);
+                        if (
+                            area.MinX > 0
+                            && area.MinY > 0
+                            && area.MaxX < width
+                            && area.MaxY < depth
+                        )
+                        {
+                            throw new DataFormatException(
+                                item.Path + ": a sink must touch the map edge."
+                            );
+                        }
+                        sinks.Add(area);
+                    }
+                }
+            }
+
+            return new MapData(
+                id,
+                width,
+                depth,
+                cell,
+                height,
+                zones.ToArray(),
+                sources.ToArray(),
+                sinks.ToArray(),
+                hash.Digest()
+            );
+        }
+
+        /// <summary>The largest single source: 10,000 m³/s, far above any river a battle needs.</summary>
+        public const int MaxLitresPerSecond = 10_000_000;
+
+        private static RectMm ReadArea(JsonValue item, int width, int depth)
+        {
+            int minX = item.Int("minXMm", 0, width);
+            int minY = item.Int("minYMm", 0, depth);
+            int maxX = item.Int("maxXMm", 0, width);
+            int maxY = item.Int("maxYMm", 0, depth);
+            if (maxX <= minX || maxY <= minY)
+            {
+                throw new DataFormatException(
+                    item.Path + ": the area needs max above min on both axes."
+                );
+            }
+            return new RectMm(minX, minY, maxX, maxY);
         }
     }
 

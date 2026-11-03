@@ -45,16 +45,24 @@ namespace GodGame.Sim
         }
 
         /// <summary>
-        /// The tick so far: the fields step (no field models yet), navigation (regiment goals and flow fields) and
-        /// movement; every other step is still empty. The
-        /// navigation's cost fields are built with <paramref name="runner"/>, which never changes the result.
+        /// The tick so far: the fields step (water), navigation (regiment goals and flow fields) and movement; every
+        /// other step is still empty. The navigation's cost fields are built with <paramref name="runner"/>, which
+        /// never changes the result.
         /// </summary>
         public ISimSystem[] CreateSystems(IParallelRunner runner)
         {
             var navigation = new Navigation(Map, Rules, runner);
             var systems = TickOrder.CreateDefault();
-            // No field models yet: water, wetness and mud arrive with M3's items 3 and 4.
-            systems[(int)TickStep.Fields] = new FieldSystem(Array.Empty<IFieldModel>());
+            // Water at the fields' 5 Hz; wetness and mud arrive with M3 item 4.
+            var water = Rules.Fields.Water;
+            systems[(int)TickStep.Fields] = new FieldSystem(
+                water == null
+                    ? Array.Empty<IFieldModel>()
+                    : new IFieldModel[]
+                    {
+                        new WaterModel(navigation.Terrain, Map, water, TickOrder.FieldsRate),
+                    }
+            );
             systems[(int)TickStep.Navigation] = new NavigationSystem(navigation);
             systems[(int)TickStep.Movement] = new MovementSystem(navigation);
             return systems;

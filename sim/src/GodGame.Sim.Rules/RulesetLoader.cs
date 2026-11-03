@@ -233,6 +233,11 @@ namespace GodGame.Sim.Rules
                     min = -10_000;
                     max = 10_000;
                     return true;
+                case "um":
+                case "umPerS":
+                    min = -1_000_000_000;
+                    max = 1_000_000_000;
+                    return true;
                 default:
                     min = max = 0;
                     return false;
@@ -248,7 +253,8 @@ namespace GodGame.Sim.Rules
                 "tileCells",
                 "sleepAfterSteps",
                 "fields",
-                "interactions"
+                "interactions",
+                "water"
             );
             if (root.Int("version") != FieldsVersion)
             {
@@ -273,7 +279,7 @@ namespace GodGame.Sim.Rules
                 if (!UnitRange(unit, out int lowest, out int highest))
                 {
                     throw new DataFormatException(
-                        item.Path + ": unit must be mm, scale, centidegrees or cmPerS."
+                        item.Path + ": unit must be mm, um, umPerS, scale, centidegrees or cmPerS."
                     );
                 }
                 int min = item.Int("min", lowest, highest);
@@ -301,7 +307,8 @@ namespace GodGame.Sim.Rules
                 root.Int("tileCells", 4, 64),
                 root.Int("sleepAfterSteps", 1, 100),
                 fields,
-                new List<FieldInteraction>()
+                new List<FieldInteraction>(),
+                null
             );
             var interactions = new List<FieldInteraction>();
             foreach (var item in root.Array("interactions"))
@@ -332,7 +339,34 @@ namespace GodGame.Sim.Rules
                     )
                 );
             }
-            return new FieldRules(rules.TileCells, rules.SleepAfterSteps, fields, interactions);
+            return new FieldRules(
+                rules.TileCells,
+                rules.SleepAfterSteps,
+                fields,
+                interactions,
+                ReadWater(root["water"])
+            );
+        }
+
+        private static WaterRules ReadWater(JsonValue item)
+        {
+            item.OnlyKeys(
+                "$comment",
+                "substepsPerFieldStep",
+                "pipeGainPermille",
+                "bedFrictionPpm",
+                "fluxDeadbandUmPerS",
+                "headDeadbandUm",
+                "dryDepthUm"
+            );
+            return new WaterRules(
+                item.Int("substepsPerFieldStep", 1, 16),
+                item.Int("pipeGainPermille", 1, 10_000),
+                item.Int("bedFrictionPpm", 0, 1_000_000),
+                item.Int("fluxDeadbandUmPerS", 0, 1_000_000),
+                item.Int("headDeadbandUm", 0, 1_000_000),
+                item.Int("dryDepthUm", 0, 1_000_000)
+            );
         }
 
         private static RouteRules ReadRoutes(JsonValue root, ref bool placeholders)

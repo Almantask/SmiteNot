@@ -8,3 +8,4 @@
 - [Terrain and navigation](pattern_terrain_navigation.md) — cost margins, dirty radius, flow repair, coarse grid all-cells rule, preview mutates its Navigation
 - [Movement and steering](pattern_movement_steering.md) — thread tests miss crush regime, 64-neighbour truncation, 2 m hash vs map caps, stale Pressure, FarQuarter vs Reachability goal
 - [Fields and tiles](pattern_fields_tiles.md) — unhashed Next/_changed, unclamped Commit vs snapshot check, Set from kernels, dense keyframes
+- [Water model](pattern_water_model.md) — depth-only activity lets source tiles sleep, terrain edits don't wake water, overflow at legal extremes

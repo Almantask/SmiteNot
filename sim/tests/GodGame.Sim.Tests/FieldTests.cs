@@ -19,6 +19,8 @@ internal sealed class DiffusionModel : IFieldModel
 
     public IReadOnlyList<string> AlsoWrites => Array.Empty<string>();
 
+    public void BeforeStep(FieldStore fields) { }
+
     public TickRate Rate { get; }
 
     public bool Staggered { get; }
@@ -79,6 +81,8 @@ internal sealed class CarelessModel : IFieldModel
     public string FieldId => "water";
 
     public IReadOnlyList<string> AlsoWrites => Array.Empty<string>();
+
+    public void BeforeStep(FieldStore fields) { }
 
     public TickRate Rate => TickRate.EveryTick;
 

@@ -5,7 +5,8 @@ metadata:
   type: project
 ---
 
-Check first when a field model or the field framework changes (first audited 2026-11-02, commit 59e592f; no High):
+Check first when a field model or the field framework changes (first audited 2026-11-02, commit 59e592f; no High).
+Update 2026-11-03 (b879acc): 860db6d fixed the first three items (PrepareStep pre-fills Next, Commit clamps, changed is derived from Next vs Values); verify they stay fixed. Water specifics: [[pattern-water-model]].
 - Next is neither hashed nor snapshotted and starts as zeros (not Initial). Commit copies whole tiles from Next, so any cell a model forgets to write leaks stale data (from before a restore, or another tick) into Values. Want: Commit/FieldSystem pre-fills Next from Values for the due tiles before Step, or a debug check.
 - _changed is cleared only for stepped tiles; a MarkChanged on a tile outside the step stays set, unhashed, and ReadFrom clears it, so restore diverges. Better: Commit derives "changed" by comparing Next with Values per tile (no model flag at all).
 - Commit does not clamp; ReadFrom rejects out-of-range values, so a model overshooting Max makes the live state unsnapshottable.

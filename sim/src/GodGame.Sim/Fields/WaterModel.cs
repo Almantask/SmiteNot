@@ -30,10 +30,20 @@ namespace GodGame.Sim
         public const string OutWest = "water_out_w";
         public const string OutSouth = "water_out_s";
 
-        private static readonly string[] Outflows = { OutEast, OutNorth, OutWest, OutSouth };
+        private static readonly IReadOnlyList<string> Outflows = Array.AsReadOnly(
+            new[] { OutEast, OutNorth, OutWest, OutSouth }
+        );
 
-        /// <summary>Outflows stay within what the grids store.</summary>
+        /// <summary>Outflows (and the speeds friction reads) stay within what the grids store.</summary>
         public const long MaxOutflowUmPerS = 1_000_000_000;
+
+        /// <summary>Head differences beyond 100 m push no harder (a waterfall, as far as a pipe can tell).</summary>
+        public const long MaxHeadDifferenceUm = 100_000_000;
+
+        private static long Clamp(long value, long limit) =>
+            value > limit ? limit
+            : value < -limit ? -limit
+            : value;
 
         private readonly Terrain _terrain;
         private readonly WaterRules _rules;
@@ -125,8 +135,8 @@ namespace GodGame.Sim
         public const int MaxFlowSpeedMmPerS = 5_000;
 
         /// <summary>
-        /// The water's velocity in a cell, in mm/s east and north: the net outflow across the cell's faces (half of
-        /// each side's, averaged) × cell / depth. Zero in water shallower than <see cref="VelocityMinDepthUm"/>; each
+        /// The water's velocity in a cell, in mm/s east and north: the cell's own net outflow each way (east minus west,
+        /// north minus south) × cell / depth. Zero in water shallower than <see cref="VelocityMinDepthUm"/>; each
         /// component capped at <see cref="MaxFlowSpeedMmPerS"/>.
         /// </summary>
         public static void Velocity(
@@ -161,7 +171,13 @@ namespace GodGame.Sim
                 );
         }
 
-        /// <summary>Wakes the tiles under every source, so a river starts flowing from the first field step.</summary>
+        /// <summary>
+        /// Keeps the tiles under every source awake before each field step: a river in exact balance changes no depth,
+        /// and its source tile would otherwise fall asleep and stop adding water.
+        /// </summary>
+        public void BeforeStep(FieldStore fields) => WakeSources(fields);
+
+        /// <summary>Wakes the tiles under every source.</summary>
         public void WakeSources(FieldStore fields)
         {
             var depth = fields.Get(Depth);
@@ -251,10 +267,10 @@ namespace GodGame.Sim
                     for (int x = r.MinX; x <= r.MaxX; x++)
                     {
                         int i = y * grid.Columns + x;
-                        grid.Next[i] = (int)_depth[i];
+                        grid.Next[i] = grid.Clamp(_depth[i]); // the field's cap is the model's (100 m)
                         for (int k = 0; k < 4; k++)
                         {
-                            outGrids[k].Next[i] = (int)_out[k][i];
+                            outGrids[k].Next[i] = outGrids[k].Clamp(_out[k][i]);
                         }
                     }
                 }
@@ -262,7 +278,7 @@ namespace GodGame.Sim
         }
 
         // Serial: each source's water, split exactly over its cells in a fixed order (only cells on stepped tiles,
-        // which every source's are: its own water keeps them awake).
+        // which every source's are: BeforeStep wakes them each field step).
         private void AddSources(FieldGrid grid)
         {
             for (int s = 0; s < _sourceUmPerSubstep.Length; s++)
@@ -304,8 +320,15 @@ namespace GodGame.Sim
             && ny < grid.Rows
             && _steppedTile[grid.TileOf(nx, ny)];
 
-        private static readonly int[] Dx = { 1, 0, -1, 0 };
-        private static readonly int[] Dy = { 0, 1, 0, -1 };
+        private static int Dx(int k) =>
+            k == 0 ? 1
+            : k == 2 ? -1
+            : 0;
+
+        private static int Dy(int k) =>
+            k == 1 ? 1
+            : k == 3 ? -1
+            : 0;
 
         /// <summary>How much water, in µm of the sender's depth, an outflow moves in one substep.</summary>
         private long Moved(long outflowUmPerS) => outflowUmPerS * _substepMs / 1000;
@@ -338,8 +361,8 @@ namespace GodGame.Sim
                             long total = 0;
                             for (int k = 0; k < 4; k++)
                             {
-                                int nx = x + Dx[k];
-                                int ny = y + Dy[k];
+                                int nx = x + Dx(k);
+                                int ny = y + Dy(k);
                                 long neighbourHead;
                                 if (_m.NeighbourStepped(_grid, nx, ny))
                                 {
@@ -361,17 +384,21 @@ namespace GodGame.Sim
                                 // slope); bed friction takes c_f × speed × dt / depth of it, with speed = outflow ×
                                 // cell / depth (depth floored at 1 mm, so a film can't divide by nothing). Together
                                 // they settle at speed √(g·depth·slope / c_f).
+                                // Every product is bounded first (head differences to ±100 m, outflows and speeds to
+                                // 10^9 µm/s), so nothing overflows a long even at the loader's extremes.
                                 long h = System.Math.Max(depth[i], 1_000);
-                                long f =
-                                    _m._out[k][i]
-                                    + (head - neighbourHead)
-                                        * rules.PipeGainPermille
-                                        / 1000
-                                        * h
-                                        / _m._cellUm;
-                                long speed = System.Math.Max(0, _m._out[k][i]) * _m._cellUm / h;
-                                long loss = rules.BedFrictionPpm * speed * _m._substepMs / 1000 / h;
-                                f = f * 1_000_000 / (1_000_000 + loss);
+                                long dh = Clamp(head - neighbourHead, MaxHeadDifferenceUm);
+                                long push = Clamp(
+                                    dh * rules.PipeGainPermille / 1000 * h / _m._cellUm,
+                                    MaxOutflowUmPerS
+                                );
+                                long f = Clamp(_m._out[k][i] + push, MaxOutflowUmPerS);
+                                long speed = System.Math.Min(
+                                    MaxOutflowUmPerS,
+                                    _m._out[k][i] * _m._cellUm / h
+                                );
+                                long loss = speed * _m._substepMs / 1000 * rules.BedFrictionPpm / h;
+                                f = System.Math.Max(0, f) * 1_000_000 / (1_000_000 + loss);
                                 // Still water goes quiet: a slow flow with almost no head behind it stops (a slow
                                 // flow down a real slope keeps building, so films drain).
                                 if (
@@ -428,8 +455,8 @@ namespace GodGame.Sim
                             for (int k = 0; k < 4; k++)
                             {
                                 d -= _m.Moved(next[k][i]);
-                                int nx = x + Dx[k];
-                                int ny = y + Dy[k];
+                                int nx = x + Dx(k);
+                                int ny = y + Dy(k);
                                 if (_m.NeighbourStepped(_grid, nx, ny))
                                 {
                                     // The neighbour's outflow toward this cell is in the opposite direction.

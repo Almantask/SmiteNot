@@ -212,4 +212,25 @@ public class WaterTests
             )
         );
     }
+
+    [Test, Category("Slow")]
+    public void ASourceTile_StaysAwakeEvenWhenItsRiverIsInExactBalance()
+    {
+        // A trickle (20 L/s) settles into a balance where the source cell's depth stops changing to the µm; its
+        // tile must still step every field step, or the source would stop.
+        string waterJson =
+            "{\"sources\":[{\"minXMm\":15000,\"minYMm\":118500,\"maxXMm\":28500,\"maxYMm\":120000,\"litresPerSecond\":20}],"
+            + "\"sinks\":[{\"minXMm\":15000,\"minYMm\":0,\"maxXMm\":28500,\"maxYMm\":1500}]}";
+        var map = Map((x, y) => (x >= 10 && x < 19 ? -1_500 : 0) + y * 15 / 10, 30, 80, waterJson);
+        var simulation = Run(map);
+        var water = Water(simulation);
+        int sourceTile = water.TileOf(14, 79);
+
+        simulation.Step(900 * SimConstants.TicksPerSecond);
+        for (int t = 0; t < 60 * SimConstants.TicksPerSecond; t++)
+        {
+            simulation.Step();
+            Assert.That(water.IsAwake(sourceTile), Is.True, $"tick {simulation.Tick}");
+        }
+    }
 }

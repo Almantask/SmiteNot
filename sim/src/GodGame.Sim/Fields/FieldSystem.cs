@@ -32,6 +32,9 @@ namespace GodGame.Sim
         /// </summary>
         bool Staggered { get; }
 
+        /// <summary>Called every tick before the model's due tiles are chosen, to wake tiles it must step (a river's source).</summary>
+        void BeforeStep(FieldStore fields);
+
         void Step(FieldStepContext context, FieldGrid grid, ReadOnlySpan<int> tiles);
     }
 
@@ -92,6 +95,7 @@ namespace GodGame.Sim
             var step = new FieldStepContext(context, fields);
             foreach (var model in _models)
             {
+                model.BeforeStep(fields);
                 var grid = fields.Get(model.FieldId);
                 if (_awake.Length < grid.TileCount)
                 {

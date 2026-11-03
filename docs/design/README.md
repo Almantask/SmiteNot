@@ -20,6 +20,7 @@ Paths inside the copies keep the project's form: read `claude/<name>.md` as `doc
 | `idea-reviews.md` | Saved `/review-idea` verdicts | **Missing** |
 | `gamer-review.md` | The gamer reviews | **Missing** |
 | `content-roadmap.md` | What content comes first, by wave | Copied 2026-10-11 |
+| `spec-s1-water.md` | Spec pass S1: water, wetness, mud, Rain and the first terrain pieces, in numbers (draft rules in `s1-data/`) | Written here 2026-11-02 (not yet in the claude.ai project); decisions settled 2026-11-03 |
 
 Later spec passes add `roster.md` (S2), `launch-powers.md` (S3), `attacker-behaviour.md` (S4) and `economy.md` (S5); see the implementation plan, section 9.
 

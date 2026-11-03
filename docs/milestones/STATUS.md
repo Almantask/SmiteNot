@@ -8,7 +8,7 @@ Goal: rain floods a ford and the attacker pays for it, through the whole consequ
 Specs first: S1 (water and the first power): Rain's area, wind-up, duration and water added; river and mud rules; the first terrain pieces (channel, ridge, spring, boulders). Output: data/rules/powers.json, terrain.json, fields.json v1 (design-lead, game-design skill).
 
 ### Checklist
-- [ ] 0. Spec pass S1 (design-lead): Rain, river and mud rules, channel, ridge, spring and boulders, as numbers in docs/design and data/rules — drafted 2026-11-02: docs/design/spec-s1-water.md and draft rules in docs/design/s1-data (powers.json, terrain.json, fields.json; placeholders, not wired in yet); waits on decisions D1 to D10 below
+- [x] 0. Spec pass S1 (design-lead): Rain, river and mud rules, channel, ridge, spring and boulders, as numbers in docs/design and data/rules — docs/design/spec-s1-water.md, with draft rules in docs/design/s1-data (powers.json, terrain.json, fields.json; placeholders); decisions D1 to D10 settled 2026-11-03 with the recommendations and recorded in the brief. The drafts move into data/rules with the items that read them (fields: item 3; Rain: item 7; terrain: item 8)
 - [x] 1. The field framework: integer grids, active-tile tracking, sub-rate scheduling, the interaction table as data, field snapshots — sim/src/GodGame.Sim/Fields: FieldGrid (an int per cell in the field's unit, 16-cell activity tiles that wake on a write or a neighbour's change and sleep after 4 quiet steps; models read the values and write a next buffer per tile, committed in tile order), FieldStore (the fields in rules order, on World), FieldSystem (models in a fixed order, each at its own rate, staggered by tile or all together); data/rules/fields.json v0 (water, wetness, mud; the interaction table loads, with no rows until S1); fields join the state hash and snapshot format 4 (sparse by tile: the 10,000-unit snapshot stays within 4 MB); no field models yet, so no unit moves differently. SimHash appends int arrays in one pass (same bytes). SimVersion 5, golden regenerated. Desktop: 1.5 ms per tick on 4 threads, as before
 - [ ] 2. Field upload to GPU textures and debug shaders (Unity)
 - [ ] 3. Water: virtual-pipes shallow water on the heightfield, river sources and sinks, flow speed
@@ -25,17 +25,7 @@ Specs first: S1 (water and the first power): Rain's area, wind-up, duration and 
 - [ ] The field step stays within budget with water active on the largest test map
 
 ### Decisions needed
-From spec pass S1 (docs/design/spec-s1-water.md; recommendations in brackets):
-- D1 Which tick a power with a wind-up fires on for the range rule [the queued tick, when the clouds start gathering]
-- D2 Rain's shape [a circle, radius chosen 40–100 m; painted areas in M4]
-- D3 Exaggerated god rain (3 mm/s) or realistic rain with a hidden river multiplier [exaggerated]
-- D4 Springs and the no-trap rule: in M3 nothing drains a closed basin [a battle-made flood, exempt like the brief's others, with a discharge cap; revisit in M5]
-- D5 Earthworks in water [no ridges in water; boulders up to 2 m allowed]
-- D6 The rest of wave 1 terrain (hollow, pond, swamp, firm road) [the hollow now as a ridge variant; the rest in S2/M5]
-- D7 Which cast is blamed when river and rain water mix [the latest cast whose water reached the tile]
-- D8 Who crosses dry channels and ridges [foot and horse; wheeled not, so both pieces funnel the siege train]
-- D9 Swept soldiers still count toward their regiment's outline for the range rule [yes]
-- D10 Do moats kill [mostly not: soldiers climb out stunned; flowing water kills]
+- (none open; S1's D1 to D10 were settled 2026-11-03, see the brief)
 
 ### Carried over from M2
 - [ ] Measure on the floor laptop (a 2020-or-later laptop with Intel Iris Xe or Radeon 680M graphics): the 10,000-unit tick against the 6 ms floor budget (`godsim run --map data/maps/m2-bridge --plan data/plans/m2-bridge-ten-thousand.json --seconds 900 --threads 4`), and the debug view at 20 fps or better (`unity/Builds/DebugViewPlayer/GodGameDebugView.exe -repo <repo> -measure-fps fps.txt`, built by GodGame → Build → Debug View Player). Record both in sim/bench/GodGame.Sim.Bench/budgets.json and ADR 0002 if the Burst numbers there change.

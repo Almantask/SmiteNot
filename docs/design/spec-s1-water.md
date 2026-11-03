@@ -12,11 +12,11 @@ This spec covers only what M3 needs. Fire, cold, ice, wind drift, unit masses an
 
 ---
 
-## Decisions needed (from the user)
+## Decisions (settled 2026-11-03)
 
-None of these are in the brief yet. Each has a recommended answer, and the data uses that answer until the user decides. Record the answers with the game-design skill, then mirror them to the claude.ai project.
+The user accepted every recommendation below on 2026-11-03; they are recorded in the brief ("Water and Rain rules (spec pass S1)"). The proposals elsewhere in this spec are still working numbers, tuned against the M3 tests.
 
-| # | Question | Options | Recommended (used in the draft data) |
+| # | Question | Options | Decided (the recommendation) |
 |---|---|---|---|
 | D1 | **When does a power with a wind-up "fire" for the range rule?** The brief says "at the tick it fires" (2026-10-08) but doesn't say which tick that is for a power that builds up first. | (a) at the queued tick, when the clouds start to gather; (b) when the first water falls | **(a)**. The timeline marker, the range check and the visible warning (clouds) are then the same moment, and the wind-up becomes travel time the player has to anticipate (palette criterion 5). The range check doesn't run again once the rain starts. |
 | D2 | **How big is Rain, and is its shape free?** | (a) a fixed circle; (b) a circle with a radius the player picks; (c) painted shapes | **(b) for M3: a circle with a radius from 40 to 100 m.** Painted areas can wait for the M4 planning interface. The price scaling with area comes in S5. |

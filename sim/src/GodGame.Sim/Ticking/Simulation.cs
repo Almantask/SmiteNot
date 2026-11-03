@@ -75,7 +75,8 @@ namespace GodGame.Sim
 
         /// <summary>
         /// Puts this simulation back to a snapshot's moment. The world must have the same capacities and the seed must
-        /// match: a snapshot belongs to one battle. Systems keep no state between ticks, so nothing else needs restoring.
+        /// match: a snapshot belongs to one battle. Systems that keep data derived from the world (<see cref="IRestoreAware"/>)
+        /// rebuild it from the restored world; nothing else needs restoring.
         /// </summary>
         public void RestoreSnapshot(byte[] snapshot)
         {
@@ -98,6 +99,14 @@ namespace GodGame.Sim
             }
             Snapshot.Read(snapshot, World);
             Tick = tick;
+            _context.Tick = tick;
+            for (int i = 0; i < _systems.Length; i++)
+            {
+                if (_systems[i] is IRestoreAware aware)
+                {
+                    aware.AfterRestore(_context);
+                }
+            }
         }
 
         /// <summary>

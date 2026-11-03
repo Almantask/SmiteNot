@@ -7,8 +7,9 @@ namespace GodGame.Sim
     /// <summary>
     /// One cost field per movement class over the terrain's grid (tech notes, section 3): what crossing a cell costs a
     /// foot, horse, wheeled or water unit, relative to 100 for flat open ground, or <see cref="Impassable"/>. Flow
-    /// fields read these. M2 costs come from slope alone; later milestones add mud, water depth, snow, debris and
-    /// congestion through the same rebuild. The water class is impassable everywhere until water depth arrives (M3).
+    /// fields read these. A cell's cost is its slope cost divided by the speed water and mud leave the class there
+    /// (<see cref="FieldSpeed"/>), and water too deep to wade or fast enough to sweep the class is impassable; snow,
+    /// debris and congestion join through the same rebuild later. The water class stays impassable everywhere.
     /// <para>
     /// Derived state: built from the terrain and the ruleset, never carried across a change without a rebuild, so it
     /// needs no place in the state hash or in snapshots while heights never change during the battle (see docs/milestones/STATUS.md, M2 notes, for what changes when they do). Rebuilds are by rectangle (<see cref="Rebuild"/>), in parallel
@@ -25,6 +26,7 @@ namespace GodGame.Sim
         private readonly Terrain _terrain;
         private readonly MovementClassRules[] _classes;
         private readonly ushort[][] _costs;
+        private int[]? _fieldCodes; // FieldSpeed codes per cell, or null for dry ground everywhere
 
         /// <summary>Allocates the fields and builds them over the whole map.</summary>
         public CostFields(Terrain terrain, Ruleset rules, IParallelRunner runner)
@@ -82,6 +84,36 @@ namespace GodGame.Sim
                 "Cost fields read after a height edit without a rebuild (Terrain.DirtyAround, then Rebuild)."
             );
 
+        /// <summary>
+        /// The field speed codes later rebuilds read (the live <see cref="FieldSpeed.FieldId"/> values, or null for
+        /// dry ground). Set before every rebuild: a restored world may hold another array.
+        /// </summary>
+        public void UseFieldCodes(int[]? codes)
+        {
+            if (codes != null && codes.Length != _terrain.CellCount)
+            {
+                throw new ArgumentException("One code per terrain cell.", nameof(codes));
+            }
+            _fieldCodes = codes;
+        }
+
+        /// <summary>A cell's cost with the field's speed code for the class (see <see cref="FieldSpeed"/>).</summary>
+        public static ushort CellCost(MovementClassRules rules, int slopePermille, int code)
+        {
+            ushort dry = CellCost(rules, slopePermille);
+            if (dry == Impassable || code == FieldSpeed.AllDryCode)
+            {
+                return dry;
+            }
+            int speed = FieldSpeed.Permille(code);
+            if (speed == 0)
+            {
+                return Impassable;
+            }
+            long cost = (long)dry * 1000 / speed;
+            return (ushort)System.Math.Min(cost, Impassable - 1);
+        }
+
         /// <summary>The cost of one cell for one class from its slope; deterministic integer arithmetic.</summary>
         public static ushort CellCost(MovementClassRules rules, int slopePermille)
         {
@@ -116,7 +148,11 @@ namespace GodGame.Sim
             {
                 throw new ArgumentOutOfRangeException(nameof(area));
             }
-            runner.For(area.Height, RowsPerChunk, new RowKernel(_terrain, _classes, _costs, area));
+            runner.For(
+                area.Height,
+                RowsPerChunk,
+                new RowKernel(_terrain, _classes, _costs, _fieldCodes, area)
+            );
             // The caller passes the area its edits dirtied (DirtyAround); after that the fields match the terrain.
             BuiltFromVersion = _terrain.Version;
             RebuildCount++;
@@ -127,18 +163,21 @@ namespace GodGame.Sim
             private readonly Terrain _terrain;
             private readonly MovementClassRules[] _classes;
             private readonly ushort[][] _costs;
+            private readonly int[]? _codes;
             private readonly CellRect _area;
 
             public RowKernel(
                 Terrain terrain,
                 MovementClassRules[] classes,
                 ushort[][] costs,
+                int[]? codes,
                 CellRect area
             )
             {
                 _terrain = terrain;
                 _classes = classes;
                 _costs = costs;
+                _codes = codes;
                 _area = area;
             }
 
@@ -152,9 +191,14 @@ namespace GodGame.Sim
                     {
                         int slope = _terrain.SlopePermille(x, y);
                         int i = _terrain.Index(x, y);
+                        int codes = _codes == null ? FieldSpeed.AllDry : _codes[i];
                         for (int c = 0; c < _classes.Length; c++)
                         {
-                            _costs[c][i] = CellCost(_classes[c], slope);
+                            _costs[c][i] = CellCost(
+                                _classes[c],
+                                slope,
+                                FieldSpeed.Code(codes, _classes[c].MovementClass)
+                            );
                         }
                     }
                 }

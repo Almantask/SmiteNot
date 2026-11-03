@@ -1,31 +1,64 @@
 {
-  "$comment": "Movement classes (ruleset v0): how each class meets the ground. Cost of a cell = baseCost + slopeCost * slope / 1000, slope in permille (rise over run, 1000 = 45 degrees); steeper than maxSlopePermille is impassable. No spec has set these numbers yet: spec pass S2 does, so the file is marked placeholder. The values only follow tech notes section 3 (siege cares about slope far more than infantry). The water class is impassable everywhere until water depth arrives in M3: its numbers here do nothing until then (changing them still changes the ruleset hash).",
+  "$comment": "Movement classes (ruleset v0): how each class meets the ground and water. Cost of a cell = (baseCost + slopeCost * slope / 1000) * 1000 / speed, slope in permille (rise over run, 1000 = 45 degrees), speed in permille = water speed by depth (mm) x mud speed by mud (0-65535); steeper than maxSlopePermille is impassable, and so is water deeper than maxEnterDepthMm or water that sweeps the class (at least sweptDepthMm deep, or at least sweptMinDepthMm deep with depth x flow speed (mm x mm/s / 1000) at least sweptDepthSpeed). Slope numbers are placeholders for spec pass S2; the water and mud numbers are spec S1, section 3 and 6 (settled 2026-11-03). Field-driven costs refresh every fieldCostRefreshTicks (20 = 1 Hz). The water class's water response is inert; the class itself stays impassable until boats exist.",
   "version": 0,
   "status": "placeholder",
+  "fieldCostRefreshTicks": 20,
   "classes": [
     {
       "id": "foot",
       "baseCost": 100,
       "slopeCost": 200,
-      "maxSlopePermille": 1000
+      "maxSlopePermille": 1000,
+      "water": {
+        "speed": [[0, 1000], [100, 1000], [300, 800], [600, 550], [900, 350]],
+        "maxEnterDepthMm": 1000,
+        "sweptDepthMm": 1000,
+        "sweptDepthSpeed": 600,
+        "sweptMinDepthMm": 300
+      },
+      "mudSpeed": [[0, 1000], [32767, 800], [65535, 500]]
     },
     {
       "id": "horse",
       "baseCost": 100,
       "slopeCost": 300,
-      "maxSlopePermille": 700
+      "maxSlopePermille": 700,
+      "water": {
+        "speed": [[0, 1000], [200, 1000], [500, 800], [900, 550], [1200, 400]],
+        "maxEnterDepthMm": 1200,
+        "sweptDepthMm": 1200,
+        "sweptDepthSpeed": 450,
+        "sweptMinDepthMm": 400
+      },
+      "mudSpeed": [[0, 1000], [32767, 700], [65535, 350]]
     },
     {
       "id": "wheeled",
       "baseCost": 100,
       "slopeCost": 800,
-      "maxSlopePermille": 250
+      "maxSlopePermille": 250,
+      "water": {
+        "speed": [[0, 1000], [100, 900], [300, 600], [500, 300]],
+        "maxEnterDepthMm": 500,
+        "sweptDepthMm": 900,
+        "sweptDepthSpeed": 400,
+        "sweptMinDepthMm": 300
+      },
+      "mudSpeed": [[0, 1000], [32767, 500], [65535, 150]]
     },
     {
       "id": "water",
       "baseCost": 100,
       "slopeCost": 0,
-      "maxSlopePermille": 0
+      "maxSlopePermille": 0,
+      "water": {
+        "speed": [[0, 1000]],
+        "maxEnterDepthMm": 100000,
+        "sweptDepthMm": 100000,
+        "sweptDepthSpeed": 100000000,
+        "sweptMinDepthMm": 100000
+      },
+      "mudSpeed": [[0, 1000]]
     }
   ]
 }

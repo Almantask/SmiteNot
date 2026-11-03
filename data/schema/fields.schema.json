@@ -21,7 +21,7 @@
         "properties": {
           "$comment": { "type": "string" },
           "id": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" },
-          "unit": { "enum": ["mm", "um", "umPerS", "scale", "centidegrees", "cmPerS"], "description": "mm within ±10 km; um and umPerS within ±10^9; scale 0 to 65535; centidegrees and cmPerS within ±10000" },
+          "unit": { "enum": ["mm", "um", "umPerS", "scale", "centidegrees", "cmPerS", "code"], "description": "mm within ±10 km; um and umPerS within ±10^9; scale 0 to 65535; centidegrees and cmPerS within ±10000; code 0 to 16777215 (packed bytes, documented per field)" },
           "min": { "type": "integer" },
           "max": { "type": "integer" },
           "initial": { "type": "integer" }

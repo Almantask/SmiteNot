@@ -6,8 +6,10 @@ namespace GodGame.Sim
     /// <summary>
     /// The battle's navigation: terrain, cost fields, the distance to lethal cells, the flow fields regiments follow,
     /// and which field each regiment follows. All of it is derived from the map, the rules and the world (regiment
-    /// side and unit type), so it needs no place in the state hash or snapshots: <see cref="AssignRegiments"/>
-    /// recomputes the assignment every tick.
+    /// side and unit type, and the hashed <see cref="FieldSpeed"/> codes), so it needs no place in the state hash or
+    /// snapshots: <see cref="AssignRegiments"/> recomputes the assignment every tick, <see cref="RefreshFieldCosts"/>
+    /// refreshes the codes from water and mud every <see cref="Ruleset.FieldCostRefreshTicks"/> and rebuilds what they
+    /// changed, and <see cref="RebuildFromWorld"/> rebuilds everything after a restore.
     /// <para>
     /// M2 goals are a working default until regiment AI arrives (M7, ai-engineer): attacking regiments march to the
     /// far quarter of the defender's deployment zone, defending regiments hold where they stand.
@@ -16,6 +18,8 @@ namespace GodGame.Sim
     public sealed class Navigation
     {
         private int[] _regimentField = new int[0];
+        private int[] _codes = new int[0]; // scratch: freshly computed speed codes
+        private bool _builtFromWorld; // false until the derived data has been built from the world's stored codes
 
         public Navigation(MapData map, Ruleset rules, IParallelRunner runner)
         {
@@ -39,6 +43,146 @@ namespace GodGame.Sim
 
         /// <summary>Distance to the nearest lethal cell (cliff tops and the map edge for now).</summary>
         public LethalDistance Lethal { get; }
+
+        /// <summary>
+        /// On refresh ticks, computes every cell's <see cref="FieldSpeed"/> codes from the current water and mud (in
+        /// parallel rows), writes the changed ones to the world's hashed codes, and rebuilds costs, flow fields and
+        /// lethal distances over the rectangle that changed. A world without the fields keeps dry costs.
+        /// </summary>
+        public void RefreshFieldCosts(TickContext context)
+        {
+            var fields = context.World.Fields;
+            if (
+                fields == null
+                || fields.Rules.IndexOf(FieldSpeed.FieldId) < 0
+                || fields.Rules.Water == null
+                || context.Tick % Rules.FieldCostRefreshTicks != 0
+            )
+            {
+                return;
+            }
+            var stored = fields.Get(FieldSpeed.FieldId).Values;
+            if (_codes.Length != stored.Length)
+            {
+                _codes = new int[stored.Length];
+            }
+            context.Runner.For(
+                Terrain.Rows,
+                CostFields.RowsPerChunk,
+                new CodeKernel(fields, Rules, Terrain.CellSizeMm, _codes, Terrain.Columns)
+            );
+            // Serial, in cell order: copy what changed and grow the rectangle around it.
+            int minX = int.MaxValue;
+            int minY = int.MaxValue;
+            int maxX = -1;
+            int maxY = -1;
+            for (int y = 0; y < Terrain.Rows; y++)
+            {
+                int row = y * Terrain.Columns;
+                for (int x = 0; x < Terrain.Columns; x++)
+                {
+                    int code = _codes[row + x];
+                    if (code == stored[row + x])
+                    {
+                        continue;
+                    }
+                    stored[row + x] = code;
+                    minX = System.Math.Min(minX, x);
+                    maxX = System.Math.Max(maxX, x);
+                    minY = System.Math.Min(minY, y);
+                    maxY = y;
+                }
+            }
+            if (maxX < 0)
+            {
+                return;
+            }
+            var dirty = new CellRect(minX, minY, maxX, maxY);
+            Costs.UseFieldCodes(stored);
+            Lethal.UseFieldCodes(stored);
+            Costs.Rebuild(dirty, context.Runner);
+            FlowFields.Repair(dirty, context.Runner);
+            Lethal.Rebuild(dirty);
+        }
+
+        /// <summary>
+        /// Rebuilds costs, lethal distances and every flow field from the world's stored speed codes: after a snapshot
+        /// restore, when the codes may differ from what the derived data was built from.
+        /// </summary>
+        public void RebuildFromWorld(World world, IParallelRunner runner)
+        {
+            _builtFromWorld = true;
+            var fields = world.Fields;
+            int[]? codes =
+                fields != null && fields.Rules.IndexOf(FieldSpeed.FieldId) >= 0
+                    ? fields.Get(FieldSpeed.FieldId).Values
+                    : null;
+            Costs.UseFieldCodes(codes);
+            Lethal.UseFieldCodes(codes);
+            Costs.RebuildAll(runner);
+            FlowFields.RebuildAll(runner);
+            Lethal.Rebuild(Terrain.All);
+        }
+
+        /// <summary>Builds from the world's codes once, the first time navigation runs on it.</summary>
+        public void EnsureBuiltFromWorld(World world, IParallelRunner runner)
+        {
+            if (!_builtFromWorld)
+            {
+                RebuildFromWorld(world, runner);
+            }
+        }
+
+        private readonly struct CodeKernel : IChunkKernel
+        {
+            private readonly FieldStore _fields;
+            private readonly FieldGrid _depth;
+            private readonly FieldGrid _mud;
+            private readonly Ruleset _rules;
+            private readonly int _cellSizeMm;
+            private readonly int _dryDepthUm;
+            private readonly int[] _codes;
+            private readonly int _columns;
+
+            public CodeKernel(
+                FieldStore fields,
+                Ruleset rules,
+                int cellSizeMm,
+                int[] codes,
+                int columns
+            )
+            {
+                _fields = fields;
+                _depth = fields.Get(WaterModel.Depth);
+                _mud = fields.Get(GroundModel.Mud);
+                _rules = rules;
+                _cellSizeMm = cellSizeMm;
+                _dryDepthUm = fields.Rules.Water!.DryDepthUm;
+                _codes = codes;
+                _columns = columns;
+            }
+
+            // Each chunk writes only its own rows.
+            public void Execute(int start, int end)
+            {
+                for (int y = start; y < end; y++)
+                {
+                    for (int x = 0; x < _columns; x++)
+                    {
+                        _codes[y * _columns + x] = FieldSpeed.CellCodes(
+                            _fields,
+                            _depth,
+                            _mud,
+                            _rules,
+                            _cellSizeMm,
+                            _dryDepthUm,
+                            x,
+                            y
+                        );
+                    }
+                }
+            }
+        }
 
         /// <summary>The flow field a regiment follows, or null when it holds its ground.</summary>
         public FlowField? FieldOf(int regiment)
@@ -140,7 +284,7 @@ namespace GodGame.Sim
     }
 
     /// <summary>The navigation step: regiment goals and flow fields, before movement reads them.</summary>
-    public sealed class NavigationSystem : ISimSystem
+    public sealed class NavigationSystem : ISimSystem, IRestoreAware
     {
         private readonly Navigation _navigation;
 
@@ -153,7 +297,15 @@ namespace GodGame.Sim
 
         public TickRate Rate => TickRate.EveryTick;
 
-        public void Run(TickContext context) =>
+        public void Run(TickContext context)
+        {
+            // The first run treats the start like a restore: whatever codes the world starts with, the costs match them.
+            _navigation.EnsureBuiltFromWorld(context.World, context.Runner);
+            _navigation.RefreshFieldCosts(context);
             _navigation.AssignRegiments(context.World, context.Runner);
+        }
+
+        public void AfterRestore(TickContext context) =>
+            _navigation.RebuildFromWorld(context.World, context.Runner);
     }
 }

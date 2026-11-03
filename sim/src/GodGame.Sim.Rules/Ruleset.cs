@@ -13,6 +13,79 @@ namespace GodGame.Sim.Rules
         Water = 3,
     }
 
+    /// <summary>A speed in ‰ as a piecewise-linear function of an integer (water depth in mm, mud on 0-65535).</summary>
+    public sealed class SpeedCurve
+    {
+        private readonly int[] _x;
+        private readonly int[] _permille;
+
+        public SpeedCurve(int[] x, int[] permille)
+        {
+            _x = x;
+            _permille = permille;
+        }
+
+        /// <summary>The speed at <paramref name="value"/>: linear between points, flat beyond the ends.</summary>
+        public int At(long value)
+        {
+            if (value <= _x[0])
+            {
+                return _permille[0];
+            }
+            for (int i = 1; i < _x.Length; i++)
+            {
+                if (value <= _x[i])
+                {
+                    long dx = _x[i] - _x[i - 1];
+                    return (int)(_permille[i - 1] + (_permille[i] - _permille[i - 1]) * (value - _x[i - 1]) / dx);
+                }
+            }
+            return _permille[_permille.Length - 1];
+        }
+    }
+
+    /// <summary>
+    /// How a movement class meets water (spec S1, section 3): wading speed by depth, the deepest water its own steering
+    /// enters, and when water sweeps it away (deep enough, or deep and fast enough).
+    /// </summary>
+    public sealed class WaterResponse
+    {
+        public WaterResponse(
+            SpeedCurve speed,
+            int maxEnterDepthMm,
+            int sweptDepthMm,
+            int sweptDepthSpeed,
+            int sweptMinDepthMm
+        )
+        {
+            Speed = speed;
+            MaxEnterDepthMm = maxEnterDepthMm;
+            SweptDepthMm = sweptDepthMm;
+            SweptDepthSpeed = sweptDepthSpeed;
+            SweptMinDepthMm = sweptMinDepthMm;
+        }
+
+        /// <summary>Wading speed in ‰ by depth in mm.</summary>
+        public SpeedCurve Speed { get; }
+
+        /// <summary>Deeper water is closed to the class's own steering.</summary>
+        public int MaxEnterDepthMm { get; }
+
+        /// <summary>At this depth the class is swept away whatever the current.</summary>
+        public int SweptDepthMm { get; }
+
+        /// <summary>Depth × flow speed (mm × mm/s / 1000, so 600 is 0.6 m²/s) at which the class loses its footing.</summary>
+        public int SweptDepthSpeed { get; }
+
+        /// <summary>Shallower water never sweeps, however fast.</summary>
+        public int SweptMinDepthMm { get; }
+
+        /// <summary>Whether water this deep and this fast sweeps the class away.</summary>
+        public bool Sweeps(long depthMm, long flowMmPerS) =>
+            depthMm >= SweptDepthMm
+            || (depthMm >= SweptMinDepthMm && depthMm * flowMmPerS / 1000 >= SweptDepthSpeed);
+    }
+
     /// <summary>
     /// How one movement class meets the ground, from <c>data/rules/movement-classes.json</c>. A cell's cost is
     /// <see cref="BaseCost"/> plus <see cref="SlopeCost"/> × slope / 1000 (slope in ‰, rise over run); steeper than
@@ -24,9 +97,13 @@ namespace GodGame.Sim.Rules
             MovementClass movementClass,
             int baseCost,
             int slopeCost,
-            int maxSlopePermille
+            int maxSlopePermille,
+            WaterResponse water,
+            SpeedCurve mudSpeed
         )
         {
+            Water = water;
+            MudSpeed = mudSpeed;
             MovementClass = movementClass;
             BaseCost = baseCost;
             SlopeCost = slopeCost;
@@ -41,6 +118,12 @@ namespace GodGame.Sim.Rules
         public int SlopeCost { get; }
 
         public int MaxSlopePermille { get; }
+
+        /// <summary>How the class meets water (spec S1, section 3).</summary>
+        public WaterResponse Water { get; }
+
+        /// <summary>Speed in ‰ by mud (0-65535; spec S1, section 6).</summary>
+        public SpeedCurve MudSpeed { get; }
     }
 
     /// <summary>One unit type from <c>data/rules/unit-types.json</c>. Units are documented in data/schema/unit-types.schema.json.</summary>
@@ -204,6 +287,9 @@ namespace GodGame.Sim.Rules
         public RouteRules Routes { get; }
 
         public FieldRules Fields { get; }
+
+        /// <summary>Ticks between refreshes of the field-driven navigation costs (S1: at most 1 Hz).</summary>
+        public int FieldCostRefreshTicks { get; internal set; } = 20;
 
         public MovementClassRules Movement(MovementClass movementClass) =>
             MovementClasses[(int)movementClass];

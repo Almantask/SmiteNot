@@ -15,6 +15,9 @@ namespace GodGame.Sim.Rules
         public const int UnitTypesVersion = 0;
         public const string UnitTypesFile = "unit-types.json";
         public const int MovementClassesVersion = 0;
+
+        /// <summary>The slowest allowed refresh of field-driven costs: once every 10 s.</summary>
+        private const int SimRefreshMaxTicks = 200;
         public const string MovementClassesFile = "movement-classes.json";
         public const int HazardsVersion = 0;
         public const string HazardsFile = "hazards.json";
@@ -111,7 +114,7 @@ namespace GodGame.Sim.Rules
 
             bool placeholders = false;
             var unitTypes = ReadUnitTypes(unitTypesJson, ref placeholders);
-            var movement = ReadMovementClasses(movementJson, ref placeholders);
+            var movement = ReadMovementClasses(movementJson, ref placeholders, out int refresh);
             var hazards = ReadHazards(hazardsJson, ref placeholders);
             var routes = ReadRoutes(routesJson, ref placeholders);
             var fields = ReadFields(fieldsJson, ref placeholders);
@@ -123,24 +126,37 @@ namespace GodGame.Sim.Rules
                 fields,
                 RulesetHash.Of(parsed),
                 placeholders
-            );
+            )
+            {
+                FieldCostRefreshTicks = refresh,
+            };
         }
 
         private static MovementClassRules[] ReadMovementClasses(
             JsonValue root,
-            ref bool placeholders
+            ref bool placeholders,
+            out int refreshTicks
         )
         {
-            root.OnlyKeys("$comment", "version", "status", "classes");
+            root.OnlyKeys("$comment", "version", "status", "fieldCostRefreshTicks", "classes");
             if (root.Int("version") != MovementClassesVersion)
             {
                 throw new DataFormatException(root.Path + ": version must be 0.");
             }
+            refreshTicks = root.Int("fieldCostRefreshTicks", 1, SimRefreshMaxTicks);
             placeholders |= ReadStatus(root);
             var classes = new MovementClassRules?[4];
             foreach (var item in root.Array("classes"))
             {
-                item.OnlyKeys("id", "baseCost", "slopeCost", "maxSlopePermille");
+                item.OnlyKeys(
+                    "$comment",
+                    "id",
+                    "baseCost",
+                    "slopeCost",
+                    "maxSlopePermille",
+                    "water",
+                    "mudSpeed"
+                );
                 var movementClass = ParseMovementClass(item["id"]);
                 if (classes[(int)movementClass] != null)
                 {
@@ -150,7 +166,9 @@ namespace GodGame.Sim.Rules
                     movementClass,
                     item.Int("baseCost", 1, MaxCost),
                     item.Int("slopeCost", 0, MaxCost),
-                    item.Int("maxSlopePermille", 0, 100_000)
+                    item.Int("maxSlopePermille", 0, 100_000),
+                    ReadWaterResponse(item["water"]),
+                    ReadCurve(item["mudSpeed"], 65_535)
                 );
             }
             var result = new MovementClassRules[classes.Length];
@@ -164,6 +182,55 @@ namespace GodGame.Sim.Rules
                     );
             }
             return result;
+        }
+
+        private static WaterResponse ReadWaterResponse(JsonValue item)
+        {
+            item.OnlyKeys(
+                "speed",
+                "maxEnterDepthMm",
+                "sweptDepthMm",
+                "sweptDepthSpeed",
+                "sweptMinDepthMm"
+            );
+            return new WaterResponse(
+                ReadCurve(item["speed"], 100_000),
+                item.Int("maxEnterDepthMm", 0, 100_000),
+                item.Int("sweptDepthMm", 0, 100_000),
+                item.Int("sweptDepthSpeed", 0, 100_000_000),
+                item.Int("sweptMinDepthMm", 0, 100_000)
+            );
+        }
+
+        /// <summary>[[x, permille], …] with x ascending from at most <paramref name="maxX"/> and speeds 1 to 1000 ‰.</summary>
+        private static SpeedCurve ReadCurve(JsonValue value, int maxX)
+        {
+            var points = value.Items;
+            if (points.Count == 0 || points.Count > 32)
+            {
+                throw new DataFormatException(value.Path + ": 1 to 32 points.");
+            }
+            var x = new int[points.Count];
+            var speed = new int[points.Count];
+            for (int i = 0; i < points.Count; i++)
+            {
+                var pair = points[i].Items;
+                if (pair.Count != 2)
+                {
+                    throw new DataFormatException(points[i].Path + ": a point is [x, permille].");
+                }
+                long px = pair[0].AsInteger;
+                long ps = pair[1].AsInteger;
+                if (px < 0 || px > maxX || ps < 1 || ps > 1_000 || (i > 0 && px <= x[i - 1]))
+                {
+                    throw new DataFormatException(
+                        points[i].Path + ": x must rise from 0 to " + maxX + ", speed 1 to 1000 permille."
+                    );
+                }
+                x[i] = (int)px;
+                speed[i] = (int)ps;
+            }
+            return new SpeedCurve(x, speed);
         }
 
         private static List<UnitTypeRules> ReadUnitTypes(JsonValue root, ref bool placeholders)
@@ -232,6 +299,10 @@ namespace GodGame.Sim.Rules
                 case "cmPerS":
                     min = -10_000;
                     max = 10_000;
+                    return true;
+                case "code":
+                    min = 0;
+                    max = 0xFF_FFFF;
                     return true;
                 case "um":
                 case "umPerS":

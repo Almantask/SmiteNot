@@ -146,6 +146,7 @@ public class FieldTests
                     "water_out_s",
                     "wetness",
                     "mud",
+                    "nav_speed",
                 }
             )
         );
@@ -311,7 +312,7 @@ public class FieldTests
         var simulation = RepoBattle.TenThousand().Start(new SerialRunner());
         var fields = simulation.World.Fields!;
 
-        Assert.That(fields.Count, Is.EqualTo(7));
+        Assert.That(fields.Count, Is.EqualTo(8));
         Assert.That(fields.Columns * fields.Rows, Is.EqualTo(800 * 534));
         Assert.That(simulation.CaptureSnapshot().Length, Is.LessThan(4 * 1024 * 1024));
     }

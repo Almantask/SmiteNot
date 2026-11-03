@@ -1,5 +1,5 @@
 {
-  "$comment": "World fields (ruleset v0): integer grids on the map's field cells (tech notes, section 6; spec S1, docs/design/spec-s1-water.md). Water depth is in micrometres (S1: rain and runoff add fractions of a millimetre per step), and each cell keeps four outflows in um/s of its own depth (virtual pipes, S1 section 2). Wetness and mud are on 0-65535 and get their rules with M3 item 4. tileCells: cells per side of an activity tile (16 = 24 m); sleepAfterSteps: quiet field steps before a tile sleeps (S1: 5). The water numbers are S1 proposals, tuned against the M3 tests, so the file is marked placeholder.",
+  "$comment": "World fields (ruleset v0): integer grids on the map's field cells (tech notes, section 6; spec S1, docs/design/spec-s1-water.md). Water depth is in micrometres (S1: rain and runoff add fractions of a millimetre per step), and each cell keeps four outflows in um/s of its own depth (virtual pipes, S1 section 2). Wetness and mud are on 0-65535. nav_speed holds navigation's per-class speed codes (M3 item 5). tileCells: cells per side of an activity tile (16 = 24 m); sleepAfterSteps: quiet field steps before a tile sleeps (S1: 5). The water numbers are S1 proposals, tuned against the M3 tests, so the file is marked placeholder.",
   "version": 0,
   "status": "placeholder",
   "tileCells": 16,
@@ -11,7 +11,8 @@
     { "id": "water_out_w", "unit": "umPerS", "min": 0, "max": 1000000000, "initial": 0 },
     { "id": "water_out_s", "unit": "umPerS", "min": 0, "max": 1000000000, "initial": 0 },
     { "id": "wetness", "unit": "scale", "min": 0, "max": 65535, "initial": 8192 },
-    { "id": "mud", "unit": "scale", "min": 0, "max": 65535, "initial": 0 }
+    { "id": "mud", "unit": "scale", "min": 0, "max": 65535, "initial": 0 },
+    { "$comment": "Navigation's speed codes, one byte per class (foot, horse, wheeled): 0 swept, 1 too deep, else speed permille / 4. Written by navigation once per refresh from water and mud, never by a field model; 16448250 is full speed for all three.", "id": "nav_speed", "unit": "code", "min": 0, "max": 16777215, "initial": 16448250 }
   ],
   "interactions": [],
   "ground": {

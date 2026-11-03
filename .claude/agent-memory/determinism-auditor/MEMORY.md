@@ -10,3 +10,4 @@
 - [Fields and tiles](pattern_fields_tiles.md) — unhashed Next/_changed, unclamped Commit vs snapshot check, Set from kernels, dense keyframes
 - [Water model](pattern_water_model.md) — depth-only activity lets source tiles sleep, terrain edits don't wake water, overflow at legal extremes
 - [Ground model](pattern_ground_model.md) — AlsoWrites on water double-counts quiet steps, churn scratch, unit reads before Movement
+- [Field navigation](pattern_field_navigation.md) — nav_speed codes: dry-built start vs stored initial, unvalidated bytes >250, refresh exactness, probe recipe

@@ -7,8 +7,8 @@ namespace GodGame.Sim
     /// For every cell, how far it is to the nearest lethal cell, in mm, capped at <see cref="MaxDistanceMm"/> (tech
     /// notes, sections 3 and 5): the teeter, push-over-the-edge and landing rules read it, and the preview draws it. M2
     /// knows two kinds of lethal cell: the map edge (a soldier who leaves the map is gone) and a cliff top, a cell with a
-    /// 4-neighbour at least the ruleset's lethal drop below it. Water, fire and broken ice join in later milestones
-    /// through the same rebuild.
+    /// 4-neighbour at least the ruleset's lethal drop below it. Water that would sweep a foot soldier away is lethal
+    /// too (<see cref="FieldSpeed"/>, from the hashed speed codes); fire and broken ice join through the same rebuild.
     /// <para>
     /// Distances are chamfer distances on the 8-neighbour grid (a cell east-west or north-south, 1.414 cells
     /// diagonally, both rounded to mm), computed by the classic two passes: forward (south-west to north-east) and back.
@@ -28,6 +28,7 @@ namespace GodGame.Sim
         private readonly int _diagonalMm;
         private readonly int _reachCells;
         private readonly int[] _distanceMm;
+        private int[]? _fieldCodes;
 
         public LethalDistance(Terrain terrain, int lethalDropMm)
         {
@@ -65,10 +66,28 @@ namespace GodGame.Sim
             }
         }
 
-        /// <summary>Lethal itself: on the map edge, or a cliff top.</summary>
+        /// <summary>The field speed codes later rebuilds read, as <see cref="CostFields.UseFieldCodes"/>.</summary>
+        public void UseFieldCodes(int[]? codes)
+        {
+            if (codes != null && codes.Length != _terrain.CellCount)
+            {
+                throw new ArgumentException("One code per terrain cell.", nameof(codes));
+            }
+            _fieldCodes = codes;
+        }
+
+        /// <summary>Lethal itself: on the map edge, a cliff top, or water that sweeps a foot soldier away.</summary>
         public bool IsLethal(int x, int y)
         {
             if (x == 0 || y == 0 || x == _terrain.Columns - 1 || y == _terrain.Rows - 1)
+            {
+                return true;
+            }
+            if (
+                _fieldCodes != null
+                && FieldSpeed.Code(_fieldCodes[_terrain.Index(x, y)], Rules.MovementClass.Foot)
+                    == FieldSpeed.Swept
+            )
             {
                 return true;
             }

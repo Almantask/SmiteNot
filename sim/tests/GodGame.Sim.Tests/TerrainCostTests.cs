@@ -271,11 +271,20 @@ public class CostFieldTests
                 }
             )
         );
-        const string ThreeClasses =
-            "{\"version\":0,\"classes\":["
-            + "{\"id\":\"foot\",\"baseCost\":100,\"slopeCost\":1,\"maxSlopePermille\":1},"
-            + "{\"id\":\"horse\",\"baseCost\":100,\"slopeCost\":1,\"maxSlopePermille\":1},"
-            + "{\"id\":\"wheeled\",\"baseCost\":100,\"slopeCost\":1,\"maxSlopePermille\":1}]}";
+        static string Class(string id) =>
+            "{\"id\":\""
+            + id
+            + "\",\"baseCost\":100,\"slopeCost\":1,\"maxSlopePermille\":1,"
+            + "\"water\":{\"speed\":[[0,1000]],\"maxEnterDepthMm\":1,\"sweptDepthMm\":1,"
+            + "\"sweptDepthSpeed\":1,\"sweptMinDepthMm\":1},\"mudSpeed\":[[0,1000]]}";
+        string ThreeClasses =
+            "{\"version\":0,\"fieldCostRefreshTicks\":20,\"classes\":["
+            + Class("foot")
+            + ","
+            + Class("horse")
+            + ","
+            + Class("wheeled")
+            + "]}";
         var error = Assert.Throws<GodGame.Sim.Rules.Json.DataFormatException>(() =>
             RulesetLoader.Load(
                 new[]

@@ -20,6 +20,15 @@ namespace GodGame.Sim
         void Run(TickContext context);
     }
 
+    /// <summary>
+    /// A system that keeps data derived from the world between ticks (navigation's costs and flow fields) and must
+    /// rebuild it when <see cref="Simulation.RestoreSnapshot"/> puts the world back to another moment.
+    /// </summary>
+    public interface IRestoreAware
+    {
+        void AfterRestore(TickContext context);
+    }
+
     /// <summary>What a system gets each time it runs.</summary>
     public sealed class TickContext
     {

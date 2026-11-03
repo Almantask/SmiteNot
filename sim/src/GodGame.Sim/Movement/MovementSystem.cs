@@ -9,8 +9,9 @@ namespace GodGame.Sim
     /// keep their formation slots behind him (or follow the field, blending in the regiment's mean velocity, while
     /// their slot is out of reach); every soldier brakes for whoever stands in its way (queueing), is pushed apart from
     /// overlapping neighbours (separation; the overlap it feels is its crowd pressure) and never steps into a cell its
-    /// movement class can't enter (obstacle avoidance). Per soldier this is O(1): one field sample and one
-    /// spatial-hash query.
+    /// movement class can't enter (obstacle avoidance). Water and mud slow it by the speed code of the cell it stands
+    /// in (<see cref="FieldSpeed"/>, refreshed with the costs), and water too deep or too fast for its class is closed
+    /// like any other impassable cell. Per soldier this is O(1): one field sample and one spatial-hash query.
     /// <para>
     /// Determinism: the spatial hash is built here, at the start of the step, from the positions the tick started
     /// with; every soldier reads only those and writes its own slot of scratch arrays, which are committed after the
@@ -96,6 +97,8 @@ namespace GodGame.Sim
         private bool[] _officerWaits = new bool[0];
         private int[] _stragglers = new int[0];
         private ushort[][] _typeCosts = new ushort[0][];
+        private readonly int[] _typeDeepPermille; // the wading speed at the deepest water the class enters
+        private int[]? _codes;
 
         public MovementSystem(Navigation navigation)
         {
@@ -104,6 +107,7 @@ namespace GodGame.Sim
             _typeSpeed = new Fix[types.Count];
             _typeRadiusRaw = new long[types.Count];
             _typeClass = new MovementClass[types.Count];
+            _typeDeepPermille = new int[types.Count];
             _quarterCellRaw = Fix.FromRatio(navigation.Terrain.CellSizeMm, 4000).Raw;
             long w = navigation.Map.Width.Raw;
             long d = navigation.Map.Depth.Raw;
@@ -120,6 +124,8 @@ namespace GodGame.Sim
                 );
                 _typeRadiusRaw[t] = Fix.FromRatio(types[t].RadiusMm, 1000).Raw;
                 _typeClass[t] = types[t].MovementClass;
+                var water = navigation.Rules.Movement(_typeClass[t]).Water;
+                _typeDeepPermille[t] = water.Speed.At(water.MaxEnterDepthMm);
                 _maxRadiusRaw = System.Math.Max(_maxRadiusRaw, _typeRadiusRaw[t]);
             }
         }
@@ -163,6 +169,11 @@ namespace GodGame.Sim
             {
                 _typeCosts[t] = _navigation.Costs.FreshArray(_typeClass[t]);
             }
+            var fields = world.Fields;
+            _codes =
+                fields != null && fields.Rules.IndexOf(FieldSpeed.FieldId) >= 0
+                    ? fields.Get(FieldSpeed.FieldId).Values
+                    : null;
 
             int highWater = world.Units.HighWater;
             context.Runner.For(
@@ -364,6 +375,20 @@ namespace GodGame.Sim
                     int regiment = unitRegiment[u];
                     FixVec2 p = position[u];
                     Fix speed = _s._typeSpeed[type];
+                    if (_s._codes != null)
+                    {
+                        // Wading and mud: the speed the cell's code allows. A soldier caught in water that closed
+                        // around it wades out at the class's deepest wading speed.
+                        int code = FieldSpeed.Code(_s._codes[CellIndex(p)], _s._typeClass[type]);
+                        int permille =
+                            code <= FieldSpeed.Closed
+                                ? _s._typeDeepPermille[type]
+                                : FieldSpeed.Permille(code);
+                        if (permille < 1000)
+                        {
+                            speed = Fix.FromRaw(speed.Raw * permille / 1000);
+                        }
+                    }
                     long radius = _s._typeRadiusRaw[type];
                     var directions = _s._regimentDirections[regiment];
                     var cls = _s._typeCosts[type];

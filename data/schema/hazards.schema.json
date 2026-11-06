@@ -3,17 +3,51 @@
   "title": "Hazards, ruleset v0",
   "description": "Read by GodGame.Sim.Rules.RulesetLoader. Numbers are integers; unknown keys are rejected.",
   "type": "object",
-  "required": ["version", "lethalDropMm"],
+  "required": [
+    "version",
+    "lethalDropMm",
+    "teeterTicks",
+    "teeterPressureMm",
+    "bankExitStunTicks"
+  ],
   "additionalProperties": false,
   "properties": {
-    "$comment": { "type": "string" },
-    "version": { "const": 0 },
-    "status": { "enum": ["placeholder", "settled"], "description": "placeholder: numbers no spec has set yet" },
+    "$comment": {
+      "type": "string"
+    },
+    "version": {
+      "const": 0
+    },
+    "status": {
+      "enum": [
+        "placeholder",
+        "settled"
+      ],
+      "description": "placeholder: numbers no spec has set yet"
+    },
     "lethalDropMm": {
       "type": "integer",
       "minimum": 100,
       "maximum": 1000000,
       "description": "A drop to a 4-neighbour at least this high (mm) makes a cell a lethal cliff top"
+    },
+    "teeterTicks": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1200,
+      "description": "Ticks a soldier teeters at a lethal edge before going over"
+    },
+    "teeterPressureMm": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000,
+      "description": "Crowd pressure (overlap, mm) that pushes a soldier over a lethal edge"
+    },
+    "bankExitStunTicks": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1200,
+      "description": "Ticks a swept soldier lies stunned after regaining footing"
     }
   }
 }

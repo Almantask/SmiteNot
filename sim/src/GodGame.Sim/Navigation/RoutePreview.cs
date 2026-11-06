@@ -34,7 +34,7 @@ namespace GodGame.Sim
             {
                 return points;
             }
-            points.Add(Centre(terrain, x, y));
+            points.Add(terrain.CellCentre(x, y));
             byte previous = d;
             for (int step = 0; step < MaxSteps && d < FlowField.AtGoal; step++)
             {
@@ -44,7 +44,7 @@ namespace GodGame.Sim
                 d = directions[terrain.Index(x, y)];
                 if (d != previous || d >= FlowField.AtGoal)
                 {
-                    points.Add(Centre(terrain, x, y)); // a corner, or the goal
+                    points.Add(terrain.CellCentre(x, y)); // a corner, or the goal
                 }
                 previous = d;
             }
@@ -75,11 +75,5 @@ namespace GodGame.Sim
             }
             return routes;
         }
-
-        private static FixVec2 Centre(Terrain terrain, int x, int y) =>
-            new FixVec2(
-                Fix.FromRatio((long)x * terrain.CellSizeMm + terrain.CellSizeMm / 2, 1000),
-                Fix.FromRatio((long)y * terrain.CellSizeMm + terrain.CellSizeMm / 2, 1000)
-            );
     }
 }

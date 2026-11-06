@@ -276,7 +276,8 @@ public class CostFieldTests
             + id
             + "\",\"baseCost\":100,\"slopeCost\":1,\"maxSlopePermille\":1,"
             + "\"water\":{\"speed\":[[0,1000]],\"maxEnterDepthMm\":1,\"sweptDepthMm\":1,"
-            + "\"sweptDepthSpeed\":1,\"sweptMinDepthMm\":1},\"mudSpeed\":[[0,1000]]}";
+            + "\"sweptDepthSpeed\":1,\"sweptMinDepthMm\":1,\"carriedPermille\":1000,\"paddleMmPerS\":0,"
+            + "\"drowningTicks\":1,\"regainPermille\":1000},\"mudSpeed\":[[0,1000]]}";
         string ThreeClasses =
             "{\"version\":0,\"fieldCostRefreshTicks\":20,\"classes\":["
             + Class("foot")

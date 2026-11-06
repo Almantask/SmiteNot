@@ -1,6 +1,9 @@
 {
-  "$comment": "World hazards (ruleset v0). lethalDropMm: a cell with a 4-neighbour at least this much lower is a cliff top, lethal to be pushed or launched off (tech notes, sections 3 and 5). No spec has set it: spec pass S2 does, so the file is marked placeholder; 4 m is a two-storey fall, about where a toy-like tumble stops being survivable.",
+  "$comment": "World hazards (ruleset v0). lethalDropMm: a cell with a 4-neighbour at least this much lower is a cliff top, lethal to be pushed or launched off (tech notes, sections 3 and 5); 4 m is a two-storey fall, about where a toy-like tumble stops being survivable (placeholder until S2). teeterTicks: a soldier pressed toward lethal water teeters this long before the crowd pushes him over (S1 section 4: 1 s). teeterPressureMm: the crowd pressure (the soldier's overlap with its neighbours) that does the pushing; S1 leaves pressure numbers to S2, so this is a placeholder, set at the overlap where blocked soldiers stop creeping (0.25 m). bankExitStunTicks: a swept soldier who regains footing lies stunned this long (S1: 2 s).",
   "version": 0,
   "status": "placeholder",
-  "lethalDropMm": 4000
+  "lethalDropMm": 4000,
+  "teeterTicks": 20,
+  "teeterPressureMm": 250,
+  "bankExitStunTicks": 40
 }

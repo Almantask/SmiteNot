@@ -191,15 +191,25 @@ namespace GodGame.Sim.Rules
                 "maxEnterDepthMm",
                 "sweptDepthMm",
                 "sweptDepthSpeed",
-                "sweptMinDepthMm"
+                "sweptMinDepthMm",
+                "carriedPermille",
+                "paddleMmPerS",
+                "drowningTicks",
+                "regainPermille"
             );
             return new WaterResponse(
                 ReadCurve(item["speed"], 100_000),
                 item.Int("maxEnterDepthMm", 0, 100_000),
-                item.Int("sweptDepthMm", 0, 100_000),
+                item.Int("sweptDepthMm", 1, 100_000),
                 item.Int("sweptDepthSpeed", 0, 100_000_000),
                 item.Int("sweptMinDepthMm", 0, 100_000)
-            );
+            )
+            {
+                CarriedPermille = item.Int("carriedPermille", 0, 2_000),
+                PaddleMmPerS = item.Int("paddleMmPerS", 0, 5_000),
+                DrowningTicks = item.Int("drowningTicks", 1, 12_000),
+                RegainPermille = item.Int("regainPermille", 1, 1_000),
+            };
         }
 
         /// <summary>[[x, permille], …] with x ascending from at most <paramref name="maxX"/> and speeds 1 to 1000 ‰.</summary>
@@ -224,7 +234,10 @@ namespace GodGame.Sim.Rules
                 if (px < 0 || px > maxX || ps < 1 || ps > 1_000 || (i > 0 && px <= x[i - 1]))
                 {
                     throw new DataFormatException(
-                        points[i].Path + ": x must rise from 0 to " + maxX + ", speed 1 to 1000 permille."
+                        points[i].Path
+                            + ": x must rise from 0 to "
+                            + maxX
+                            + ", speed 1 to 1000 permille."
                     );
                 }
                 x[i] = (int)px;
@@ -533,13 +546,26 @@ namespace GodGame.Sim.Rules
 
         private static HazardRules ReadHazards(JsonValue root, ref bool placeholders)
         {
-            root.OnlyKeys("$comment", "version", "status", "lethalDropMm");
+            root.OnlyKeys(
+                "$comment",
+                "version",
+                "status",
+                "lethalDropMm",
+                "teeterTicks",
+                "teeterPressureMm",
+                "bankExitStunTicks"
+            );
             if (root.Int("version") != HazardsVersion)
             {
                 throw new DataFormatException(root.Path + ": version must be 0.");
             }
             placeholders |= ReadStatus(root);
-            return new HazardRules(root.Int("lethalDropMm", 100, 1_000_000));
+            return new HazardRules(
+                root.Int("lethalDropMm", 100, 1_000_000),
+                root.Int("teeterTicks", 1, 1_200),
+                root.Int("teeterPressureMm", 1, 10_000),
+                root.Int("bankExitStunTicks", 0, 1_200)
+            );
         }
 
         private static FormationRules ReadFormation(JsonValue item)

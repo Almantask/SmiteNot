@@ -104,6 +104,30 @@
                 "minimum": 0,
                 "maximum": 100000,
                 "description": "Shallower water never sweeps"
+              },
+              "carriedPermille": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2000,
+                "description": "Share of the flow a swept soldier drifts at"
+              },
+              "paddleMmPerS": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5000,
+                "description": "Paddle speed toward the nearest footing"
+              },
+              "drowningTicks": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 12000,
+                "description": "Ticks swept before drowning"
+              },
+              "regainPermille": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000,
+                "description": "Regain footing below this share of every threshold"
               }
             }
           },

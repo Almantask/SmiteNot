@@ -37,7 +37,10 @@ namespace GodGame.Sim.Rules
                 if (value <= _x[i])
                 {
                     long dx = _x[i] - _x[i - 1];
-                    return (int)(_permille[i - 1] + (_permille[i] - _permille[i - 1]) * (value - _x[i - 1]) / dx);
+                    return (int)(
+                        _permille[i - 1]
+                        + (_permille[i] - _permille[i - 1]) * (value - _x[i - 1]) / dx
+                    );
                 }
             }
             return _permille[_permille.Length - 1];
@@ -79,6 +82,26 @@ namespace GodGame.Sim.Rules
 
         /// <summary>Shallower water never sweeps, however fast.</summary>
         public int SweptMinDepthMm { get; }
+
+        /// <summary>A swept soldier drifts at this share of the water's velocity, in ‰.</summary>
+        public int CarriedPermille { get; internal set; } = 1000;
+
+        /// <summary>How fast a swept soldier paddles toward the nearest footing, in mm/s.</summary>
+        public int PaddleMmPerS { get; internal set; }
+
+        /// <summary>Ticks a swept soldier lasts before drowning.</summary>
+        public int DrowningTicks { get; internal set; } = 1;
+
+        /// <summary>A swept soldier regains footing below this share (‰) of every sweep threshold.</summary>
+        public int RegainPermille { get; internal set; } = 1000;
+
+        /// <summary>Whether a swept soldier finds footing here: below <see cref="RegainPermille"/> of every threshold.</summary>
+        public bool RegainsFooting(long depthMm, long flowMmPerS) =>
+            depthMm * 1000 < (long)SweptDepthMm * RegainPermille
+            && (
+                depthMm * 1000 < (long)SweptMinDepthMm * RegainPermille
+                || depthMm * flowMmPerS < (long)SweptDepthSpeed * RegainPermille
+            );
 
         /// <summary>Whether water this deep and this fast sweeps the class away.</summary>
         public bool Sweeps(long depthMm, long flowMmPerS) =>
@@ -202,13 +225,30 @@ namespace GodGame.Sim.Rules
     /// <summary>World hazards from <c>data/rules/hazards.json</c>.</summary>
     public sealed class HazardRules
     {
-        public HazardRules(int lethalDropMm)
+        public HazardRules(
+            int lethalDropMm,
+            int teeterTicks,
+            int teeterPressureMm,
+            int bankExitStunTicks
+        )
         {
             LethalDropMm = lethalDropMm;
+            TeeterTicks = teeterTicks;
+            TeeterPressureMm = teeterPressureMm;
+            BankExitStunTicks = bankExitStunTicks;
         }
 
         /// <summary>A cell with a 4-neighbour at least this much lower is a lethal cliff top.</summary>
         public int LethalDropMm { get; }
+
+        /// <summary>How long a soldier teeters at a lethal edge before the crowd pushes him over (S1: 1 s).</summary>
+        public int TeeterTicks { get; }
+
+        /// <summary>The crowd pressure (overlap with neighbours, mm) that pushes a soldier at a lethal edge over it.</summary>
+        public int TeeterPressureMm { get; }
+
+        /// <summary>How long a swept soldier lies stunned after reaching footing (S1: 2 s).</summary>
+        public int BankExitStunTicks { get; }
     }
 
     /// <summary>How a unit type's regiments form up, and how big they may be (tech notes, section 4: about 50 to 200).</summary>

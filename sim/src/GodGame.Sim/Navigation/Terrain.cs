@@ -42,6 +42,13 @@ namespace GodGame.Sim
 
         public int HeightMm(int x, int y) => _heightMm[Index(Clamp(x, Columns), Clamp(y, Rows))];
 
+        /// <summary>The centre of a cell, in metres.</summary>
+        public FixVec2 CellCentre(int x, int y) =>
+            new FixVec2(
+                Fix.FromRatio((long)x * CellSizeMm + CellSizeMm / 2, 1000),
+                Fix.FromRatio((long)y * CellSizeMm + CellSizeMm / 2, 1000)
+            );
+
         /// <summary>The cell a position falls in, clamped to the map.</summary>
         public void CellOf(FixVec2 position, out int x, out int y)
         {

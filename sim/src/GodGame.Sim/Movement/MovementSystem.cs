@@ -13,6 +13,12 @@ namespace GodGame.Sim
     /// in (<see cref="FieldSpeed"/>, refreshed with the costs), and water too deep or too fast for its class is closed
     /// like any other impassable cell. Per soldier this is O(1): one field sample and one spatial-hash query.
     /// <para>
+    /// Hazards (spec S1, section 4): a swept soldier doesn't steer. It drifts with the water and paddles toward the
+    /// nearest cell where its class has footing; a stunned one lies still. A soldier the crowd presses toward water that
+    /// would sweep it teeters for <see cref="HazardRules.TeeterTicks"/> and, if the pressure keeps up, goes over (the
+    /// hazards step then finds it swept). An officer who is swept or stunned hands the standard on.
+    /// </para>
+    /// <para>
     /// Determinism: the spatial hash is built here, at the start of the step, from the positions the tick started
     /// with; every soldier reads only those and writes its own slot of scratch arrays, which are committed after the
     /// parallel pass. Sums over neighbours are integer sums, so their order doesn't matter, and the neighbour list
@@ -39,6 +45,9 @@ namespace GodGame.Sim
 
         /// <summary>How many flow-field steps ahead a soldier aims (placeholder).</summary>
         public const int LookAheadCells = 4;
+
+        /// <summary>How far, in cells, a swept soldier looks for footing to paddle toward (9 m: S1's 15 s paddle).</summary>
+        public const int PaddleSearchCells = 6;
 
         /// <summary>Share of its speed a soldier keeps when someone stands right in front (placeholder).</summary>
         public static readonly Fix CreepShare = Fix.FromRatio(1, 8);
@@ -85,6 +94,14 @@ namespace GodGame.Sim
         private FixVec2[] _newPosition = new FixVec2[0];
         private FixVec2[] _newVelocity = new FixVec2[0];
         private int[] _pressure = new int[0];
+        private UnitFlags[] _newFlags = new UnitFlags[0];
+        private int[] _newTimer = new int[0];
+        private readonly int[] _typeCarriedPermille;
+        private readonly long[] _typePaddleRaw; // metres per tick
+        private readonly long[] _typeFootingUm; // water shallower than this gives footing back (regain share of swept depth)
+        private FieldGrid? _depth;
+        private readonly int _teeterTicks;
+        private readonly int _teeterPressureMm;
         private FixVec2[] _regimentMean = new FixVec2[0];
         private long[] _sumX = new long[0];
         private long[] _sumY = new long[0];
@@ -108,6 +125,11 @@ namespace GodGame.Sim
             _typeRadiusRaw = new long[types.Count];
             _typeClass = new MovementClass[types.Count];
             _typeDeepPermille = new int[types.Count];
+            _typeCarriedPermille = new int[types.Count];
+            _typePaddleRaw = new long[types.Count];
+            _typeFootingUm = new long[types.Count];
+            _teeterTicks = navigation.Rules.Hazards.TeeterTicks;
+            _teeterPressureMm = navigation.Rules.Hazards.TeeterPressureMm;
             _quarterCellRaw = Fix.FromRatio(navigation.Terrain.CellSizeMm, 4000).Raw;
             long w = navigation.Map.Width.Raw;
             long d = navigation.Map.Depth.Raw;
@@ -126,6 +148,12 @@ namespace GodGame.Sim
                 _typeClass[t] = types[t].MovementClass;
                 var water = navigation.Rules.Movement(_typeClass[t]).Water;
                 _typeDeepPermille[t] = water.Speed.At(water.MaxEnterDepthMm);
+                _typeCarriedPermille[t] = water.CarriedPermille;
+                _typeFootingUm[t] = (long)water.SweptDepthMm * water.RegainPermille; // mm × ‰ = µm
+                _typePaddleRaw[t] = Fix.FromRatio(
+                    water.PaddleMmPerS,
+                    1000L * SimConstants.TicksPerSecond
+                ).Raw;
                 _maxRadiusRaw = System.Math.Max(_maxRadiusRaw, _typeRadiusRaw[t]);
             }
         }
@@ -149,6 +177,8 @@ namespace GodGame.Sim
                 _newPosition = new FixVec2[capacity];
                 _newVelocity = new FixVec2[capacity];
                 _pressure = new int[capacity];
+                _newFlags = new UnitFlags[capacity];
+                _newTimer = new int[capacity];
             }
             if (_hash == null)
             {
@@ -174,6 +204,10 @@ namespace GodGame.Sim
                 fields != null && fields.Rules.IndexOf(FieldSpeed.FieldId) >= 0
                     ? fields.Get(FieldSpeed.FieldId).Values
                     : null;
+            _depth =
+                fields != null && fields.Rules.IndexOf(WaterModel.Depth) >= 0
+                    ? fields.Get(WaterModel.Depth)
+                    : null;
 
             int highWater = world.Units.HighWater;
             context.Runner.For(
@@ -187,6 +221,8 @@ namespace GodGame.Sim
                 {
                     world.Position[u] = _newPosition[u];
                     world.Velocity[u] = _newVelocity[u];
+                    world.Flags[u] = _newFlags[u];
+                    world.HazardTimer[u] = _newTimer[u];
                 }
             }
         }
@@ -223,6 +259,14 @@ namespace GodGame.Sim
             bool promote = false;
             for (int r = 0; r < regiments; r++)
             {
+                int officer =
+                    r < world.Regiments.HighWater && world.Regiments.IsAlive(r)
+                        ? world.RegimentAnchor[r]
+                        : -1;
+                if (officer >= 0 && Down(world.Flags[officer]))
+                {
+                    world.RegimentAnchor[r] = -1; // swept or stunned: someone on his feet takes the standard
+                }
                 _leaderless[r] =
                     r < world.Regiments.HighWater
                     && world.Regiments.IsAlive(r)
@@ -237,7 +281,7 @@ namespace GodGame.Sim
                     int r = world.UnitRegiment[u];
                     sumX[r] += world.Velocity[u].X.Raw;
                     sumY[r] += world.Velocity[u].Y.Raw;
-                    if (promote && _leaderless[r])
+                    if (promote && _leaderless[r] && !Down(world.Flags[u]))
                     {
                         int current = world.RegimentAnchor[r];
                         if (current < 0 || world.FormationSlot[u] < world.FormationSlot[current])
@@ -340,6 +384,10 @@ namespace GodGame.Sim
             }
         }
 
+        /// <summary>Swept or stunned: not on its feet, so it neither steers nor leads.</summary>
+        private static bool Down(UnitFlags flags) =>
+            (flags & (UnitFlags.Swept | UnitFlags.Stunned)) != 0;
+
         private readonly struct Kernel : IChunkKernel
         {
             private readonly MovementSystem _s;
@@ -374,6 +422,24 @@ namespace GodGame.Sim
                     int type = unitType[u];
                     int regiment = unitRegiment[u];
                     FixVec2 p = position[u];
+                    var flags = _world.Flags[u];
+                    int timer = _world.HazardTimer[u];
+                    _s._newFlags[u] = flags;
+                    _s._newTimer[u] = timer;
+                    _s._pressure[u] = 0;
+                    if ((flags & UnitFlags.Swept) != 0)
+                    {
+                        FixVec2 drift = Drift(type, p);
+                        _s._newPosition[u] = Clamp(p + drift, maxX, maxY);
+                        _s._newVelocity[u] = drift;
+                        continue;
+                    }
+                    if ((flags & UnitFlags.Stunned) != 0)
+                    {
+                        _s._newPosition[u] = p;
+                        _s._newVelocity[u] = FixVec2.Zero;
+                        continue;
+                    }
                     Fix speed = _s._typeSpeed[type];
                     if (_s._codes != null)
                     {
@@ -549,8 +615,32 @@ namespace GodGame.Sim
                     }
 
                     FixVec2 target = Clamp(p + v + push, maxX, maxY);
-                    if (Passable(cls, p) && !Passable(cls, target))
+                    long pressureMm = pressure * 1000 >> Fix.FractionalBits;
+                    bool shovedToward =
+                        Passable(cls, p)
+                        && !Passable(cls, target)
+                        && pressureMm >= _s._teeterPressureMm
+                        && SweepsHere(type, target);
+                    if (shovedToward && (flags & UnitFlags.Teetering) != 0 && timer <= 1)
                     {
+                        // Teetered long enough with the crowd still pressing: over the edge. The hazards step finds
+                        // him swept this tick and counts the push.
+                        _s._newTimer[u] = 0;
+                    }
+                    else if (Passable(cls, p) && !Passable(cls, target))
+                    {
+                        if (shovedToward)
+                        {
+                            // At a lethal edge with the crowd pressing: arms out, the warning before going over.
+                            _s._newFlags[u] = flags | UnitFlags.Teetering;
+                            _s._newTimer[u] =
+                                (flags & UnitFlags.Teetering) != 0 ? timer - 1 : _s._teeterTicks;
+                        }
+                        else if ((flags & UnitFlags.Teetering) != 0)
+                        {
+                            _s._newFlags[u] = flags & ~UnitFlags.Teetering;
+                            _s._newTimer[u] = 0;
+                        }
                         // Blocked: nobody is shoved or walks into a closed cell. Slide the whole move along whichever
                         // axis is open (so a soldier pressed against a wall still gets out of the crush), else walk
                         // without the push, sliding the same way, and stop only the blocked part of the walk. (A
@@ -586,10 +676,15 @@ namespace GodGame.Sim
                             v = FixVec2.Zero;
                         }
                     }
+                    else if ((flags & UnitFlags.Teetering) != 0)
+                    {
+                        // The crowd eased off, or he stepped back from the edge.
+                        _s._newFlags[u] = flags & ~UnitFlags.Teetering;
+                        _s._newTimer[u] = 0;
+                    }
                     _s._newPosition[u] = target;
                     _s._newVelocity[u] = v;
-                    _s._pressure[u] = (int)
-                        System.Math.Min(int.MaxValue, pressure * 1000 >> Fix.FractionalBits);
+                    _s._pressure[u] = (int)System.Math.Min(int.MaxValue, pressureMm);
                 }
             }
 
@@ -650,6 +745,106 @@ namespace GodGame.Sim
                     / _terrain.CellSizeMm;
                 long apart = from > to ? from - to : to - from;
                 return apart <= 2 * straight + 2000;
+            }
+
+            /// <summary>Whether the water in the cell at <paramref name="at"/> sweeps this type's class (from the speed codes).</summary>
+            private bool SweepsHere(int type, FixVec2 at) =>
+                _s._codes != null
+                && FieldSpeed.Code(_s._codes[CellIndex(at)], _s._typeClass[type])
+                    == FieldSpeed.Swept;
+
+            /// <summary>
+            /// A swept soldier's move this tick: the water's velocity at its cell times the class's carried share, plus
+            /// its paddle toward the centre of the nearest cell (rings out to <see cref="PaddleSearchCells"/>) where its
+            /// class has footing.
+            /// </summary>
+            private FixVec2 Drift(int type, FixVec2 p)
+            {
+                var terrain = _terrain;
+                terrain.CellOf(p, out int cx, out int cy);
+                long east = 0;
+                long north = 0;
+                var fields = _world.Fields;
+                if (fields != null && _s._depth != null)
+                {
+                    WaterModel.Velocity(fields, terrain.CellSizeMm, cx, cy, out int e, out int n);
+                    east = e;
+                    north = n;
+                }
+                // mm/s × share / 1000 → mm/s; to metres per tick: × 2^16 / (1000 × ticks per second).
+                long perTick = 1000L * SimConstants.TicksPerSecond;
+                int carried = _s._typeCarriedPermille[type];
+                var v = new FixVec2(
+                    Fix.FromRaw(east * carried / 1000 * Fix.OneRaw / perTick),
+                    Fix.FromRaw(north * carried / 1000 * Fix.OneRaw / perTick)
+                );
+                long paddle = _s._typePaddleRaw[type];
+                if (
+                    paddle > 0
+                    && _s._depth != null
+                    && FindFooting(type, p, cx, cy, out FixVec2 footing)
+                )
+                {
+                    var toward = footing - p;
+                    if (toward != FixVec2.Zero)
+                    {
+                        v += toward.WithLength(Fix.FromRaw(paddle));
+                    }
+                }
+                return v;
+            }
+
+            /// <summary>
+            /// The centre of the nearest cell, ring by ring, that the class can stand in: open terrain shallow enough to
+            /// regain its footing (by depth alone: the current there is the hazards step's to judge). Within a ring the
+            /// closest centre wins, ties to the first in scan order.
+            /// </summary>
+            private bool FindFooting(int type, FixVec2 p, int cx, int cy, out FixVec2 footing)
+            {
+                long shallow = _s._typeFootingUm[type];
+                var depth = _s._depth!;
+                var costs = _s._typeCosts[type];
+                var terrain = _terrain;
+                footing = default;
+                for (int ring = 1; ring <= PaddleSearchCells; ring++)
+                {
+                    long best = long.MaxValue;
+                    for (int dy = -ring; dy <= ring; dy++)
+                    {
+                        for (int dx = -ring; dx <= ring; dx++)
+                        {
+                            if (System.Math.Max(System.Math.Abs(dx), System.Math.Abs(dy)) != ring)
+                            {
+                                continue;
+                            }
+                            int x = cx + dx;
+                            int y = cy + dy;
+                            if (!terrain.InBounds(x, y))
+                            {
+                                continue;
+                            }
+                            int i = terrain.Index(x, y);
+                            if (depth.Values[i] >= shallow || costs[i] == CostFields.Impassable)
+                            {
+                                continue;
+                            }
+                            var centre = terrain.CellCentre(x, y);
+                            long ex = centre.X.Raw - p.X.Raw;
+                            long ey = centre.Y.Raw - p.Y.Raw;
+                            long d = ex * ex + ey * ey; // within a few cells: far inside a long
+                            if (d < best)
+                            {
+                                best = d;
+                                footing = centre;
+                            }
+                        }
+                    }
+                    if (best != long.MaxValue)
+                    {
+                        return true;
+                    }
+                }
+                return false;
             }
 
             private static FixVec2 Clamp(FixVec2 p, Fix maxX, Fix maxY) =>

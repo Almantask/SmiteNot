@@ -62,6 +62,7 @@ namespace GodGame.Sim
             Morale = new int[unitCapacity];
             Flags = new UnitFlags[unitCapacity];
             FormationSlot = new int[unitCapacity];
+            HazardTimer = new int[unitCapacity];
 
             RegimentSide = new Side[regimentCapacity];
             RegimentUnitType = new int[regimentCapacity];
@@ -108,6 +109,16 @@ namespace GodGame.Sim
         /// the officer (<see cref="Formation"/>).
         /// </summary>
         public int[] FormationSlot { get; }
+
+        /// <summary>
+        /// Ticks left in the soldier's hazard state, which its flags name (a soldier is in at most one): until it
+        /// drowns while <see cref="UnitFlags.Swept"/>, until it gets up while <see cref="UnitFlags.Stunned"/>, until the
+        /// crowd pushes it over while <see cref="UnitFlags.Teetering"/>. 0 otherwise.
+        /// </summary>
+        public int[] HazardTimer { get; }
+
+        /// <summary>Hazard events so far in this battle; the cause log (M3 item 9) will say who and why.</summary>
+        public BattleCounters Counters { get; } = new BattleCounters();
 
         // Per regiment, indexed by regiment slot.
 
@@ -179,6 +190,7 @@ namespace GodGame.Sim
             Health[u] = health;
             Morale[u] = morale;
             Flags[u] = UnitFlags.None;
+            HazardTimer[u] = 0;
             FormationSlot[u] = RegimentStartingSize[r];
             if (RegimentStartingSize[r] == 0)
             {
@@ -209,6 +221,7 @@ namespace GodGame.Sim
             Health[u] = 0;
             Morale[u] = 0;
             Flags[u] = UnitFlags.None;
+            HazardTimer[u] = 0;
             Units.Free(unit);
         }
 
@@ -263,6 +276,7 @@ namespace GodGame.Sim
                 writer.WriteInt32(Morale[u]);
                 writer.WriteInt32(unchecked((int)Flags[u]));
                 writer.WriteInt32(FormationSlot[u]);
+                writer.WriteInt32(HazardTimer[u]);
             }
             for (int r = 0; r < Regiments.Capacity; r++)
             {
@@ -275,6 +289,7 @@ namespace GodGame.Sim
                 writer.WriteInt32(RegimentFacing[r].Units);
                 writer.WriteInt32(RegimentFiles[r]);
             }
+            Counters.WriteTo(writer);
         }
 
         /// <summary>
@@ -309,6 +324,21 @@ namespace GodGame.Sim
                     {
                         throw new FormatException("A unit has unknown flag bits.");
                     }
+                    var hazard =
+                        Flags[u] & (UnitFlags.Swept | UnitFlags.Stunned | UnitFlags.Teetering);
+                    if (
+                        HazardTimer[u] < 0
+                        || (hazard & (hazard - 1)) != 0
+                        || (hazard == UnitFlags.None && HazardTimer[u] != 0)
+                        || (
+                            hazard != UnitFlags.None
+                            && HazardTimer[u] == 0
+                            && hazard != UnitFlags.Swept
+                        )
+                    )
+                    {
+                        throw new FormatException("A unit's hazard state is invalid.");
+                    }
                     if (FormationSlot[u] < 0 || FormationSlot[u] >= RegimentStartingSize[r])
                     {
                         throw new FormatException(
@@ -326,6 +356,7 @@ namespace GodGame.Sim
                     || Morale[u] != 0
                     || Flags[u] != UnitFlags.None
                     || FormationSlot[u] != 0
+                    || HazardTimer[u] != 0
                 )
                 {
                     throw new FormatException("A dead unit slot is not zero.");
@@ -428,6 +459,7 @@ namespace GodGame.Sim
                 Morale[u] = reader.ReadInt32();
                 Flags[u] = unchecked((UnitFlags)reader.ReadInt32());
                 FormationSlot[u] = reader.ReadInt32();
+                HazardTimer[u] = reader.ReadInt32();
             }
             for (int r = 0; r < Regiments.Capacity; r++)
             {
@@ -450,6 +482,7 @@ namespace GodGame.Sim
                 RegimentFacing[r] = Angle.FromUnits(facing);
                 RegimentFiles[r] = reader.ReadInt32();
             }
+            Counters.ReadFrom(reader);
         }
 
         /// <summary>
@@ -477,6 +510,7 @@ namespace GodGame.Sim
                 hash.AppendInt32(Morale[u]);
                 hash.AppendInt32(unchecked((int)Flags[u]));
                 hash.AppendInt32(FormationSlot[u]);
+                hash.AppendInt32(HazardTimer[u]);
             }
             for (int r = 0; r < Regiments.HighWater; r++)
             {
@@ -493,6 +527,7 @@ namespace GodGame.Sim
                 hash.AppendInt32(RegimentFacing[r].Units);
                 hash.AppendInt32(RegimentFiles[r]);
             }
+            Counters.AppendTo(hash);
         }
     }
 }

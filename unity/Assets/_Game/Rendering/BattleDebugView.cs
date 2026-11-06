@@ -7,29 +7,33 @@ using GodGame.Sim;
 using GodGame.Sim.Math;
 using GodGame.Sim.Rules;
 using UnityEngine;
-using Terrain = GodGame.Sim.Terrain;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
+using Terrain = GodGame.Sim.Terrain;
 
 namespace GodGame.Rendering
 {
     /// <summary>
     /// The M2 debug view: a repo battle run by <see cref="BattleHost"/>, every soldier as an instanced capsule, the
     /// ground with switchable overlays (costs per class, the attackers' flow field, distance to lethal cells), the
-    /// reachability check's guaranteed route and the attackers' predicted paths. Keys: O overlay, R routes, Space
-    /// pause, +/- speed. Presentation only: it reads the simulation and never writes to it.
+    /// reachability check's guaranteed route and the attackers' predicted paths, and the simulation's fields: water
+    /// as a see-through surface with flow streaks, wet and muddy ground, or the foot speed the fields leave (M3). Keys:
+    /// O overlay, F fields, R routes, Space pause, +/- speed. Presentation only: it reads the simulation and never
+    /// writes to it. The overlays come from a dry navigation of its own; the F view shows the battle's own speeds.
     /// <para>
     /// For the frame-rate exit check, a player started with <c>-measure-fps &lt;file&gt;</c> waits 5 s, measures
-    /// <c>-measure-seconds</c> (default 20) and writes the frame statistics, then quits.
+    /// <c>-measure-seconds</c> (default 20) and writes the frame statistics, then quits. To check the picture,
+    /// <c>-screenshot &lt;file&gt; -screenshot-at &lt;game seconds&gt;</c> saves one frame then and quits; <c>-speed</c>
+    /// sets the starting speed and <c>-fields 0|1|2</c> the field view.
     /// </para>
     /// </summary>
     public sealed class BattleDebugView : MonoBehaviour
     {
         [SerializeField]
-        private string _mapId = "m2-bridge";
+        private string _mapId = "m3-river";
 
         [SerializeField]
-        private string _planFile = "m2-bridge-ten-thousand.json";
+        private string _planFile = "m3-river-two-thousand.json";
 
         [SerializeField]
         private ulong _seed = 1;
@@ -42,6 +46,9 @@ namespace GodGame.Rendering
 
         [SerializeField]
         private Shader _groundShader;
+
+        [SerializeField]
+        private Shader _waterShader;
 
         [SerializeField]
         private Shader _lineShader;
@@ -59,7 +66,11 @@ namespace GodGame.Rendering
         private Texture2D _overlay;
         private Color32[] _pixels;
         private Material _groundMaterial;
+        private Material _waterMaterial;
         private GameObject _ground;
+        private GameObject _water;
+        private FieldUpload _fields;
+        private FieldView _fieldView = FieldView.WetAndMud;
         private Mesh _groundMeshAsset;
         private readonly List<GameObject> _lines = new List<GameObject>();
         private OverlayMode _mode = OverlayMode.None;
@@ -74,6 +85,11 @@ namespace GodGame.Rendering
         private float _measureStart = -1f;
         private readonly List<float> _frameMs = new List<float>();
 
+        // Screenshots (players only): -screenshot <file> at -screenshot-at <game seconds>, then quit.
+        private string _screenshotFile;
+        private float _screenshotAt = 30f;
+        private int _screenshotState; // 0 waiting, 1 capture requested, 2 done
+
         public BattleHost Host => _host;
 
         public int DrawnUnits => _units?.DrawnLastFrame ?? 0;
@@ -84,6 +100,30 @@ namespace GodGame.Rendering
             _mapId = CommandLineValue("-map") ?? _mapId;
             _planFile = CommandLineValue("-plan") ?? _planFile;
             _measureFile = CommandLineValue("-measure-fps");
+            _screenshotFile = CommandLineValue("-screenshot");
+            if (
+                float.TryParse(
+                    CommandLineValue("-screenshot-at"),
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float at
+                )
+            )
+            {
+                _screenshotAt = at;
+            }
+            if (_screenshotFile != null || _measureFile != null)
+            {
+                Application.runInBackground = true; // unattended runs keep going without the focus
+            }
+            if (CommandLineValue("-speed") is string speed)
+            {
+                _speed = float.Parse(speed, CultureInfo.InvariantCulture);
+            }
+            if (CommandLineValue("-fields") is string view)
+            {
+                _fieldView = (FieldView)int.Parse(view, CultureInfo.InvariantCulture);
+            }
             if (
                 float.TryParse(
                     CommandLineValue("-measure-seconds"),
@@ -102,6 +142,7 @@ namespace GodGame.Rendering
             var battle = new Battle(rules, map, plan, _seed);
             _host = new BattleHost(battle) { Speed = _speed };
             _units = new UnitCapsuleRenderer(_unitShader, _host);
+            _fields = new FieldUpload(map.Columns, map.Rows);
 
             BuildNavigationViews(battle);
             BuildGround(map);
@@ -127,6 +168,16 @@ namespace GodGame.Rendering
             {
                 Destroy(_ground);
             }
+            if (_water != null)
+            {
+                Destroy(_water);
+            }
+            if (_waterMaterial != null)
+            {
+                Destroy(_waterMaterial);
+            }
+            _fields?.Dispose();
+            _fields = null;
             if (_overlay != null)
             {
                 Destroy(_overlay);
@@ -200,10 +251,7 @@ namespace GodGame.Rendering
                 line.SetPosition(i, Ground(points[i]) + Vector3.up * 1.5f);
             }
             line.widthMultiplier = width;
-            line.material = new Material(_lineShader)
-            {
-                color = color,
-            };
+            line.material = new Material(_lineShader) { color = color };
             line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             _lines.Add(go);
         }
@@ -218,7 +266,9 @@ namespace GodGame.Rendering
         private void BuildGround(MapData map)
         {
             var terrain = _navigation.Terrain;
-            var mesh = GroundMesh.Build(terrain, 2, out float minH, out float maxH);
+            // Every cell on maps up to about 200,000 cells, every other one beyond (the working map).
+            int step = terrain.CellCount > 200_000 ? 2 : 1;
+            var mesh = GroundMesh.Build(terrain, step, out float minH, out float maxH);
             _groundMeshAsset = mesh;
             _overlay = new Texture2D(terrain.Columns, terrain.Rows, TextureFormat.RGBA32, false)
             {
@@ -235,6 +285,20 @@ namespace GodGame.Rendering
             _ground = new GameObject("Debug ground");
             _ground.AddComponent<MeshFilter>().sharedMesh = mesh;
             _ground.AddComponent<MeshRenderer>().sharedMaterial = _groundMaterial;
+            _fields.Bind(_groundMaterial);
+            if (_waterShader != null)
+            {
+                _waterMaterial = new Material(_waterShader);
+                var water = _host.Rules.Fields.Water;
+                _waterMaterial.SetFloat("_DryDepthUm", water != null ? water.DryDepthUm : 5000);
+                _fields.Bind(_waterMaterial);
+                _water = new GameObject("Debug water");
+                _water.AddComponent<MeshFilter>().sharedMesh = mesh;
+                var renderer = _water.AddComponent<MeshRenderer>();
+                renderer.sharedMaterial = _waterMaterial;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            ApplyFieldView();
             RepaintOverlay();
         }
 
@@ -274,6 +338,7 @@ namespace GodGame.Rendering
                 return; // set-up failed (see the console)
             }
             HandleKeys();
+            _fields.Update(_host);
             _units.Draw(_host);
             float ms = Time.unscaledDeltaTime * 1000f;
             _smoothedFrameMs = Mathf.Lerp(_smoothedFrameMs, ms, 0.05f);
@@ -283,7 +348,7 @@ namespace GodGame.Rendering
                 _host.Read(out _, out var current, out _);
                 _hud.text = string.Format(
                     CultureInfo.InvariantCulture,
-                    "{0}  tick {1} ({2:0.0} s)  units {3}\n{4:0} fps ({5:0.0} ms)  tick {6:0.00} ms  speed {7}x\noverlay [O] {8}  routes [R] {9}  pause [Space]  speed [+/-]{10}",
+                    "{0}  tick {1} ({2:0.0} s)  units {3}\n{4:0} fps ({5:0.0} ms)  tick {6:0.00} ms  speed {7}x\noverlay [O] {8}  fields [F] {11}  routes [R] {9}  pause [Space]  speed [+/-]{10}",
                     _mapId,
                     current.Tick,
                     current.Tick / (float)SimConstants.TicksPerSecond,
@@ -294,10 +359,12 @@ namespace GodGame.Rendering
                     _host.Speed,
                     _mode,
                     _showRoutes ? "on" : "off",
-                    _host.Failure != null ? "\nSIMULATION STOPPED: " + _host.Failure.Message : ""
+                    _host.Failure != null ? "\nSIMULATION STOPPED: " + _host.Failure.Message : "",
+                    _fieldView
                 );
             }
             Measure(ms);
+            Screenshot();
         }
 
         private void HandleKeys()
@@ -313,6 +380,11 @@ namespace GodGame.Rendering
                     ((int)_mode + 1) % Enum.GetValues(typeof(OverlayMode)).Length
                 );
                 RepaintOverlay();
+            }
+            if (keyboard.fKey.wasPressedThisFrame)
+            {
+                _fieldView = (FieldView)(((int)_fieldView + 1) % 3);
+                ApplyFieldView();
             }
             if (keyboard.rKey.wasPressedThisFrame)
             {
@@ -339,6 +411,43 @@ namespace GodGame.Rendering
             {
                 _speed = Mathf.Max(_speed / 2, 0.25f);
                 _host.Speed = _speed;
+            }
+        }
+
+        private enum FieldView
+        {
+            Off = 0,
+            WetAndMud = 1,
+            FootSpeed = 2,
+        }
+
+        private void ApplyFieldView()
+        {
+            _groundMaterial.SetFloat("_FieldMode", (float)_fieldView);
+            if (_water != null)
+            {
+                _water.SetActive(_fieldView != FieldView.Off);
+            }
+        }
+
+        /// <summary>For checking the picture without a person at the screen: capture once the battle reaches the time, then quit.</summary>
+        private void Screenshot()
+        {
+            if (_screenshotFile == null || _screenshotState == 2)
+            {
+                return;
+            }
+            if (_screenshotState == 1)
+            {
+                _screenshotState = 2;
+                Application.Quit(0);
+                return;
+            }
+            _host.Read(out _, out var current, out _);
+            if (current.Tick >= _screenshotAt * SimConstants.TicksPerSecond)
+            {
+                ScreenCapture.CaptureScreenshot(_screenshotFile);
+                _screenshotState = 1; // quit next frame, once the capture is written
             }
         }
 

@@ -14,7 +14,8 @@ namespace GodGame.Bridge
     /// debug view). Unity reads only; nothing here decides an outcome.
     /// <para>
     /// The worker owns the <see cref="Simulation"/> exclusively while running; everything the main thread sees goes
-    /// through <see cref="Snapshot"/> copies swapped under a lock.
+    /// through <see cref="UnitSnapshot"/> copies swapped under a lock, and after every field step (5 Hz) through a
+    /// <see cref="FieldUpload.Snapshot"/> of the fields.
     /// </para>
     /// </summary>
     public sealed class BattleHost : IDisposable
@@ -49,6 +50,8 @@ namespace GodGame.Bridge
         private UnitSnapshot _previous;
         private UnitSnapshot _current;
         private UnitSnapshot _spare;
+        private FieldUpload.Snapshot _fields;
+        private FieldUpload.Snapshot _spareFields;
         private Thread _worker;
         private volatile bool _stop;
         private double _speed = 1.0;
@@ -65,6 +68,9 @@ namespace GodGame.Bridge
             _spare = new UnitSnapshot(capacity);
             Fill(_previous);
             Fill(_current);
+            _fields = new FieldUpload.Snapshot(battle.Map.Columns, battle.Map.Rows);
+            _spareFields = new FieldUpload.Snapshot(battle.Map.Columns, battle.Map.Rows);
+            _fields.Fill(_simulation.World, 0, battle.Map.CellSizeMm);
             RegimentSides = new Side[_simulation.World.Regiments.Capacity];
             for (int r = 0; r < RegimentSides.Length; r++)
             {
@@ -151,6 +157,18 @@ namespace GodGame.Bridge
             alpha = (float)Math.Min(1.0, Math.Max(0.0, sinceMs / tickMs));
         }
 
+        /// <summary>
+        /// The newest field snapshot (main thread). It is replaced, never changed, while the main thread holds it, except
+        /// when an upload takes longer than two field steps: a visual glitch at worst.
+        /// </summary>
+        public FieldUpload.Snapshot ReadFields()
+        {
+            lock (_gate)
+            {
+                return _fields;
+            }
+        }
+
         /// <summary>The exception that stopped the worker, if any (shown by the debug view).</summary>
         public Exception Failure => Volatile.Read(ref _failure);
 
@@ -194,6 +212,7 @@ namespace GodGame.Bridge
         private void StepAndPublish()
         {
             long start = Stopwatch.GetTimestamp();
+            bool fieldStep = TickOrder.FieldsRate.IsDue(_simulation.Tick);
             _simulation.Step();
             Volatile.Write(
                 ref _lastTickMs,
@@ -208,6 +227,16 @@ namespace GodGame.Bridge
                 _spare = _previous;
                 _previous = _current;
                 _current = next;
+            }
+            if (fieldStep)
+            {
+                var fields = _spareFields;
+                fields.Fill(_simulation.World, _simulation.Tick, Battle.Map.CellSizeMm);
+                lock (_gate)
+                {
+                    _spareFields = _fields;
+                    _fields = fields;
+                }
             }
         }
 

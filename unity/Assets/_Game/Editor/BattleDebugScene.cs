@@ -12,7 +12,7 @@ using UnityEngine.UIElements;
 namespace GodGame.Editor
 {
     /// <summary>
-    /// Builds the M2 debug-view scene (a Cinemachine strategic camera, a light, the BattleDebugView with its shaders
+    /// Builds the debug-view scene (a Cinemachine strategic camera, a light, the BattleDebugView with its shaders
     /// and HUD panel settings) and the Windows player that measures its frame rate. The scene is generated, never
     /// edited by hand: change this script and rebuild it.
     /// Menu: GodGame → Setup → Create Battle Debug Scene; GodGame → Build → Debug View Player.
@@ -62,6 +62,9 @@ namespace GodGame.Editor
             serialized.FindProperty("_groundShader").objectReferenceValue = Shader.Find(
                 "GodGame/DebugGround"
             );
+            serialized.FindProperty("_waterShader").objectReferenceValue = Shader.Find(
+                "GodGame/DebugWater"
+            );
             serialized.FindProperty("_lineShader").objectReferenceValue = Shader.Find(
                 "Universal Render Pipeline/Unlit"
             );
@@ -73,6 +76,7 @@ namespace GodGame.Editor
                 {
                     "_unitShader",
                     "_groundShader",
+                    "_waterShader",
                     "_lineShader",
                     "_panelSettings",
                 }

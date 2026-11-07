@@ -1,0 +1,29 @@
+{
+  "$comment": "Morale v1 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md section 7). DRAFT: new file for data/rules. Integers only: morale 0-1000, mm, ticks at 20 per second, permille, per-second rates applied at the 4 Hz morale step. Every loss is multiplied by the regiment type's moraleShockPermille. Own losses: -(lost * ownLossFactor / starting size); launched or swept soldiers still alive count as half (pendingLossPermille). Nearby friendly casualty event: -(count * nearbyLossFactor / own starting size), capped at nearbyLossCap, halved between nearMm and farMm. Recovery after recoveryQuietTicks with no loss, up to 1000 minus losses so far in permille of starting size. Rally once (D3). Settled from the brief: wiped below about 10% and fled off the map counts as wiped (2026-10-09); routed units still on the field count (PvP working assumption); charges lost when a specialist is wiped or routs (2026-10-10). wipedBelowPermille 100 is the exact form of 'about 10%' (proposal). armyRoutPermille: the attacking army has routed (a defender hold) when that share of its starting soldiers are dead, fled or in routed or wiped regiments.",
+  "version": 1,
+  "status": "placeholder",
+  "start": 1000,
+  "routBelow": 250,
+  "ownLossFactor": 2000,
+  "pendingLossPermille": 500,
+  "nearMm": 60000,
+  "farMm": 120000,
+  "nearbyLossFactor": 300,
+  "nearbyLossCap": 150,
+  "friendRoutingPerS": 30,
+  "friendWipedOnce": 100,
+  "enemyRoutingPerS": 10,
+  "recoveryPerS": 4,
+  "recoveryQuietTicks": 200,
+  "rally": {
+    "enabled": true,
+    "times": 1,
+    "noEnemyWithinMm": 80000,
+    "safeTicks": 400,
+    "awayFromLethalMm": 60000,
+    "moraleAfter": 450
+  },
+  "wipedBelowPermille": 100,
+  "wipedRemnant": "rout-permanently",
+  "armyRoutPermille": 700
+}

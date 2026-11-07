@@ -1,0 +1,24 @@
+{
+  "$comment": "Load and structures v1 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md section 8). DRAFT: new file for data/rules. Integers only: kg, kg per m2, mm, cells, ticks at 20 per second, permille. Segment strength = deck area m2 * strengthKgPerM2 * current strength permille / 1000 (ice: thickness mm * iceKgPerM2PerMm). Load = masses of units whose centre is on the segment (soldiers, engines, boats, animals), not launched or swept ones. Checked every field step; a segment fails when load >= strength at failChecks consecutive checks. Strain stages from plan M5 (creak 70%, crack 85%, sag 95%; for the player only, regiments never read them, brief 2026-10-09); a stage falls back stageHysteresisPermille below its threshold. A failed bridge segment's neighbours lose neighbourLossPermille of maximum; a broken ice patch's lose iceNeighbourLossPermille. Pontoons: strength scales from groundedPermille below groundedDepthMm of water under the deck to full at afloatDepthMm. coldDrowningTicks: drowning timer for soldiers in a broken-ice hole (until S3). Numbers are proposals.",
+  "version": 1,
+  "status": "placeholder",
+  "failChecks": 2,
+  "stages": { "creakPermille": 700, "crackPermille": 850, "sagPermille": 950, "failPermille": 1000, "stageHysteresisPermille": 50 },
+  "neighbourLossPermille": 250,
+  "iceNeighbourLossPermille": 150,
+  "kinds": [
+    { "id": "footbridge", "material": "wood", "segmentCellsAlong": 2, "minWidthMm": 1500, "maxWidthMm": 3000, "strengthKgPerM2": 150, "rots": true, "classes": ["foot"] },
+    { "id": "wooden-bridge", "material": "wood", "segmentCellsAlong": 2, "minWidthMm": 3000, "maxWidthMm": 6000, "strengthKgPerM2": 300, "rots": true, "classes": ["foot", "horse", "wheeled"] },
+    { "id": "stone-bridge", "material": "stone", "segmentCellsAlong": 2, "strengthKgPerM2": 1200, "rots": false, "mapOnly": true, "classes": ["foot", "horse", "wheeled"] },
+    { "id": "pontoon", "material": "wood", "segmentCellsAlong": 2, "widthCells": 3, "strengthKgPerM2": 250, "rots": true, "floats": true, "groundedDepthMm": 300, "afloatDepthMm": 600, "groundedPermille": 400, "classes": ["foot", "horse", "wheeled"] },
+    { "id": "trestle", "material": "wood", "segmentCellsAlong": 2, "widthCells": 2, "strengthKgPerM2": 220, "rots": true, "standsOnBed": true, "classes": ["foot", "horse", "wheeled"] },
+    { "id": "ice", "material": "ice", "patchCells": 4, "iceKgPerM2PerMm": 1, "minThicknessMm": 60, "maxThicknessMm": 250, "rots": false, "mapOnly": true, "classes": ["foot", "horse", "wheeled"] }
+  ],
+  "collapse": {
+    "launchSource": "collapse",
+    "brokenIceSweepsAtOnce": true,
+    "climbOutOntoIntactIce": true
+  },
+  "awash": { "deckAwashWhenSurfaceAtDeck": true },
+  "coldDrowningTicks": { "foot": 160, "horse": 240, "wheeled": 80 }
+}

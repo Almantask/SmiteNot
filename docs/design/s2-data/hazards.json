@@ -1,0 +1,15 @@
+{
+  "$comment": "World hazards v1 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md sections 4 and 9). DRAFT: replaces data/rules/hazards.json v0. Integers only: mm, ticks at 20 per second, health points. Crowd pressure is now mass-weighted: the sum over overlapping neighbours of overlap * 2 * m_other / (m_self + m_other), in mm (equal masses: today's value). teeterPressureMm per class: the pressure toward a lethal edge that makes a soldier teeter, then go over after teeterTicks (S1, settled); foot keeps the M3 value; wheeled never teeters (0 = never). Lethal edges in M5: sweeping water, cliff tops (a 4-neighbour at least lethalDropMm lower), burning cells (fire v0), open water left by a failed segment or broken ice. A fall (pushed or launched) of lethalDropMm or more kills (cause fell); fallHurtMm to lethalDropMm hurts and stuns. bankExitStunTicks is S1's.",
+  "version": 1,
+  "status": "placeholder",
+  "lethalDropMm": 4000,
+  "fallHurtMm": 2000,
+  "fallHurtDamage": 40,
+  "fallHurtStunTicks": 80,
+  "teeterTicks": 20,
+  "teeterPressureMm": { "foot": 250, "horse": 350, "wheeled": 0 },
+  "creepPressureLimitMm": 250,
+  "pressureMassWeighted": true,
+  "bankExitStunTicks": 40,
+  "routSpacingPermille": 700
+}

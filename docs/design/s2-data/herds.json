@@ -1,0 +1,57 @@
+{
+  "$comment": "Herds and stampedes v1 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md section 11). DRAFT: new file for data/rules. Integers only: mm, mm/s, cd, ticks at 20 per second, permille, fear 0-1000, health points. Settled from the brief: herds roam and block (2026-10-08); fear sources spook a herd into a stampede that flees the fear, steered by terrain, never aimed, picking no side (2026-10-08); herds never walk into lethal cells (2026-10-09); units herd at walking pace and never start a stampede (2026-10-09). Animals never die (decision D6). Fear is the largest of the sources, recomputed each field step; linear falloff from full at fullWithinMm to 0 at zeroAtMm. Reaching thresholdFear commits the herd: agitated (mill, dust) for agitationTicks, then stampede. Steering: lookAheadMm, turnStepCd toward lower cost (left on ties), downhill bias. Run ends after runMaxMm or runMaxTicks; the herd then scatters and never stampedes again. Animal type: unit-types.json cattle. Numbers are proposals.",
+  "version": 1,
+  "status": "placeholder",
+  "animalType": "cattle",
+  "minAnimals": 20,
+  "maxAnimals": 120,
+  "defaultAnimals": 60,
+  "maxAnimalsPerMap": 400,
+  "grazeRadiusMinMm": 15000,
+  "grazeRadiusMaxMm": 40000,
+  "grazeMmPerS": 300,
+  "waypointTicks": 200,
+  "drivenMmPerS": 1200,
+  "drivenFearAtLeast": 200,
+  "occupancyCostPermille": 4000,
+  "fear": {
+    "thresholdFear": 700,
+    "sources": [
+      { "id": "fire-v0", "fear": 1000, "fullWithinMm": 50000, "zeroAtMm": 120000 },
+      { "id": "lightning-strike", "fear": 500, "fullWithinMm": 80000, "zeroAtMm": 80000, "decayPerS": 100 },
+      { "id": "drovers", "fear": 400, "fullWithinMm": 30000, "zeroAtMm": 30000 }
+    ],
+    "combine": "max"
+  },
+  "agitationTicks": 60,
+  "stampede": {
+    "speedMmPerS": 6500,
+    "lookAheadMm": 6000,
+    "turnStepCd": 1500,
+    "downhillMinSlopePermille": 100,
+    "downhillArcCd": 4500,
+    "downhillTurnCdPerS": 500,
+    "runMaxMm": 300000,
+    "runMaxTicks": 800,
+    "afterRun": "scatter",
+    "oncePerHerd": true
+  },
+  "impact": {
+    "minAnimalSpeedMmPerS": 4000,
+    "launchPermille": 600,
+    "trampleDamage": 60,
+    "trampleStunTicks": 60,
+    "victimCooldownTicks": 10,
+    "slowAfterHitPermille": 800,
+    "slowAfterHitTicks": 20
+  },
+  "hazards": { "die": false, "drowningTimer": false, "launched": false },
+  "pen": {
+    "grazeRadiusMinMm": 10000,
+    "grazeRadiusMaxMm": 25000,
+    "fenceCells": 1,
+    "fenceFootPermille": 300,
+    "fenceClosesClasses": ["horse", "wheeled", "animals"],
+    "burstHalfWidthMm": 9000
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "$comment": "Powers added in S2 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md section 12). DRAFT: entries to add to data/rules/powers.json next to Rain (S1); the plan's cast record needs a headingCd for lightning and wind-shift. Integers only: mm, mm/s, cd, ticks at 20 per second, permille, wetness 0-65535. Settled: the range rule (whole area at least 100 m from both armies' outlines at the cast tick, else fizzle; brief 2026-10-08), checked at the queued tick when the wind-up starts (S1 D1, 2026-11-03). lightning (D10, D11): a fixed 30 m area circle; fells the tallest tree within treeSearchMm along the dragged heading; ignites fuel cells within ignitionRadiusMm whose wetness is below ignitionMaxWetness, burning burnTicks, closed and lethal, no spread (fire v0). rot (D12): wooden segments with a cell in the area fall linearly to floorPermille of maximum over rotTicks after the wind-up; a second rot lowers by stackPermille, not below stackFloorPermille. wind-shift (D9): a plume of strengthMmPerS over the circle, then downwind for plumeReachMm past its edge, widening plumeHalfAngleCd each side, fading linearly; vectors add with the map's prevailing wind; arrows only read it in M5. Energy costs are S5. Numbers are proposals.",
+  "version": 1,
+  "status": "placeholder",
+  "powers": [
+    {
+      "id": "lightning",
+      "area": { "shape": "circle", "fixedRadiusMm": 30000 },
+      "placedWith": ["point", "headingCd"],
+      "rangeRule": { "minDistanceMm": 100000, "minSoldiersPerCoarseCell": 2 },
+      "windUpTicks": 60,
+      "treeSearchMm": 8000,
+      "fallTicks": 40,
+      "thunderFearSource": "lightning-strike",
+      "ignition": { "radiusMm": 6000, "maxWetness": 24576, "burnTicks": 600, "spreads": false }
+    },
+    {
+      "id": "rot",
+      "area": { "shape": "circle", "minRadiusMm": 10000, "maxRadiusMm": 30000, "defaultRadiusMm": 15000 },
+      "placedWith": ["point", "radius"],
+      "rangeRule": { "minDistanceMm": 100000, "minSoldiersPerCoarseCell": 2 },
+      "windUpTicks": 200,
+      "rotTicks": 600,
+      "floorPermille": 500,
+      "stackPermille": 200,
+      "stackFloorPermille": 300,
+      "affects": ["footbridge", "wooden-bridge", "trestle", "pontoon"]
+    },
+    {
+      "id": "wind-shift",
+      "area": { "shape": "circle", "minRadiusMm": 30000, "maxRadiusMm": 80000, "defaultRadiusMm": 50000 },
+      "placedWith": ["point", "radius", "headingCd"],
+      "rangeRule": { "minDistanceMm": 100000, "minSoldiersPerCoarseCell": 2 },
+      "windUpTicks": 100,
+      "durationTicks": 1200,
+      "strengthMmPerS": 10000,
+      "plumeReachMm": 150000,
+      "plumeHalfAngleCd": 1500,
+      "readBy": ["arrows"]
+    }
+  ],
+  "prevailingWind": { "$comment": "map.json wind: { xMmPerS, yMmPerS }, calm by default (plan section 10).", "defaultXMmPerS": 0, "defaultYMmPerS": 0, "maxMmPerS": 15000 }
+}

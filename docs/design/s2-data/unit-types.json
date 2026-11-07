@@ -1,0 +1,109 @@
+{
+  "$comment": "Unit types v1 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md sections 2, 5, 6, 14). DRAFT: not loaded; replaces data/rules/unit-types.json v0 when M5 wires it, with a schema. Integers only. Units: speeds mm/s, radius and spacing mm, mass kg, health points, permille, ticks at 20 per second. Settled from the brief: the four base types (pillar 3); specialists fight poorly and their seats (2026-10-10, 2026-10-11). Everything else is a proposal, hence status placeholder. morale is now 0-1000 (morale.json); moraleShockPermille scales every morale loss. meleeTakenPermille and arrowTakenPermille scale incoming damage. sweptDepthSpeedPermille scales the movement class's sweptDepthSpeed (heavy armour sweeps sooner; tech notes 5). churnWeight stays the S1 class value (masses match its ratios). A siege or pontoon regiment's plan 'soldiers' counts engines or boats; crewPerEngine crew of crewType are added by the loader (decision D4). Open order doubles file and rank spacing (combat.json). Prices are S5.",
+  "version": 1,
+  "status": "placeholder",
+  "unitTypes": [
+    {
+      "id": "infantry", "role": "line", "movementClass": "foot", "seats": ["attacker", "defender"],
+      "marchMmPerS": 1500, "runMmPerS": 3000, "radiusMm": 350, "massKg": 90, "health": 100,
+      "moraleShockPermille": 1000, "churnWeight": 1, "sweptDepthSpeedPermille": 900,
+      "melee": { "damage": 25, "hitPermille": 550, "intervalTicks": 30, "reachMm": 600 },
+      "meleeTakenPermille": 900, "arrowTakenPermille": 600, "canBrace": true,
+      "formation": { "files": 20, "fileSpacingMm": 1000, "rankSpacingMm": 1200, "minSoldiers": 50, "maxSoldiers": 200 }
+    },
+    {
+      "id": "ranged", "role": "line", "movementClass": "foot", "seats": ["attacker", "defender"],
+      "marchMmPerS": 1500, "runMmPerS": 3200, "radiusMm": 350, "massKg": 80, "health": 70,
+      "moraleShockPermille": 1200, "churnWeight": 1, "sweptDepthSpeedPermille": 1000,
+      "melee": { "damage": 12, "hitPermille": 450, "intervalTicks": 30, "reachMm": 400 },
+      "meleeTakenPermille": 1000, "arrowTakenPermille": 1000, "canBrace": false,
+      "projectile": "light-arrow",
+      "formation": { "files": 25, "fileSpacingMm": 1100, "rankSpacingMm": 1400, "minSoldiers": 50, "maxSoldiers": 200 }
+    },
+    {
+      "id": "cavalry", "role": "line", "movementClass": "horse", "seats": ["attacker", "defender"],
+      "marchMmPerS": 3500, "runMmPerS": 5000, "chargeMmPerS": 7000, "radiusMm": 700, "massKg": 600, "health": 150,
+      "moraleShockPermille": 900, "churnWeight": 6, "sweptDepthSpeedPermille": 1000,
+      "melee": { "damage": 30, "hitPermille": 600, "intervalTicks": 30, "reachMm": 900 },
+      "meleeTakenPermille": 800, "arrowTakenPermille": 800, "canBrace": false, "charges": true,
+      "formation": { "files": 10, "fileSpacingMm": 1800, "rankSpacingMm": 3000, "minSoldiers": 30, "maxSoldiers": 120 }
+    },
+    {
+      "id": "siege", "role": "engine", "movementClass": "wheeled", "seats": ["attacker", "defender"],
+      "$comment": "A stone thrower. Moves at full speed with at least crewToMove crew within crewRadiusMm, at crawlPermille with fewer, abandoned (a hard blocker) with none. Health is structure; arrows do nothing; melee at meleeTakenPermille. At 0 it becomes a wreck (terrain.json felled-blocker rules).",
+      "marchMmPerS": 800, "radiusMm": 1500, "massKg": 3000, "health": 400,
+      "moraleShockPermille": 0, "churnWeight": 25, "sweptDepthSpeedPermille": 1000,
+      "meleeTakenPermille": 250, "arrowTakenPermille": 0,
+      "projectile": "siege-stone",
+      "crewType": "crew", "crewPerEngine": 8, "crewToMove": 4, "crewToFire": 4, "crawlPermille": 300, "crewRadiusMm": 6000,
+      "formation": { "files": 4, "fileSpacingMm": 6000, "rankSpacingMm": 9000, "minSoldiers": 1, "maxSoldiers": 4 }
+    },
+    {
+      "id": "crew", "role": "crew", "movementClass": "foot", "seats": ["attacker", "defender"],
+      "$comment": "Engine and boat crews (D4): real foot soldiers that keep within 3 m of their engine.",
+      "marchMmPerS": 1500, "runMmPerS": 3000, "radiusMm": 350, "massKg": 85, "health": 80,
+      "moraleShockPermille": 1200, "churnWeight": 1, "sweptDepthSpeedPermille": 1000,
+      "melee": { "damage": 10, "hitPermille": 400, "intervalTicks": 30, "reachMm": 400 },
+      "meleeTakenPermille": 1000, "arrowTakenPermille": 1000, "canBrace": false,
+      "slotRadiusMm": 3000
+    },
+    {
+      "id": "spademen", "role": "specialist", "movementClass": "foot", "seats": ["defender"], "action": "dig-ditch",
+      "marchMmPerS": 1500, "runMmPerS": 3000, "radiusMm": 350, "massKg": 95, "health": 80,
+      "moraleShockPermille": 1300, "churnWeight": 1, "sweptDepthSpeedPermille": 1000,
+      "melee": { "damage": 10, "hitPermille": 400, "intervalTicks": 30, "reachMm": 400 },
+      "meleeTakenPermille": 1000, "arrowTakenPermille": 1000, "canBrace": false,
+      "formation": { "files": 20, "fileSpacingMm": 1000, "rankSpacingMm": 1200, "minSoldiers": 50, "maxSoldiers": 100 }
+    },
+    {
+      "id": "fascine-carriers", "role": "specialist", "movementClass": "foot", "seats": ["attacker"], "action": "fill-crossing",
+      "$comment": "massKg includes the 40 kg brushwood bundle while it is carried; 90 kg after dropping it.",
+      "marchMmPerS": 1300, "runMmPerS": 2600, "radiusMm": 450, "massKg": 130, "massAfterActionKg": 90, "health": 80,
+      "moraleShockPermille": 1300, "churnWeight": 1, "sweptDepthSpeedPermille": 1000,
+      "melee": { "damage": 10, "hitPermille": 400, "intervalTicks": 30, "reachMm": 400 },
+      "meleeTakenPermille": 1000, "arrowTakenPermille": 1000, "canBrace": false,
+      "formation": { "files": 20, "fileSpacingMm": 1100, "rankSpacingMm": 1300, "minSoldiers": 50, "maxSoldiers": 100 }
+    },
+    {
+      "id": "pontoon-train", "role": "engine", "movementClass": "wheeled", "seats": ["attacker", "defender"], "action": "lay-pontoon",
+      "$comment": "Boat wagons; plan 'soldiers' counts boats (4-8), each with crewPerEngine crew.",
+      "marchMmPerS": 900, "radiusMm": 1200, "massKg": 1500, "health": 200,
+      "moraleShockPermille": 0, "churnWeight": 25, "sweptDepthSpeedPermille": 1000,
+      "meleeTakenPermille": 250, "arrowTakenPermille": 0,
+      "crewType": "crew", "crewPerEngine": 5, "crewToMove": 3, "crawlPermille": 300, "crewRadiusMm": 6000,
+      "formation": { "files": 2, "fileSpacingMm": 5000, "rankSpacingMm": 7000, "minSoldiers": 4, "maxSoldiers": 8 }
+    },
+    {
+      "id": "drovers", "role": "specialist", "movementClass": "foot", "seats": ["attacker", "defender"], "action": "drive-herd",
+      "$comment": "Dogs are presentation only. Under 25 soldiers: does not block casts when combat.json smallRegimentsBlockCasts is false (D15).",
+      "marchMmPerS": 1600, "runMmPerS": 3200, "radiusMm": 350, "massKg": 75, "health": 80,
+      "moraleShockPermille": 1300, "churnWeight": 1, "sweptDepthSpeedPermille": 1000,
+      "melee": { "damage": 10, "hitPermille": 400, "intervalTicks": 30, "reachMm": 400 },
+      "meleeTakenPermille": 1000, "arrowTakenPermille": 1000, "canBrace": false,
+      "formation": { "files": 5, "fileSpacingMm": 3000, "rankSpacingMm": 3000, "minSoldiers": 10, "maxSoldiers": 20 }
+    },
+    {
+      "id": "crossing-marshals", "role": "specialist", "movementClass": "foot", "seats": ["attacker"], "action": "meter-crossing",
+      "$comment": "Under 25 soldiers: see drovers (D15).",
+      "marchMmPerS": 1800, "runMmPerS": 3200, "radiusMm": 350, "massKg": 80, "health": 80,
+      "moraleShockPermille": 1300, "churnWeight": 1, "sweptDepthSpeedPermille": 1000,
+      "melee": { "damage": 10, "hitPermille": 400, "intervalTicks": 30, "reachMm": 400 },
+      "meleeTakenPermille": 1000, "arrowTakenPermille": 1000, "canBrace": false,
+      "formation": { "files": 6, "fileSpacingMm": 1500, "rankSpacingMm": 1500, "minSoldiers": 12, "maxSoldiers": 24 }
+    },
+    {
+      "id": "engineers", "role": "specialist", "movementClass": "foot", "seats": ["attacker", "defender"], "actions": ["bridgework", "clear-blocker"],
+      "marchMmPerS": 1500, "runMmPerS": 3000, "radiusMm": 350, "massKg": 95, "health": 80,
+      "moraleShockPermille": 1300, "churnWeight": 1, "sweptDepthSpeedPermille": 1000,
+      "melee": { "damage": 10, "hitPermille": 400, "intervalTicks": 30, "reachMm": 400 },
+      "meleeTakenPermille": 1000, "arrowTakenPermille": 1000, "canBrace": false,
+      "formation": { "files": 10, "fileSpacingMm": 1100, "rankSpacingMm": 1300, "minSoldiers": 20, "maxSoldiers": 40 }
+    },
+    {
+      "id": "cattle", "role": "herd-animal", "movementClass": "horse", "seats": [],
+      "$comment": "Herd animals (herds.json). Never die, never launched (decision D6); swept animals paddle with no drowning timer.",
+      "marchMmPerS": 1200, "radiusMm": 700, "massKg": 500, "health": 0,
+      "churnWeight": 6, "sweptDepthSpeedPermille": 1000
+    }
+  ]
+}

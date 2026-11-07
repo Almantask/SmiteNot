@@ -1,0 +1,89 @@
+{
+  "$comment": "Movement classes v1 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md section 3). DRAFT: replaces data/rules/movement-classes.json v0 when M5 wires it. Integers only. Slope is the steepest 4-neighbour step in permille (1000 = 45 degrees); steeper than maxSlopePermille is closed. slopeSpeed, water speed and mud speed are permille curves (linear between points); a cell's speed multiplies them, and its flow-field cost = baseCost * 1000 / speed (S1 rule extended to slope). linearSlopeCostFallback gives the same cost at maxSlopePermille if the code keeps the v0 linear slopeCost. maxSlopePermille keeps the v0 values because S1's settled D8 depends on them (667 permille channel steps open for foot and horse; wheeled only to a 750 mm channel). The water and mud blocks are S1 (settled 2026-11-03) and unchanged. iceSpeedPermille: speed on intact fixed ice; charges end at the ice edge (D8). The refresh and hysteresis values are M4's, unchanged.",
+  "version": 1,
+  "status": "placeholder",
+  "fieldCostRefreshTicks": 40,
+  "fieldCostHysteresisPermille": 100,
+  "classes": [
+    {
+      "id": "foot",
+      "baseCost": 100,
+      "maxSlopePermille": 1000,
+      "slopeSpeed": [[0, 1000], [200, 900], [500, 700], [1000, 450]],
+      "linearSlopeCostFallback": 122,
+      "iceSpeedPermille": 850,
+      "water": {
+        "speed": [[0, 1000], [100, 1000], [300, 800], [600, 550], [900, 350]],
+        "maxEnterDepthMm": 1000,
+        "sweptDepthMm": 1000,
+        "sweptDepthSpeed": 600,
+        "sweptMinDepthMm": 300,
+        "carriedPermille": 900,
+        "paddleMmPerS": 400,
+        "drowningTicks": 300,
+        "regainPermille": 750
+      },
+      "mudSpeed": [[0, 1000], [32767, 800], [65535, 500]]
+    },
+    {
+      "id": "horse",
+      "baseCost": 100,
+      "maxSlopePermille": 700,
+      "slopeSpeed": [[0, 1000], [200, 850], [400, 650], [700, 400]],
+      "linearSlopeCostFallback": 214,
+      "iceSpeedPermille": 700,
+      "water": {
+        "speed": [[0, 1000], [200, 1000], [500, 800], [900, 550], [1200, 400]],
+        "maxEnterDepthMm": 1200,
+        "sweptDepthMm": 1200,
+        "sweptDepthSpeed": 450,
+        "sweptMinDepthMm": 400,
+        "carriedPermille": 900,
+        "paddleMmPerS": 600,
+        "drowningTicks": 400,
+        "regainPermille": 750
+      },
+      "mudSpeed": [[0, 1000], [32767, 700], [65535, 350]]
+    },
+    {
+      "id": "wheeled",
+      "baseCost": 100,
+      "maxSlopePermille": 250,
+      "slopeSpeed": [[0, 1000], [100, 800], [250, 450]],
+      "linearSlopeCostFallback": 489,
+      "iceSpeedPermille": 700,
+      "water": {
+        "speed": [[0, 1000], [100, 900], [300, 600], [500, 300]],
+        "maxEnterDepthMm": 500,
+        "sweptDepthMm": 900,
+        "sweptDepthSpeed": 400,
+        "sweptMinDepthMm": 300,
+        "carriedPermille": 1000,
+        "paddleMmPerS": 0,
+        "drowningTicks": 120,
+        "regainPermille": 750
+      },
+      "mudSpeed": [[0, 1000], [32767, 500], [65535, 150]]
+    },
+    {
+      "id": "water",
+      "baseCost": 100,
+      "maxSlopePermille": 0,
+      "slopeSpeed": [[0, 1000]],
+      "linearSlopeCostFallback": 0,
+      "iceSpeedPermille": 1000,
+      "water": {
+        "speed": [[0, 1000]],
+        "maxEnterDepthMm": 100000,
+        "sweptDepthMm": 100000,
+        "sweptDepthSpeed": 100000000,
+        "sweptMinDepthMm": 100000,
+        "carriedPermille": 1000,
+        "paddleMmPerS": 0,
+        "drowningTicks": 12000,
+        "regainPermille": 1000
+      },
+      "mudSpeed": [[0, 1000]]
+    }
+  ]
+}

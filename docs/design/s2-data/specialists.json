@@ -1,0 +1,94 @@
+{
+  "$comment": "Specialist actions v1 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md section 14). DRAFT: new file for data/rules, read by the shared specialist executor. Integers only: mm, cells, ticks at 20 per second, permille, mm/s, depth x speed in mm*m/s (as S1), wetness and mud 0-65535. Settled from the brief: only specialist types shape the world, one action each, two at most (2026-10-10); fixed rules bought in the army layer, shown as markers (2026-10-09); edits write the shared fields and grids; every result leaves gaps and stays clearable; charges lost when the regiment is wiped or routs; each extra regiment of the same specialist costs more (2026-10-10); the first six and their seats (2026-10-11); engineers' trestles are short, slow, stand on the bed, carry a set load and are wood, and their charges are timber and clearing time (2026-10-11). Spademen's line is drawn by the player (D5); all others act on fixed triggers. Triggers read routes, water, mud and a bridge's strength, never load or strain stages. Prices: S5 (extraRegimentSurchargePermille is the proposed escalation). Numbers are proposals.",
+  "version": 1,
+  "status": "placeholder",
+  "common": {
+    "triggerRate": "regiment-ai",
+    "editOrder": ["regimentId", "actionOrder"],
+    "perActionReachability": true,
+    "skipBatchThatTraps": true,
+    "pauseWhenEnemyWithinMm": 40000,
+    "fallBackMm": 30000,
+    "resumeAfterClearTicks": 200,
+    "chargesLostWhen": ["wiped", "routed"],
+    "markers": ["start", "end"],
+    "extraRegimentSurchargePermille": 250
+  },
+  "actions": [
+    {
+      "id": "dig-ditch", "unitType": "spademen", "seats": ["defender"],
+      "placement": { "drawnBy": "player", "maxPoints": 3, "within": "own-zone-or-buffer", "bufferMm": 100000, "startWithinMm": 60000 },
+      "charges": { "unit": "mm-of-ditch", "per10Soldiers": 3000 },
+      "profile": { "ditchCells": 1, "ditchDepthMm": 1250, "bermCells": 1, "bankCells": 1, "bankHeightMm": 500, "bankSide": "regiment" },
+      "rate": { "sectionCellsAlong": 2, "ticksPerSection": 120, "scaleWithLivingPermilleMin": 250 },
+      "order": "first-point-to-last"
+    },
+    {
+      "id": "fill-crossing", "unitType": "fascine-carriers", "seats": ["attacker"],
+      "trigger": {
+        "path": "own-foot-path-to-goal", "aheadMm": 80000,
+        "fillableIfBelowRimsMm": 300, "fillableIfMudAtLeast": 32767,
+        "fillableWaterMinMm": 200, "fillableWaterMaxMm": 1500
+      },
+      "charges": { "unit": "bundles", "perLivingSoldier": 1, "lostWithSoldier": true },
+      "crossing": { "widthCells": 3, "maxLengthCells": 12, "endAt": "first-cells-open-for-wheeled" },
+      "fill": { "bundleRaiseMm": 400, "upTo": "lower-rim", "setMud": 0, "setSoil": "fascine" },
+      "rate": { "bundlesPerS": 2 },
+      "washout": { "depthSpeedAtLeast": 800, "forTicks": 40, "lossMm": 400 },
+      "soil": { "id": "fascine", "churnPermille": 250, "capPermille": 500 }
+    },
+    {
+      "id": "lay-pontoon", "unitType": "pontoon-train", "seats": ["attacker", "defender"],
+      "trigger": {
+        "attacker": { "path": "army-foot-path-to-goal", "aheadOfVanguardMm": 150000 },
+        "defender": { "path": "own-retreat-route", "at": "battle-start" },
+        "waterClosedFor": "wheeled"
+      },
+      "site": { "searchEitherSideMm": 50000, "pick": "lowest-peak-flow-speed", "line": "perpendicular-to-path", "extraCellsEachEnd": 1 },
+      "charges": { "unit": "segments", "perBoat": 3, "lostWithBoat": true },
+      "segment": { "cellsAlong": 2, "cellsWide": 3, "structure": "pontoon" },
+      "rate": { "ticksPerSegment": 40, "from": "near-bank" },
+      "surgeBreak": { "flowSpeedAtLeastMmPerS": 1800, "forTicks": 40, "removes": "segment-and-beyond" }
+    },
+    {
+      "id": "drive-herd", "unitType": "drovers", "seats": ["attacker", "defender"],
+      "fearSource": "drovers",
+      "charges": { "unit": "herd-jobs", "attacker": 2, "defender": 1 },
+      "attacker": { "herdWithinPathMm": 40000, "aheadOfVanguardMm": 200000, "clearPathMm": 50000, "holdTicks": 600 },
+      "defender": { "nearestHerdWithinMm": 200000, "target": "attacker-predicted-route", "withdrawWhenEnemyWithinMm": 60000 },
+      "dogsScatter": { "fireOrStrikeWithinMm": 60000, "offTicks": 400 }
+    },
+    {
+      "id": "meter-crossing", "unitType": "crossing-marshals", "seats": ["attacker"],
+      "trigger": { "path": "army-route", "aheadOfVanguardMm": 150000, "spans": ["bridge", "pontoon", "trestle", "ice"] },
+      "gate": { "regimentsOnSpan": 1, "holdingLineMm": 20000, "nextWhen": "last-soldier-off" },
+      "onSpan": { "order": "open", "files": "max(1, spanWidth / (2 * fileSpacing))" },
+      "readsStrain": false,
+      "lapsesWhen": ["wiped", "routed"],
+      "crossingEndsTicks": 6000,
+      "charges": { "unit": "crossings", "count": 2 }
+    },
+    {
+      "id": "bridgework", "unitType": "engineers", "seats": ["attacker", "defender"],
+      "trestle": {
+        "trigger": { "path": "army-path-or-own-retreat", "gapClosedFor": "wheeled", "maxGapMm": 21000, "skipIfPontoonAssigned": true },
+        "segment": { "cellsAlong": 2, "cellsWide": 2, "structure": "trestle" },
+        "rate": { "ticksPerSegment": 160 },
+        "timberMmPerSegment": 3000
+      },
+      "repair": {
+        "trigger": { "withinMm": 100000, "strengthBelowPermille": 700, "reads": "strength-not-load" },
+        "ratePermillePerS": 25,
+        "upToPermille": 1000,
+        "timberMmPer250Permille": 1000
+      },
+      "charges": { "unit": "timber-mm", "per40Soldiers": 21000 }
+    },
+    {
+      "id": "clear-blocker", "unitType": "engineers", "seats": ["attacker", "defender"],
+      "trigger": { "path": "army-path-or-own-retreat", "withinMm": 100000, "blockers": ["felled-tree", "wreck", "boulder"] },
+      "ticks": { "felled-tree": 600, "wreck": 900, "boulder": 1200 },
+      "charges": { "unit": "clearing-ticks", "per40Soldiers": 2400 }
+    }
+  ]
+}

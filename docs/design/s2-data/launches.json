@@ -1,0 +1,30 @@
+{
+  "$comment": "Launches v1 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md section 9). DRAFT: new file for data/rules. Integers only: mm, mm/s, mm/s2, cd (centi-degrees), cd/s, ticks at 20 per second, permille, health points. Settled from the brief (2026-10-09, 2026-10-11): ballistic bodies with reduced gravity; distance and damage tuned separately; landing in deep water, off a cliff or into fire kills; a shallow fringe of about 2 m along deep water only stuns; landings knock neighbours down but never launch or kill them; direction from the source's heading with a fixed seeded spread (seed = source event id, soldier id); launched and stunned soldiers stay in their regiment's outline. Launched bodies aren't load. Flight = 2 * vertical / gravity. Landing outcomes by surface; 'swept' hands the soldier to S1's swept state; 'snapToStandable' moves him to the nearest cell where his class can stand. Cliff thresholds come from hazards.json (lethalDropMm, fallHurtMm), measured from the ground he was launched from. Numbers are proposals.",
+  "version": 1,
+  "status": "placeholder",
+  "gravityMmPerS2": 4000,
+  "spinMinCdPerS": 36000,
+  "spinMaxCdPerS": 108000,
+  "spreadHeadingCd": 2500,
+  "spreadSpeedPermille": 200,
+  "sources": [
+    { "id": "charge", "horizontalMmPerS": 5000, "verticalMmPerS": 6000, "heading": "rider" },
+    { "id": "stampede", "horizontalMmPerS": 6000, "verticalMmPerS": 7000, "heading": "herd-run" },
+    { "id": "falling-tree", "horizontalMmPerS": 3000, "verticalMmPerS": 5000, "heading": "away-from-trunk" },
+    { "id": "siege-stone", "horizontalMmPerS": 4000, "verticalMmPerS": 6000, "heading": "away-from-impact" },
+    { "id": "collapse", "horizontalMmPerS": 1000, "verticalMmPerS": 2000, "heading": "seeded" }
+  ],
+  "landings": {
+    "ground": { "damage": 10, "stunTicks": 60, "preview": "stun" },
+    "shallowWater": { "damage": 0, "stunTicks": 60, "preview": "stun" },
+    "fringe": { "withinMm": 2000, "damage": 0, "stunTicks": 60, "snapToStandable": true, "preview": "stun" },
+    "deepWater": { "outcome": "swept", "damage": 0, "preview": "lethal" },
+    "ice": { "damage": 10, "stunTicks": 60, "preview": "stun" },
+    "cliff": { "outcome": "killed", "cause": "fell", "preview": "lethal" },
+    "burning": { "outcome": "killed", "cause": "burned", "preview": "lethal" },
+    "hardBlocker": { "damage": 20, "stunTicks": 60, "moveBackAlongArc": true, "preview": "stun" },
+    "offMap": { "clampToEdgeCell": true, "thenAs": "ground", "preview": "stun" }
+  },
+  "knockDown": { "radiusMm": 1000, "staggerTicks": 20, "damage": 0, "chains": false },
+  "previewCellMm": 1500
+}

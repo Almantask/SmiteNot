@@ -1,0 +1,55 @@
+{
+  "$comment": "Projectile table v1 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md section 6). DRAFT: new file for data/rules. Integers only: mm, ticks at 20 per second, permille, health points. Range = rangeMm * clamp(1000 + alongWindMmPerS * windPermillePerMPerS / 1000, windClampMinPermille, windClampMaxPermille) / 1000 + clamp(heightGainPerMm * (shooter ground - target ground), -heightGainCapMm, heightGainCapMm). alongWind: mean along-shot component at the shooter, midpoint and target cells (only the along-shot part counts: plan section 10 default, D9). Hit chance is linear from hitNearPermille at closeRangePermille (combat.json) of range to hitFarPermille at full range. Flight time is linear with distance up to flightTicksAtRange. Damage is scaled by the target's arrowTakenPermille. Stones: soldiers within crushRadiusMm die (combat), those out to launchRadiusMm are launched (launches.json siege-stone); scatter grows linearly from scatterNearMm at minRangeMm to scatterFarMm at full range. Brief: wind affects arrows (2026-10-08); palette: light arrows feel wind most, bolts less, stones barely, and the range loss is capped. Numbers are proposals.",
+  "version": 1,
+  "status": "placeholder",
+  "projectiles": [
+    {
+      "id": "light-arrow",
+      "rangeMm": 160000,
+      "flightTicksAtRange": 40,
+      "windPermillePerMPerS": 30,
+      "windClampMinPermille": 700,
+      "windClampMaxPermille": 1250,
+      "heightGainPerMm": 4,
+      "heightGainCapMm": 40000,
+      "hitNearPermille": 300,
+      "hitFarPermille": 100,
+      "damage": 35,
+      "reloadTicks": 160,
+      "ammo": 20
+    },
+    {
+      "id": "crossbow-bolt",
+      "reserved": true,
+      "rangeMm": 120000,
+      "flightTicksAtRange": 30,
+      "windPermillePerMPerS": 10,
+      "windClampMinPermille": 850,
+      "windClampMaxPermille": 1100,
+      "heightGainPerMm": 3,
+      "heightGainCapMm": 30000,
+      "hitNearPermille": 400,
+      "hitFarPermille": 150,
+      "damage": 50,
+      "reloadTicks": 240,
+      "ammo": 20
+    },
+    {
+      "id": "siege-stone",
+      "rangeMm": 250000,
+      "minRangeMm": 60000,
+      "flightTicksAtRange": 80,
+      "windPermillePerMPerS": 3,
+      "windClampMinPermille": 950,
+      "windClampMaxPermille": 1050,
+      "heightGainPerMm": 2,
+      "heightGainCapMm": 30000,
+      "scatterNearMm": 2000,
+      "scatterFarMm": 8000,
+      "crushRadiusMm": 1000,
+      "launchRadiusMm": 4000,
+      "reloadTicks": 300,
+      "ammo": 30
+    }
+  ]
+}

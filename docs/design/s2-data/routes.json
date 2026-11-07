@@ -1,0 +1,8 @@
+{
+  "$comment": "The guaranteed route v1 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md section 3.3). DRAFT: replaces data/rules/routes.json v0. capPercent is the brief's 2x (2026-10-09). coarseCells 3 = 4.5 m coarse cells, unchanged. clearanceCells: wheeled drops from 2 (a 13.5 m corridor) to 1: a coarse cell is open only when all nine field cells are passable, so any open 4.5 m coarse cell fits a 3 m engine, and the brief's 'wide units get wide enough gaps' still holds.",
+  "version": 1,
+  "status": "placeholder",
+  "capPercent": 200,
+  "coarseCells": 3,
+  "clearanceCells": { "foot": 1, "horse": 1, "wheeled": 1 }
+}

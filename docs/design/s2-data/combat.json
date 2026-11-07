@@ -1,0 +1,59 @@
+{
+  "$comment": "Combat v1 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md sections 2.2, 5, 6.2, 10). DRAFT: new file for data/rules. Integers only: mm, mm/s, mm/s2, ticks at 20 per second, permille, centi-degrees (cd), health points. Per-type melee values live in unit-types.json. Hits and damage use the seeded stream (combat, soldier, tick). order: open order multiplies file and rank spacing (D1, flag on, close by default). volley: hits = shooters * hitPermille(range) * orderFactor / 1e6, remainder rolled; hits land on target soldiers within impactRadiusMm of the aim point (centroid + velocity * flight time). charge: cavalry rules; a rider charges while at least chargingMinMmPerS; deep mud or water stops him dead (D7). regimentTargeting is the working default until the regiment AI (M7). smallRegimentsBlockCasts false: regiments under smallRegimentSoldiers don't block casts (D15).",
+  "version": 1,
+  "status": "placeholder",
+  "order": {
+    "enabled": true,
+    "default": "close",
+    "openSpacingPermille": 2000,
+    "openArrowHitsPermille": 500,
+    "openCanBrace": false
+  },
+  "melee": {
+    "engagedSpeedPermille": 200,
+    "noSwingStates": ["stunned", "launched", "swept", "teetering", "knockedDown"]
+  },
+  "volley": {
+    "impactRadiusMm": 12000,
+    "closeRangePermille": 300,
+    "shooterStatesExcluded": ["stunned", "launched", "swept", "inMelee"]
+  },
+  "charge": {
+    "startMinMm": 20000,
+    "startMaxMm": 80000,
+    "straightnessMaxPermille": 1200,
+    "blockedByMudAtLeast": 32767,
+    "blockedByWaterMm": 300,
+    "blockedByIce": true,
+    "accelMmPerS2": 3500,
+    "chargingMinMmPerS": 5000,
+    "maxRunMm": 100000,
+    "cooldownTicks": 400,
+    "rechargeSeparationMm": 40000,
+    "deepMudStop": { "mudAtLeast": 49151, "waterAtLeastMm": 400, "stunTicks": 60, "damage": 0 },
+    "contact": {
+      "targetsPerRider": 2,
+      "frontArcCd": 4500,
+      "launchPermille": 500,
+      "trampleDamage": 40,
+      "trampleStunTicks": 40,
+      "afterContactMmPerS": 1500
+    },
+    "braced": {
+      "maxSpeedMmPerS": 300,
+      "facingArcCd": 6000,
+      "launchPermille": 250,
+      "riderDamagePerTarget": 25
+    }
+  },
+  "regimentTargeting": {
+    "$comment": "Working default until M7: attackers march to the defender zone and turn on any enemy within attackerEngageMm; defenders hold and engage within defenderEngageMm; ranged stop to shoot when a target is in range and fall back rangedFallbackMm once per rangedFallbackCooldownTicks when enemy melee is within rangedFallbackTriggerMm.",
+    "attackerEngageMm": 30000,
+    "defenderEngageMm": 40000,
+    "rangedFallbackTriggerMm": 25000,
+    "rangedFallbackMm": 30000,
+    "rangedFallbackCooldownTicks": 400
+  },
+  "smallRegimentsBlockCasts": false,
+  "smallRegimentSoldiers": 25
+}

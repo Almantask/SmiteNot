@@ -1,0 +1,12 @@
+{
+  "$comment": "Battle outcomes v1 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md section 7.5; decision D2). DRAFT: for the level format (M9) and M5's grey-box level; both variants as data, as plan section 10 asks. Integers only: ticks at 20 per second, soldiers. survival (default): the defender wins if any defending regiment isn't wiped at sunset or the attacking army routs (morale.json armyRoutPermille); it loses when every defending regiment is wiped. objective: the same, plus a loss when at least objectiveMinSoldiers attacking soldiers stand inside the level's objective polygon (up to objectiveMaxPoints points) for objectiveHoldTicks without a break. Sunset: plan section 10 working default (about 3 minutes, hard cap 15 minutes).",
+  "version": 1,
+  "status": "placeholder",
+  "defaultVariant": "survival",
+  "variants": ["survival", "objective"],
+  "objectiveMinSoldiers": 50,
+  "objectiveHoldTicks": 600,
+  "objectiveMaxPoints": 8,
+  "defaultSunsetTick": 3600,
+  "maxSunsetTick": 18000
+}

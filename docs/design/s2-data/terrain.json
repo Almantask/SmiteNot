@@ -1,0 +1,85 @@
+{
+  "$comment": "Terrain pieces added in S2 (spec pass S2 draft, 2026-11-07; docs/design/spec-s2-armies.md section 13; decision D13). DRAFT: entries to add to data/rules/terrain.json next to S1's pieces. Integers only: mm, cells, permille (speed multipliers; 0 = closed). Settled: every piece's whole footprint stays 100 m from both deployment zones (brief 2026-10-08); no full trap and the 2x cap (2026-10-09); built pieces never harm soldiers by themselves (2026-10-08). These pieces don't edit height: they stamp navigation and the structure layer after S1's height edits. Navigation entries give each class's speed permille on the piece's cells (0 = closed); 'animals' is the herd animal. Felled trees and wrecks are battle-made blockers (exempt from the lock-in check, clearable: D14). Map-only pieces are authored in map.json, not placed by the player. Prices are S5. Numbers are proposals.",
+  "version": 1,
+  "status": "placeholder",
+  "pieces": [
+    {
+      "id": "grove", "kind": "trees", "material": "wood", "fuel": true,
+      "shape": "circle", "minRadiusMm": 6000, "maxRadiusMm": 30000,
+      "treeEveryCells": 3, "treeMinHeightMm": 12000, "treeMaxHeightMm": 18000,
+      "trunkCell": { "foot": 0, "horse": 0, "wheeled": 0, "animals": 0 },
+      "woodlandCell": { "foot": 800, "horse": 500, "wheeled": 0, "animals": 500 },
+      "allowedInWater": false
+    },
+    {
+      "id": "tree-row", "kind": "trees", "material": "wood", "fuel": true,
+      "shape": "polyline", "minPoints": 2, "maxPoints": 8, "minLengthMm": 10000, "maxLengthMm": 150000,
+      "treeSpacingMm": 4500, "treeMinHeightMm": 12000, "treeMaxHeightMm": 18000,
+      "trunkCell": { "foot": 0, "horse": 0, "wheeled": 0, "animals": 0 },
+      "allowedInWater": false
+    },
+    {
+      "id": "hedgerow", "kind": "line-blocker", "material": "hedge", "fuel": true,
+      "shape": "polyline", "minPoints": 2, "maxPoints": 16, "minLengthMm": 10000, "maxLengthMm": 200000, "widthCells": 1,
+      "heightMm": 1500,
+      "cell": { "foot": 250, "horse": 0, "wheeled": 0, "animals": 0 },
+      "coverInM5": false, "allowedInWater": false, "allowedOnBoulder": false
+    },
+    {
+      "id": "drystone-wall", "kind": "line-blocker", "material": "stone", "fuel": false,
+      "shape": "polyline", "minPoints": 2, "maxPoints": 16, "minLengthMm": 10000, "maxLengthMm": 200000, "widthCells": 1,
+      "heightMm": 1200,
+      "cell": { "foot": 300, "horse": 0, "wheeled": 0, "animals": 0 },
+      "coverInM5": false, "allowedInWater": false, "allowedOnBoulder": false
+    },
+    {
+      "id": "wooden-bridge", "kind": "bridge", "structure": "wooden-bridge",
+      "shape": "two-bank-points", "minSpanMm": 6000, "maxSpanMm": 40000, "minWidthMm": 3000, "maxWidthMm": 6000,
+      "bankMinAboveWaterMm": 5, "deckHeight": "higher-bank", "footprintEndCells": 1
+    },
+    {
+      "id": "footbridge", "kind": "bridge", "structure": "footbridge",
+      "shape": "two-bank-points", "minSpanMm": 6000, "maxSpanMm": 40000, "minWidthMm": 1500, "maxWidthMm": 3000,
+      "bankMinAboveWaterMm": 5, "deckHeight": "higher-bank", "footprintEndCells": 1
+    },
+    {
+      "id": "herd", "kind": "herd", "herdRules": "herds.json",
+      "shape": "circle", "minRadiusMm": 15000, "maxRadiusMm": 40000,
+      "minAnimals": 20, "maxAnimals": 120, "defaultAnimals": 60,
+      "footprint": "grazing-circle", "reachability": "ignored-moves"
+    },
+    {
+      "id": "herd-pen", "kind": "herd", "herdRules": "herds.json", "penned": true, "material": "wood",
+      "shape": "circle", "minRadiusMm": 10000, "maxRadiusMm": 25000,
+      "minAnimals": 20, "maxAnimals": 120, "defaultAnimals": 60,
+      "fence": { "foot": 300, "horse": 0, "wheeled": 0, "animals": 0 },
+      "footprint": "fence-ring"
+    },
+    {
+      "id": "stone-bridge", "kind": "bridge", "structure": "stone-bridge", "mapOnly": true
+    },
+    {
+      "id": "frozen-pond", "kind": "ice", "structure": "ice", "mapOnly": true,
+      "layer": "ice-thickness-mm", "minThicknessMm": 60, "maxThicknessMm": 250
+    }
+  ],
+  "battleMadeBlockers": {
+    "$comment": "Felled tree: trunk 1 cell wide and as long as the tree; crown the last crownLengthMm, crownWidthCells wide. Crushes soldiers in its cells at the landing tick, launches those within crushEdgeMm (launches.json falling-tree). Lies on the bed in water (no damming in M5). Clearing ticks for Engineers, and for any foot regiment only when it closes its army's last route for some class (D14).",
+    "felledTree": {
+      "crownLengthMm": 4500, "crownWidthCells": 3,
+      "trunkCell": { "foot": 300, "horse": 0, "wheeled": 0, "animals": 0 },
+      "crownCell": { "foot": 0, "horse": 0, "wheeled": 0, "animals": 0 },
+      "crushEdgeMm": 1500,
+      "engineerClearTicks": 600,
+      "footRegimentClearTicks": 2400,
+      "footRegimentClearsOnlyIfLastRoute": true
+    },
+    "wreck": {
+      "cell": { "foot": 300, "horse": 0, "wheeled": 0, "animals": 0 },
+      "engineerClearTicks": 900,
+      "footRegimentClearTicks": 2400,
+      "footRegimentClearsOnlyIfLastRoute": true
+    },
+    "boulderEngineerClearTicks": 1200
+  }
+}

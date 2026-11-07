@@ -1,13 +1,43 @@
 # Milestone status
 
-## Current: M3 — Water: first field, first power, first deaths
-Started: 2026-11-02
+## Current: M4 — The timeline and the scrubbable future
+Started: 2026-11-07
+
+Goal: plan, scrub and re-plan fluidly. The preview is the game.
+
+Needs first (plan section 10 working defaults, used until the brief settles them; still open questions in the brief): the battle length is about 3 minutes per campaign battle with a hard cap of 15 minutes (powers.json latestCastTick 18,000 already uses the cap); foresight is unlimited (the preview may run to the cap); casts are pinned to clock times only, and the plan schema reserves world-field triggers (load, water level, temperature) in case event-pinned casts are chosen.
+
+### Checklist
+- [ ] 1. Keyframes every 5 s and re-simulation from the earliest change: a timeline in the simulation that keeps keyframes (with older ones spilling to disk) and, after a plan edit, re-runs from the last keyframe before the first tick the edit can affect
+- [ ] 2. The preview worker in SimHost: progressive fill with a buffer bar and first-30-s priority, never blocking the main thread
+- [ ] 3. The playback track (5 samples per second plus launch events) and field snapshots for scrubbing at 60 fps
+- [ ] 4. Range-rule re-validation of later casts after every re-simulation, with red markers and their reasons
+- [ ] 5. Ghost of the previous plan, and hinge markers (AI decisions won by under 10%)
+- [ ] 6. The causality trace in the UI: click a drowned regiment, see the chain back to the cast
+- [ ] 7. Planning UI v0 in UI Toolkit: place regiments and terrain pieces, paint the rain area, drag casts along the timeline, held-key overlays, the no-cast area drawn as a ring
+
+### Exit criteria
+- [ ] Moving a cast updates the first 30 s of the preview in ≤ 1.5 s and a full 3-minute battle in ≤ 12 s; scrubbing holds 60 fps
+- [ ] An invalid cast turns red with its reason within one re-simulation
+- [ ] Design gate A: is planning fun? Five people play three grey-box puzzles built from rain, channels and boulders. Pass: they read the 100 m rule as a bank shot rather than an error, use scrubbing without being told, and ask for another level (needs the user and testers)
+
+### Decisions needed
+- Battle length (sunset cap), whether foresight is limited, and event-pinned casts: working defaults above until the user settles them in the brief.
+
+### Carried over from M2 and M3
+- [ ] Measure on the floor laptop (a 2020-or-later laptop with Intel Iris Xe or Radeon 680M graphics): the 10,000-unit tick against the 6 ms floor budget (`godsim run --map data/maps/m2-bridge --plan data/plans/m2-bridge-ten-thousand.json --seconds 900 --threads 4`), and the debug view at 20 fps or better (`unity/Builds/DebugViewPlayer/GodGameDebugView.exe -repo <repo> -measure-fps fps.txt`, built by GodGame → Build → Debug View Player). Record both in sim/bench/GodGame.Sim.Bench/budgets.json and ADR 0002 if the Burst numbers there change.
+- [ ] Add the GitHub secrets UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD so the GameCI workflow runs, and check its first run.
+
+## Done
+
+### M3 — Water: first field, first power, first deaths (2026-11-02 to 2026-11-07)
+Started: 2026-11-02. Closed 2026-11-07 with the two items carried over from M2 (the floor-laptop measurements and the GameCI secrets) carried on into M4, both needing the user.
 
 Goal: rain floods a ford and the attacker pays for it, through the whole consequence chain.
 
 Specs first: S1 (water and the first power): Rain's area, wind-up, duration and water added; river and mud rules; the first terrain pieces (channel, ridge, spring, boulders). Output: data/rules/powers.json, terrain.json, fields.json v1 (design-lead, game-design skill).
 
-### Checklist
+#### Checklist
 - [x] 0. Spec pass S1 (design-lead): Rain, river and mud rules, channel, ridge, spring and boulders, as numbers in docs/design and data/rules — docs/design/spec-s1-water.md, with draft rules in docs/design/s1-data (powers.json, terrain.json, fields.json; placeholders); decisions D1 to D10 settled 2026-11-03 with the recommendations and recorded in the brief. The drafts move into data/rules with the items that read them (fields: item 3; Rain: item 7; terrain: item 8)
 - [x] 1. The field framework: integer grids, active-tile tracking, sub-rate scheduling, the interaction table as data, field snapshots — sim/src/GodGame.Sim/Fields: FieldGrid (an int per cell in the field's unit, 16-cell activity tiles that wake on a write or a neighbour's change and sleep after 4 quiet steps; models read the values and write a next buffer per tile, committed in tile order), FieldStore (the fields in rules order, on World), FieldSystem (models in a fixed order, each at its own rate, staggered by tile or all together); data/rules/fields.json v0 (water, wetness, mud; the interaction table loads, with no rows until S1); fields join the state hash and snapshot format 4 (sparse by tile: the 10,000-unit snapshot stays within 4 MB); no field models yet, so no unit moves differently. SimHash appends int arrays in one pass (same bytes). SimVersion 5, golden regenerated. Desktop: 1.5 ms per tick on 4 threads, as before
 - [x] 2. Field upload to GPU textures and debug shaders (Unity). Notes: BattleHost copies the fields after every field step (water depth in µm, flow in mm/s, mud, wetness and the navigation speed codes, four uints per cell) and FieldUpload puts the newest copy in a structured GPU buffer rather than textures (exact integers on DX11 and DX12 with no integer-texture format questions; textures can follow when shaders want filtering); one decode include (Fields.hlsl). Debug shaders: DebugWater (the ground mesh lifted by depth, see-through, darker when deeper, streaks along the flow at its speed) and DebugGround (wet and muddy ground, or the foot speed the fields leave). The debug view opens on the new m3-river map (tools/maps/make_m3_river.py: a 25 m³/s river with a wide shallow ford and a deep pool); F switches the field view, and -screenshot/-screenshot-at save a frame for unattended checks. Edit Mode test: the field snapshot carries the simulation's cells. Uploads the whole map at 5 Hz (fine on desktop; awake tiles only is for the perf pass).
@@ -19,19 +49,13 @@ Specs first: S1 (water and the first power): Rain's area, wind-up, duration and 
 - [x] 8. Terrain pieces v0: dig a channel, raise a ridge, add water or a spring, set boulders, all through the reachability check. Notes: data/rules/terrain.json carries S1 section 9: channel, ridge, hollow (D6), spring and boulder. The plan's terrain layer is read in id order; a piece out of its limits or off the map, within 100 m of a deployment zone (its whole footprint), a boulder on a boulder or a spring on one, or a set of pieces that fails the reachability check where the map alone passes (no full trap, the 2x cap; springs' water is exempt, D4) is refused at load. Battle.PlayedMap stamps the pieces before tick 0 in S1's fixed order (channels and hollows by min relative to the original ground, ridges by max, then boulders 2 m over the highest ground under them, closed to every class); springs become map water sources. Scenarios: the 2026-10-08 buffer (a boulder 99 m from a zone refused, 101 m allowed), the 2026-10-09 no-trap rule (a boulder in the last gap closes the siege route and is refused) and the 2026-11-03 rules (ridges and channels over 0.75 m funnel the siege train). Not yet: "add water" as its own piece (S1 left it out: springs and channels cover it), refusing ridges and hollows in tick-0 water (maps start dry until settled tick-0 water exists), placement UI and overlays (M4).
 - [x] 9. Cause log v1 (cast executed → river overflowed → regiment swept → soldier drowned) and a causality-trace query. Notes: CauseLog (world state, hashed, snapshot format 7) records casts fired or fizzled, river overflowed (once per 24 m water tile, the first time a cell sweeps foot soldiers), regiment swept (once per regiment per 5 s, or when the water's cause differs), soldier pushed over and soldier drowned, each with up to two cause links; CauseLog.Trace walks a result back to its roots. Water carries its cause (S1 D7): rain stamps its cast on every tile it falls on, and after each field step CauseSystem passes a tile the newest tag of a neighbour that sent it more than 1 mm of depth (ties: larger inflow, lower tile). A drowned soldier links to his sweep (whose cause is the water's tag where he lost his footing) and to the push that put him in, if any. Maps may now start with settled water (S1 section 7): godsim settle writes water.bin (the water and ground fields after the map's rivers run alone), loaded before tick 0 and part of the map hash; ridges, hollows and springs are refused in it (S1 D5). SimVersion 9.
 
-### Exit criteria
+#### Exit criteria
 - [x] Scenario tests pass: rain upstream at 0:50 floods the ford by about 2:40, and the attacker reroutes or arrives at least 60 s later; a dug channel plus rain becomes a moat; every drowned soldier traces back to the cast — M3ExitScenarios (Slow) on data/maps/m3-exit (tools/maps/make_m3_exit.py; settled river in water.bin): an 80 m storm 300 m upstream at 0:50 makes the ford lethal for foot at about 3:05 (S1's target 2:40; the test allows 2:00 to 3:30), half the attackers reach the far bank more than 90 s later than without rain (or not at all in 5:30), about 90 drown, and every drowned soldier's trace reaches the storm; with a 1.5 m channel dug across the valley the channel holds over 1.2 m near the river before the column arrives (and diverts the ford's flow until the rain comes). The dry control loses nobody.
 - [x] The never-walk-into-hazards fuzz invariant holds: no soldier enters a lethal cell under its own steering — HazardFuzz (Fuzz category, sim/tests/GodGame.Sim.Scenarios): four seeds of three random storms (place, time, 40-100 m) over m3-exit while 600 attackers march for the ford; after every one of 4,800 ticks, no soldier that wasn't swept or just pushed over stands in water that sweeps its class having come from a cell that didn't (read from the speed codes movement steers by). All pass.
 - [x] The field step stays within budget with water active on the largest test map — desktop (Ryzen, RTX 3090 machine): the working map (m2-bridge, 1.2 x 0.8 km) with a 10 m³/s river running in its trench and the 10,000-attacker plan, 300 s: 2.98 ms per tick on 4 threads (16.8x real time, inside the 3.3 ms recommended budget) and 6.47 ms serial; the same final hash on both. The floor-laptop figure is the carried-over measurement below. Measured with a scratch copy of the map (m2-bridge itself stays dry for the M2 scenario).
 
-### Decisions needed
+#### Decisions needed
 - (none open; S1's D1 to D10 were settled 2026-11-03, see the brief)
-
-### Carried over from M2
-- [ ] Measure on the floor laptop (a 2020-or-later laptop with Intel Iris Xe or Radeon 680M graphics): the 10,000-unit tick against the 6 ms floor budget (`godsim run --map data/maps/m2-bridge --plan data/plans/m2-bridge-ten-thousand.json --seconds 900 --threads 4`), and the debug view at 20 fps or better (`unity/Builds/DebugViewPlayer/GodGameDebugView.exe -repo <repo> -measure-fps fps.txt`, built by GodGame → Build → Debug View Player). Record both in sim/bench/GodGame.Sim.Bench/budgets.json and ADR 0002 if the Burst numbers there change.
-- [ ] Add the GitHub secrets UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD so the GameCI workflow runs, and check its first run.
-
-## Done
 
 ### M2 — Armies that march (2026-11-01 to 2026-11-02)
 Started: 2026-11-01. Closed 2026-11-02 with the two floor-laptop measurements carried into M3 (the user's call).

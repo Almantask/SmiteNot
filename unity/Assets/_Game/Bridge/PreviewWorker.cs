@@ -69,7 +69,58 @@ namespace GodGame.Bridge
             public float Fraction => EndTick <= 0 ? 1f : Math.Min(1f, Filled / (float)EndTick);
         }
 
+        /// <summary>
+        /// A cast's outcome in the latest filled future (plan, M4: red markers with reasons): pending until the fill
+        /// passes its tick, then fired or fizzled, with each army's nearest regiment and its distance from the area.
+        /// </summary>
+        public readonly struct CastResult
+        {
+            public CastResult(
+                string id,
+                int tick,
+                CastStatus status,
+                FizzleReasons reasons,
+                int nearestAttacker,
+                int attackerMm,
+                int nearestDefender,
+                int defenderMm
+            )
+            {
+                Id = id;
+                Tick = tick;
+                Status = status;
+                Reasons = reasons;
+                NearestAttacker = nearestAttacker;
+                AttackerDistanceMm = attackerMm;
+                NearestDefender = nearestDefender;
+                DefenderDistanceMm = defenderMm;
+            }
+
+            public string Id { get; }
+
+            public int Tick { get; }
+
+            public CastStatus Status { get; }
+
+            public FizzleReasons Reasons { get; }
+
+            public int NearestAttacker { get; }
+
+            public int AttackerDistanceMm { get; }
+
+            public int NearestDefender { get; }
+
+            public int DefenderDistanceMm { get; }
+
+            /// <summary>The red marker: the range rule failed at the cast's tick.</summary>
+            public bool Fizzled => Status == CastStatus.Fizzled;
+        }
+
         private readonly Timeline _timeline;
+        private PlaybackTrack _track;
+        private CastResult[] _casts = Array.Empty<CastResult>();
+        private CauseEvent[] _causes = Array.Empty<CauseEvent>();
+        private BattlePlan _plan;
         private readonly object _gate = new object();
         private readonly AutoResetEvent _wake = new AutoResetEvent(false);
         private BattlePlan _pending;
@@ -92,6 +143,8 @@ namespace GodGame.Bridge
             }
             EndTick = endTick;
             _timeline = new Timeline(battle, runner, keyframes);
+            _track = _timeline.Track;
+            _plan = battle.Plan;
             _progress = new Progress(0, 0, 0, endTick, -1, -1);
             _editStarted = Stopwatch.GetTimestamp(); // the first fill is timed from here
         }
@@ -155,6 +208,39 @@ namespace GodGame.Bridge
                 _posted++;
             }
             _wake.Set();
+        }
+
+        /// <summary>The playback track of the plan the worker is filling (replaced, never changed, by an edit).</summary>
+        public PlaybackTrack Track => Volatile.Read(ref _track);
+
+        /// <summary>The plan the published casts and causes belong to.</summary>
+        public BattlePlan Plan
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _plan;
+                }
+            }
+        }
+
+        /// <summary>Each cast's outcome as far as the future is filled, in the plan's cast order.</summary>
+        public CastResult[] ReadCasts()
+        {
+            lock (_gate)
+            {
+                return _casts;
+            }
+        }
+
+        /// <summary>The cause log as far as the future is filled (a copy).</summary>
+        public CauseEvent[] ReadCauses()
+        {
+            lock (_gate)
+            {
+                return _causes;
+            }
         }
 
         public Progress ReadProgress()
@@ -246,10 +332,41 @@ namespace GodGame.Bridge
                 firstWindowMs,
                 fillMs
             );
+            var world = _timeline.Simulation.World;
+            var plan = _timeline.Battle.Plan;
+            var states = world.Casts;
+            var casts = new CastResult[plan.Casts.Count];
+            for (int c = 0; c < casts.Length; c++)
+            {
+                casts[c] = new CastResult(
+                    plan.Casts[c].Id,
+                    plan.Casts[c].Tick,
+                    states.Status[c],
+                    states.Reasons[c],
+                    states.NearestAttacker[c],
+                    states.AttackerDistanceMm[c],
+                    states.NearestDefender[c],
+                    states.DefenderDistanceMm[c]
+                );
+            }
+            var log = world.Causes;
+            var causes = _causes;
+            if (log != null && (causes.Length != log.Events.Count || !ReferenceEquals(plan, _plan)))
+            {
+                causes = new CauseEvent[log.Events.Count];
+                for (int i = 0; i < causes.Length; i++)
+                {
+                    causes[i] = log.Events[i];
+                }
+            }
             lock (_gate)
             {
                 _progress = progress;
+                _casts = casts;
+                _causes = causes;
+                _plan = plan;
             }
+            Volatile.Write(ref _track, _timeline.Track);
         }
     }
 }

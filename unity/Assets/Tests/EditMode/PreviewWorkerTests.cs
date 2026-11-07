@@ -8,7 +8,7 @@ namespace GodGame.Tests.EditMode
 {
     public class PreviewWorkerTests
     {
-        private static Battle River(bool storm, int stormTick = 300)
+        private static Battle River(bool storm, int stormTick = 300, int xMm = 180000, int yMm = 200000)
         {
             string repo = RepoLoader.EditorRepoRoot;
             var rules = RepoLoader.LoadRules(repo);
@@ -22,7 +22,11 @@ namespace GodGame.Tests.EditMode
                     "\"casts\": []",
                     "\"casts\": [{\"id\": \"storm\", \"power\": \"rain\", \"tick\": "
                         + stormTick
-                        + ", \"xMm\": 180000, \"yMm\": 200000, \"radiusMm\": 40000}]"
+                        + ", \"xMm\": "
+                        + xMm
+                        + ", \"yMm\": "
+                        + yMm
+                        + ", \"radiusMm\": 40000}]"
                 );
                 Assert.That(json, Does.Contain("storm"));
             }
@@ -73,6 +77,29 @@ namespace GodGame.Tests.EditMode
             TestContext.Out.WriteLine(
                 $"m3-river, 1,700 soldiers: first 30 s after the edit in {progress.FirstWindowMs:0} ms, all 3 min in {progress.FillMs:0} ms (resumed at {progress.ResumedAt})"
             );
+        }
+
+        [Test]
+        public void AnInvalidCast_TurnsRedWithItsReason_WithinOneReSimulation_AndGreenWhenMovedAway()
+        {
+            using var worker = new PreviewWorker(River(false), new SerialRunner(), new KeyframeStore(long.MaxValue), 400);
+            worker.RunUntilIdle();
+
+            // Within 100 m of the attackers marching from the west edge at its tick.
+            worker.Edit(River(true, 200, 100000, 120000).Plan);
+            worker.RunUntilIdle();
+            var red = worker.ReadCasts();
+            Assert.That(red, Has.Length.EqualTo(1));
+            Assert.That(red[0].Fizzled, Is.True);
+            Assert.That(red[0].Reasons, Is.EqualTo(FizzleReasons.TooCloseToAttacker));
+            Assert.That(red[0].AttackerDistanceMm, Is.LessThan(100_000));
+            Assert.That(worker.ReadCauses(), Has.Some.Matches<CauseEvent>(e => e.Kind == CauseKind.CastFizzled));
+
+            worker.Edit(River(true, 20).Plan); // far from both armies while they are still near their zones
+            worker.RunUntilIdle();
+            var green = worker.ReadCasts();
+            Assert.That(green[0].Status, Is.EqualTo(CastStatus.Fired));
+            Assert.That(worker.Track.SampleAtOrBefore(400).Tick, Is.EqualTo(400), "the track is published too");
         }
     }
 }

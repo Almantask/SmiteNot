@@ -27,6 +27,7 @@ namespace GodGame.Sim
                 System.Math.Max(1, plan.Army.Count)
             );
             world.AttachFields(new FieldStore(rules.Fields, map.Columns, map.Rows));
+            world.AttachCasts(CastSystem.StatesFor(plan));
             Fix maxX = map.Width - Fix.FromRaw(1);
             Fix maxY = map.Depth - Fix.FromRaw(1);
 

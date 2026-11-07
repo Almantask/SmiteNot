@@ -47,9 +47,43 @@ namespace GodGame.Sim
     }
 
     /// <summary>
+    /// One timed god power in the casts layer (spec S1, section 8): which power, the tick it is cast (its range check
+    /// and the start of its wind-up), and the circle it covers.
+    /// </summary>
+    public sealed class PlannedCast
+    {
+        public PlannedCast(string id, PowerRules power, int tick, int xMm, int yMm, int radiusMm)
+        {
+            Id = id;
+            Power = power;
+            Tick = tick;
+            XMm = xMm;
+            YMm = yMm;
+            RadiusMm = radiusMm;
+        }
+
+        /// <summary>Stable across edits.</summary>
+        public string Id { get; }
+
+        public PowerRules Power { get; }
+
+        /// <summary>The queued tick: the range check runs here and the wind-up starts (S1 D1).</summary>
+        public int Tick { get; }
+
+        /// <summary>The circle's centre.</summary>
+        public int XMm { get; }
+
+        public int YMm { get; }
+
+        public int RadiusMm { get; }
+    }
+
+    /// <summary>
     /// Plan format v0 (plan, section 3.8): the three layers (army, terrain, casts) with stable ids. v0 reads the army
-    /// layer; terrain pieces (M3, M6) and casts (M3) must be empty lists until their milestones. Regiments are kept in
-    /// ordinal id order, whatever order the file lists them in, so deployment never depends on file order.
+    /// and casts layers; terrain pieces (M3 item 8) must be an empty list until then. Regiments and casts are kept in
+    /// ordinal id order, whatever order the file lists them in, so nothing depends on file order. A cast that can't be
+    /// placed (an unknown power, a radius out of bounds, a circle not wholly on the map, a tick before 0 or after the
+    /// battle cap) is refused here, while planning: it is never a fizzle (S1, section 8).
     /// </summary>
     public sealed class BattlePlan
     {
@@ -58,11 +92,18 @@ namespace GodGame.Sim
         /// <summary>Up to 10,000 units (brief, pillar 3).</summary>
         public const int MaxSoldiers = 10_000;
 
-        private BattlePlan(string mapId, PlannedRegiment[] army, ulong hash, string canonicalJson)
+        private BattlePlan(
+            string mapId,
+            PlannedRegiment[] army,
+            PlannedCast[] casts,
+            ulong hash,
+            string canonicalJson
+        )
         {
             CanonicalJson = canonicalJson;
             MapId = mapId;
             Army = army;
+            Casts = casts;
             Hash = hash;
         }
 
@@ -73,6 +114,9 @@ namespace GodGame.Sim
 
         /// <summary>In ordinal id order.</summary>
         public IReadOnlyList<PlannedRegiment> Army { get; }
+
+        /// <summary>In ordinal id order; <see cref="World.Casts"/> keeps their state in the same order.</summary>
+        public IReadOnlyList<PlannedCast> Casts { get; }
 
         /// <summary>Over the canonical plan; replays record it.</summary>
         public ulong Hash { get; }
@@ -98,12 +142,7 @@ namespace GodGame.Sim
                     "plan.json: terrain pieces arrive in M3; plan v0 needs an empty list."
                 );
             }
-            if (root.Array("casts").Count != 0)
-            {
-                throw new DataFormatException(
-                    "plan.json: casts arrive in M3; plan v0 needs an empty list."
-                );
-            }
+            var casts = ReadCasts(root, map, rules);
 
             var army = new List<PlannedRegiment>();
             var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -179,8 +218,19 @@ namespace GodGame.Sim
             {
                 text.Append(i == 0 ? "" : ",").Append(JsonCanonical.ToText(sortedItems[i].Value));
             }
+            var sortedCasts = new List<KeyValuePair<string, JsonValue>>();
+            foreach (var item in root.Array("casts"))
+            {
+                sortedCasts.Add(new KeyValuePair<string, JsonValue>(item.Str("id"), item));
+            }
+            sortedCasts.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
             // Keys in ordinal order: army, casts, map, terrain, version.
-            text.Append("],\"casts\":").Append(JsonCanonical.ToText(root["casts"]));
+            text.Append("],\"casts\":[");
+            for (int i = 0; i < sortedCasts.Count; i++)
+            {
+                text.Append(i == 0 ? "" : ",").Append(JsonCanonical.ToText(sortedCasts[i].Value));
+            }
+            text.Append(']');
             text.Append(",\"map\":").Append(JsonCanonical.ToText(root["map"]));
             text.Append(",\"terrain\":").Append(JsonCanonical.ToText(root["terrain"]));
             text.Append(",\"version\":").Append(JsonCanonical.ToText(root["version"])).Append('}');
@@ -190,7 +240,38 @@ namespace GodGame.Sim
             var hash = new SimHash();
             hash.AppendInt32(bytes.Length);
             hash.Append(bytes);
-            return new BattlePlan(mapId, army.ToArray(), hash.Digest(), canonical);
+            return new BattlePlan(mapId, army.ToArray(), casts, hash.Digest(), canonical);
+        }
+
+        private static PlannedCast[] ReadCasts(JsonValue root, MapData map, Ruleset rules)
+        {
+            var casts = new List<PlannedCast>();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var item in root.Array("casts"))
+            {
+                item.OnlyKeys("id", "power", "tick", "xMm", "yMm", "radiusMm");
+                string id = DataIds.Require(item["id"]);
+                if (!ids.Add(id))
+                {
+                    throw new DataFormatException(
+                        item.Path + ": ids must be unique and not empty (\"" + id + "\")."
+                    );
+                }
+                string powerId = item.Str("power");
+                var power =
+                    rules.Power(powerId)
+                    ?? throw new DataFormatException(
+                        item.Path + ": no power \"" + powerId + "\" in powers.json."
+                    );
+                int tick = item.Int("tick", 0, rules.LatestCastTick);
+                int radius = item.Int("radiusMm", power.MinRadiusMm, power.MaxRadiusMm);
+                int x = item.Int("xMm", radius, map.WidthMm - radius);
+                int y = item.Int("yMm", radius, map.DepthMm - radius);
+                casts.Add(new PlannedCast(id, power, tick, x, y, radius));
+            }
+            // Ids are unique, so the ordinal sort is total.
+            casts.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
+            return casts.ToArray();
         }
     }
 }

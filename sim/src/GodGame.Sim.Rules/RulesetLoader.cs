@@ -24,6 +24,22 @@ namespace GodGame.Sim.Rules
         public const int RoutesVersion = 0;
         public const string RoutesFile = "routes.json";
         public const int FieldsVersion = 0;
+
+        public const string PowersFile = "powers.json";
+
+        public const int PowersVersion = 0;
+
+        /// <summary>Ticks per field step (the simulation's 5 Hz fields): power timings are whole field steps.</summary>
+        public const int FieldStepTicks = 4;
+
+        /// <summary>
+        /// Fields a power may write: only water, whose model takes outside additions at its own step (powers write before
+        /// it). Other fields keep invariants their models own (outflows match depth, mud follows wetness).
+        /// </summary>
+        private static readonly string[] PowerWritableFields = { "water" };
+
+        /// <summary>No cast may be queued later than an hour in (the plan's hard battle cap is 15 minutes).</summary>
+        public const int MaxCastTick = 72_000;
         public const string FieldsFile = "fields.json";
 
         /// <summary>Costs fit a ushort with room for the impassable marker.</summary>
@@ -60,6 +76,7 @@ namespace GodGame.Sim.Rules
             JsonValue? hazardsJson = null;
             JsonValue? routesJson = null;
             JsonValue? fieldsJson = null;
+            JsonValue? powersJson = null;
             foreach (var file in files)
             {
                 var value = JsonReader.Parse(file.Value, file.Key);
@@ -83,6 +100,10 @@ namespace GodGame.Sim.Rules
                 else if (string.Equals(file.Key, FieldsFile, StringComparison.Ordinal))
                 {
                     fieldsJson = value;
+                }
+                else if (string.Equals(file.Key, PowersFile, StringComparison.Ordinal))
+                {
+                    powersJson = value;
                 }
                 else
                 {
@@ -111,6 +132,10 @@ namespace GodGame.Sim.Rules
             {
                 throw new DataFormatException(FieldsFile + " is missing.");
             }
+            if (powersJson == null)
+            {
+                throw new DataFormatException(PowersFile + " is missing.");
+            }
 
             bool placeholders = false;
             var unitTypes = ReadUnitTypes(unitTypesJson, ref placeholders);
@@ -118,6 +143,7 @@ namespace GodGame.Sim.Rules
             var hazards = ReadHazards(hazardsJson, ref placeholders);
             var routes = ReadRoutes(routesJson, ref placeholders);
             var fields = ReadFields(fieldsJson, ref placeholders);
+            var powers = ReadPowers(powersJson, fields, ref placeholders, out int latestCastTick);
             return new Ruleset(
                 unitTypes,
                 movement,
@@ -129,6 +155,8 @@ namespace GodGame.Sim.Rules
             )
             {
                 FieldCostRefreshTicks = refresh,
+                Powers = powers,
+                LatestCastTick = latestCastTick,
             };
         }
 
@@ -542,6 +570,98 @@ namespace GodGame.Sim.Rules
                 clearance.Int("horse", 1, 8),
                 clearance.Int("wheeled", 1, 8)
             );
+        }
+
+        private static PowerRules[] ReadPowers(
+            JsonValue root,
+            FieldRules fields,
+            ref bool placeholders,
+            out int latestCastTick
+        )
+        {
+            root.OnlyKeys("$comment", "version", "status", "latestCastTick", "powers");
+            if (root.Int("version") != PowersVersion)
+            {
+                throw new DataFormatException(root.Path + ": version must be 0.");
+            }
+            placeholders |= ReadStatus(root);
+            latestCastTick = root.Int("latestCastTick", 0, MaxCastTick);
+            var list = new List<PowerRules>();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var item in root.Array("powers"))
+            {
+                item.OnlyKeys(
+                    "$comment",
+                    "id",
+                    "status",
+                    "area",
+                    "rangeRule",
+                    "windUpTicks",
+                    "durationTicks",
+                    "writes"
+                );
+                string id = DataIds.Require(item["id"]);
+                if (!ids.Add(id))
+                {
+                    throw new DataFormatException(item.Path + ": the power is listed twice.");
+                }
+                placeholders |= ReadStatus(item);
+                var area = item["area"];
+                area.OnlyKeys("$comment", "shape", "minRadiusMm", "maxRadiusMm", "defaultRadiusMm");
+                if (!string.Equals(area.Str("shape"), "circle", StringComparison.Ordinal))
+                {
+                    throw new DataFormatException(area.Path + ": only circles in ruleset v0.");
+                }
+                int min = area.Int("minRadiusMm", 1_000, 1_000_000);
+                int max = area.Int("maxRadiusMm", min, 1_000_000);
+                int byDefault = area.Int("defaultRadiusMm", min, max);
+                var range = item["rangeRule"];
+                range.OnlyKeys("$comment", "minDistanceMm", "minSoldiersPerCoarseCell");
+                var writes = new List<PowerWrite>();
+                foreach (var write in item.Array("writes"))
+                {
+                    write.OnlyKeys("$comment", "field", "ratePerS");
+                    string field = write.Str("field");
+                    if (fields.IndexOf(field) < 0 || Array.IndexOf(PowerWritableFields, field) < 0)
+                    {
+                        throw new DataFormatException(
+                            write.Path
+                                + ": powers may write only water, and fields.json must define it (\""
+                                + field
+                                + "\")."
+                        );
+                    }
+                    writes.Add(new PowerWrite(field, write.Int("ratePerS", 1, 100_000_000)));
+                }
+                list.Add(
+                    new PowerRules(
+                        id,
+                        list.Count,
+                        min,
+                        max,
+                        byDefault,
+                        range.Int("minDistanceMm", 0, 1_000_000),
+                        range.Int("minSoldiersPerCoarseCell", 1, 1_000),
+                        WholeFieldSteps(item, "windUpTicks", 0),
+                        WholeFieldSteps(item, "durationTicks", FieldStepTicks),
+                        writes.AsReadOnly()
+                    )
+                );
+            }
+            return list.ToArray();
+        }
+
+        /// <summary>A timing in whole field steps, so the number of writes never depends on the cast tick's phase.</summary>
+        private static int WholeFieldSteps(JsonValue item, string key, int min)
+        {
+            int ticks = item.Int(key, min, MaxCastTick);
+            if (ticks % FieldStepTicks != 0)
+            {
+                throw new DataFormatException(
+                    item.Path + "." + key + ": a multiple of " + FieldStepTicks + " ticks (one field step)."
+                );
+            }
+            return ticks;
         }
 
         private static HazardRules ReadHazards(JsonValue root, ref bool placeholders)

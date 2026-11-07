@@ -328,6 +328,25 @@ namespace GodGame.Sim.Rules
 
         public FieldRules Fields { get; }
 
+        /// <summary>The god powers, in file order; <see cref="PowerRules.Index"/> is the position here.</summary>
+        public IReadOnlyList<PowerRules> Powers { get; internal set; } = Array.Empty<PowerRules>();
+
+        /// <summary>The latest tick a cast may be queued for (the battle cap; plan section 10: 15 minutes).</summary>
+        public int LatestCastTick { get; internal set; }
+
+        /// <summary>The power with this id, or null.</summary>
+        public PowerRules? Power(string id)
+        {
+            foreach (var power in Powers)
+            {
+                if (string.Equals(power.Id, id, StringComparison.Ordinal))
+                {
+                    return power;
+                }
+            }
+            return null;
+        }
+
         /// <summary>Ticks between refreshes of the field-driven navigation costs (S1: at most 1 Hz).</summary>
         public int FieldCostRefreshTicks { get; internal set; } = 20;
 

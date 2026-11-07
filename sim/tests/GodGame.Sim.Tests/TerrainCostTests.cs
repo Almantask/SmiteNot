@@ -288,26 +288,14 @@ public class CostFieldTests
             + "]}";
         var error = Assert.Throws<GodGame.Sim.Rules.Json.DataFormatException>(() =>
             RulesetLoader.Load(
-                new[]
-                {
-                    KeyValuePair.Create("movement-classes.json", ThreeClasses),
-                    KeyValuePair.Create(
-                        "hazards.json",
-                        RepoData.Read("data", "rules", "hazards.json")
-                    ),
-                    KeyValuePair.Create(
-                        "routes.json",
-                        RepoData.Read("data", "rules", "routes.json")
-                    ),
-                    KeyValuePair.Create(
-                        "fields.json",
-                        RepoData.Read("data", "rules", "fields.json")
-                    ),
-                    KeyValuePair.Create(
-                        "unit-types.json",
-                        RepoData.Read("data", "rules", "unit-types.json")
-                    ),
-                }
+                RepoData
+                    .RuleFiles()
+                    .Select(f =>
+                        f.Key == "movement-classes.json"
+                            ? KeyValuePair.Create(f.Key, ThreeClasses)
+                            : f
+                    )
+                    .ToArray()
             )
         );
         Assert.That(error!.Message, Does.Contain("every movement class"));

@@ -28,6 +28,19 @@ namespace GodGame.Sim
         /// </summary>
         public FieldStore? Fields { get; private set; }
 
+        /// <summary>The state of the plan's casts (<see cref="CastSystem"/>), or null in a world without a plan.</summary>
+        public CastStates? Casts { get; private set; }
+
+        /// <summary>Gives the world its cast states; once, before the first tick.</summary>
+        public void AttachCasts(CastStates casts)
+        {
+            if (Casts != null)
+            {
+                throw new InvalidOperationException("The world already has its casts.");
+            }
+            Casts = casts ?? throw new ArgumentNullException(nameof(casts));
+        }
+
         /// <summary>Gives the world its fields; once, before the first tick.</summary>
         public void AttachFields(FieldStore fields)
         {
@@ -45,6 +58,10 @@ namespace GodGame.Sim
             if (Fields != null)
             {
                 blank.AttachFields(new FieldStore(Fields.Rules, Fields.Columns, Fields.Rows));
+            }
+            if (Casts != null)
+            {
+                blank.AttachCasts(new CastStates(Casts.Count, Casts.Carry.Length));
             }
             return blank;
         }
@@ -290,6 +307,8 @@ namespace GodGame.Sim
                 writer.WriteInt32(RegimentFiles[r]);
             }
             Counters.WriteTo(writer);
+            writer.WriteByte(Casts == null ? (byte)0 : (byte)1);
+            Casts?.WriteTo(writer);
         }
 
         /// <summary>
@@ -483,6 +502,11 @@ namespace GodGame.Sim
                 RegimentFiles[r] = reader.ReadInt32();
             }
             Counters.ReadFrom(reader);
+            if (reader.ReadByte() != (Casts == null ? 0 : 1))
+            {
+                throw new FormatException("The snapshot's casts don't match this world's.");
+            }
+            Casts?.ReadFrom(reader, Regiments.Capacity);
         }
 
         /// <summary>
@@ -528,6 +552,7 @@ namespace GodGame.Sim
                 hash.AppendInt32(RegimentFiles[r]);
             }
             Counters.AppendTo(hash);
+            Casts?.AppendTo(hash);
         }
     }
 }

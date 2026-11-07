@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Plan, format v0",
-  "description": "Read by GodGame.Sim.BattlePlan.Load. The three layers of plan section 3.8; v0 reads the army layer, and terrain and casts must be empty until M3. Regiments deploy in ordinal id order whatever the file order. At most 10,000 soldiers in all. $comment members never count in hashes.",
+  "description": "Read by GodGame.Sim.BattlePlan.Load. The three layers of plan section 3.8; v0 reads the army and casts layers, and terrain must be empty until M3 item 8. Regiments deploy and casts run in ordinal id order whatever the file order. At most 10,000 soldiers in all. $comment members never count in hashes.",
   "type": "object",
   "required": [
     "version",
@@ -79,7 +79,45 @@
     },
     "casts": {
       "type": "array",
-      "maxItems": 0
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "power",
+          "tick",
+          "xMm",
+          "yMm",
+          "radiusMm"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]{1,64}$",
+            "description": "Stable across edits"
+          },
+          "power": {
+            "type": "string",
+            "description": "A power id from data/rules/powers.json"
+          },
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The cast tick (20 per second): the range check runs here and the wind-up starts; at most powers.json latestCastTick"
+          },
+          "xMm": {
+            "type": "integer",
+            "description": "Circle centre; the whole circle must lie on the map"
+          },
+          "yMm": {
+            "type": "integer"
+          },
+          "radiusMm": {
+            "type": "integer",
+            "description": "Within the power's minRadiusMm and maxRadiusMm"
+          }
+        }
+      }
     }
   }
 }

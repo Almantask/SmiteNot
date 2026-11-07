@@ -1,0 +1,30 @@
+{
+  "$comment": "God powers (ruleset v0; spec S1, section 8: docs/design/spec-s1-water.md, settled 2026-11-03). Integers only. Units: mm, field units per second (water: um/s), ticks at 20 per second. A cast is checked against the range rule at its queued tick, when the wind-up starts (S1 D1): its whole area must be at least minDistanceMm from both armies' regiment outlines (coarse 4.5 m cells holding at least minSoldiersPerCoarseCell of a regiment's soldiers; swept soldiers count, S1 D9), else it fizzles. Then it waits windUpTicks (the gathering clouds) and writes each field at ratePerS over its circle for durationTicks. latestCastTick: the plan section 10 hard battle cap (15 minutes), a working default until the sunset rule (S5). Energy costs come with S5; the rain rate is tuned against the M3 flood test (S1 section 13, band 2000-5000 um/s), so the file is marked placeholder.",
+  "version": 0,
+  "status": "placeholder",
+  "latestCastTick": 18000,
+  "powers": [
+    {
+      "$comment": "Palette: wide, slow; raises wetness and feeds rivers over time. Rain writes only water; the soil takes its share as wetness by infiltration (fields.json ground), so there is one source of truth. Overlapping rains add. Once past the range check it runs its full duration (S1). Snow below freezing and drift with the wind are reserved for S3 and M6.",
+      "id": "rain",
+      "area": {
+        "shape": "circle",
+        "minRadiusMm": 40000,
+        "maxRadiusMm": 100000,
+        "defaultRadiusMm": 80000
+      },
+      "rangeRule": {
+        "minDistanceMm": 100000,
+        "minSoldiersPerCoarseCell": 2
+      },
+      "windUpTicks": 200,
+      "durationTicks": 1200,
+      "writes": [
+        {
+          "field": "water",
+          "ratePerS": 3000
+        }
+      ]
+    }
+  ]
+}

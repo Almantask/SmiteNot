@@ -45,7 +45,8 @@ namespace GodGame.Sim
         }
 
         /// <summary>
-        /// The tick so far: the fields step (water, wetness and mud), navigation (regiment goals and flow fields),
+        /// The tick so far: the plan's casts (range rule, wind-up, Rain's water), the fields step (water, wetness and
+        /// mud), navigation (regiment goals and flow fields),
         /// movement and hazards (swept, drowning, bank exit); every other step is still empty. The navigation's cost fields are built with
         /// <paramref name="runner"/>, which never changes the result.
         /// </summary>
@@ -53,6 +54,7 @@ namespace GodGame.Sim
         {
             var navigation = new Navigation(Map, Rules, runner);
             var systems = TickOrder.CreateDefault();
+            systems[(int)TickStep.PlanEvents] = new CastSystem(Plan, navigation);
             // The fields at 5 Hz, in the interaction order (plan, section 3.4): water, then wetness and mud.
             var models = new List<IFieldModel>();
             if (Rules.Fields.Water != null)

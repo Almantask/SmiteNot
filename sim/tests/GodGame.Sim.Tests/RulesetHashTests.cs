@@ -205,7 +205,7 @@ public class RulesetLoaderTests
     public void UnknownRulesFiles_AreRejected()
     {
         Assert.Throws<DataFormatException>(() =>
-            RulesetLoader.Load(new[] { KeyValuePair.Create("powers.json", "{}") })
+            RulesetLoader.Load(new[] { KeyValuePair.Create("weather.json", "{}") })
         );
     }
 }

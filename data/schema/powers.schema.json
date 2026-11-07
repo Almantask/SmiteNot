@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Powers, ruleset v0",
+  "description": "Read by GodGame.Sim.Rules.RulesetLoader. Integers only; unknown keys are rejected.",
+  "type": "object",
+  "required": [
+    "version",
+    "latestCastTick",
+    "powers"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "version": {
+      "const": 0
+    },
+    "status": {
+      "enum": [
+        "placeholder",
+        "settled"
+      ]
+    },
+    "latestCastTick": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 72000,
+      "description": "The latest tick a cast may be queued for (the battle cap)"
+    },
+    "powers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "area",
+          "rangeRule",
+          "windUpTicks",
+          "durationTicks",
+          "writes"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "$comment": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]{1,64}$"
+          },
+          "status": {
+            "enum": [
+              "placeholder",
+              "settled"
+            ]
+          },
+          "area": {
+            "type": "object",
+            "required": [
+              "shape",
+              "minRadiusMm",
+              "maxRadiusMm",
+              "defaultRadiusMm"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "$comment": {
+                "type": "string"
+              },
+              "shape": {
+                "const": "circle"
+              },
+              "minRadiusMm": {
+                "type": "integer",
+                "minimum": 1000,
+                "maximum": 1000000
+              },
+              "maxRadiusMm": {
+                "type": "integer",
+                "minimum": 1000,
+                "maximum": 1000000
+              },
+              "defaultRadiusMm": {
+                "type": "integer",
+                "minimum": 1000,
+                "maximum": 1000000
+              }
+            }
+          },
+          "rangeRule": {
+            "type": "object",
+            "required": [
+              "minDistanceMm",
+              "minSoldiersPerCoarseCell"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "$comment": {
+                "type": "string"
+              },
+              "minDistanceMm": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000,
+                "description": "The whole area at least this far from both armies' outlines at the cast tick"
+              },
+              "minSoldiersPerCoarseCell": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000,
+                "description": "Soldiers of one regiment a coarse cell needs to count toward its outline"
+              }
+            }
+          },
+          "windUpTicks": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 72000
+          },
+          "durationTicks": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 72000
+          },
+          "writes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "field",
+                "ratePerS"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "$comment": {
+                  "type": "string"
+                },
+                "field": {
+                  "type": "string",
+                  "description": "A field id from fields.json"
+                },
+                "ratePerS": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100000000,
+                  "description": "Added to each cell of the area per second, in the field's unit"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -281,29 +281,16 @@ public class FieldNavigationTests
             .Read("data", "rules", "movement-classes.json")
             .Replace("[[0, 1000], [32767, 800], [65535, 500]]", "[[0, 1000], [0, 800]]");
         Assert.That(json, Does.Contain("[[0, 1000], [0, 800]]"));
-        Assert.Throws<GodGame.Sim.Rules.Json.DataFormatException>(() =>
+        var error = Assert.Throws<GodGame.Sim.Rules.Json.DataFormatException>(() =>
             RulesetLoader.Load(
-                new[]
-                {
-                    KeyValuePair.Create("movement-classes.json", json),
-                    KeyValuePair.Create(
-                        "hazards.json",
-                        RepoData.Read("data", "rules", "hazards.json")
-                    ),
-                    KeyValuePair.Create(
-                        "routes.json",
-                        RepoData.Read("data", "rules", "routes.json")
-                    ),
-                    KeyValuePair.Create(
-                        "fields.json",
-                        RepoData.Read("data", "rules", "fields.json")
-                    ),
-                    KeyValuePair.Create(
-                        "unit-types.json",
-                        RepoData.Read("data", "rules", "unit-types.json")
-                    ),
-                }
+                RepoData
+                    .RuleFiles()
+                    .Select(f =>
+                        f.Key == "movement-classes.json" ? KeyValuePair.Create(f.Key, json) : f
+                    )
+                    .ToArray()
             )
         );
+        Assert.That(error!.Message, Does.Contain("x must rise"));
     }
 }

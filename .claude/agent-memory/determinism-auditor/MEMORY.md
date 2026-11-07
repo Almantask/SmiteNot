@@ -15,3 +15,4 @@
 - [Casts and powers](pattern_casts_powers.md) — direct Values writes vs model rate/stagger, any-field write targets, duration phase, shallow CastStates checks
 - [Terrain pieces](pattern_terrain_pieces.md) — dx*t bound rests on maxLengthMm, PlayedMap reuses base Id/Hash (double stamp), Blocked unversioned
 - [Cause log and field layers](pattern_cause_log.md) — emitter order, dead tie rule, stale per-slot links, rain restamps older tags, backwater uncaused, water.bin checks
+- [Timeline and keyframes](pattern_timeline_keyframes.md) — kept keyframes keep old plan layout (chained edits), Edit not transactional, Rebase skips header

@@ -108,6 +108,28 @@ namespace GodGame.Sim
         /// <summary>Per unit slot: the push that put the soldier in the water, or <see cref="None"/>.</summary>
         public int[] UnitPushed { get; }
 
+        /// <summary>
+        /// Renumbers the cast events' subjects after a plan edit: <paramref name="oldToNew"/>[old cast index] is the new
+        /// index + 1, or 0 for a cast the edit removed or changed (which can't have acted yet when this is called).
+        /// </summary>
+        internal void RemapCastSubjects(int[] oldToNew)
+        {
+            for (int i = 0; i < _events.Count; i++)
+            {
+                var e = _events[i];
+                if (e.Kind != CauseKind.CastFired && e.Kind != CauseKind.CastFizzled)
+                {
+                    continue;
+                }
+                int to = e.Subject < oldToNew.Length ? oldToNew[e.Subject] : 0;
+                if (to == 0)
+                {
+                    throw new InvalidOperationException("A cast event belongs to a cast the edit changed.");
+                }
+                _events[i] = new CauseEvent(e.Kind, e.Tick, to - 1, e.Detail, e.Cause, e.Cause2);
+            }
+        }
+
         /// <summary>Appends an event and returns its index.</summary>
         public int Add(
             CauseKind kind,

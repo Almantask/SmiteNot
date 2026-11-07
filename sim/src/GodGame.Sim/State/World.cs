@@ -44,6 +44,10 @@ namespace GodGame.Sim
             Causes = causes ?? throw new ArgumentNullException(nameof(causes));
         }
 
+        /// <summary>Swaps in another plan's cast states (<see cref="Timeline"/> rebasing a keyframe onto an edited plan).</summary>
+        internal void ReplaceCasts(CastStates casts) =>
+            Casts = casts ?? throw new ArgumentNullException(nameof(casts));
+
         /// <summary>Gives the world its cast states; once, before the first tick.</summary>
         public void AttachCasts(CastStates casts)
         {

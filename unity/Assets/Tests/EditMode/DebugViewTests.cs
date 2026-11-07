@@ -58,7 +58,17 @@ namespace GodGame.Tests.EditMode
             };
 
             host.Start();
-            Thread.Sleep(500);
+            // Wait for the worker rather than a fixed time: a busy machine (a parallel test run) can be slow to start it.
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (clock.ElapsedMilliseconds < 10_000)
+            {
+                host.Read(out _, out var newest, out _);
+                if (newest.Tick > 5)
+                {
+                    break;
+                }
+                Thread.Sleep(20);
+            }
             host.Stop();
 
             host.Read(out _, out var current, out _);

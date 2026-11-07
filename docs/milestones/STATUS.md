@@ -1,13 +1,45 @@
 # Milestone status
 
-## Current: M4 — The timeline and the scrubbable future
+## Current: M5 — Combat, morale, load, launches and the first specialists
 Started: 2026-11-07
+
+Goal: the signature moments work: crowds breaking bridges and ice, stampedes, charges, launches and the landing preview.
+
+Needs first (open questions; plan section 10 working defaults until decided): a per-regiment stance at deployment (open or close order), and the campaign win condition (both survival and objective variants as data until decided). Specs first: S2 (units, steering pressure, masses, load and strength, launches, the first specialists), drafted by the design-lead with the game-design skill.
+
+### Checklist
+- [ ] 0. Spec pass S2 (design-lead): the four base types, steering and crowd pressure numbers, masses and churn, bridge and ice load and strength, launch distances and landing rules, the first six specialists, as numbers in docs/design and data/rules
+- [ ] 1. Melee through the spatial hash; regiment volleys from the projectile tables, with wind along the shot and height; morale per regiment with contagion, casualty events and routing; fleeing off the map and regiments under about 10% count as wiped
+- [ ] 2. Hedgerows and drystone walls as navigation blockers (burning and toppling in M6)
+- [ ] 3. The shared specialist executor (actions as data, charges, per-action reachability validation, markers on regiment lanes, unit-made edits through the incremental navigation and heightfield path) and the first six specialists: Spademen, Fascine Carriers, Pontoon Train, Drovers, Crossing Marshals, Engineers
+- [ ] 4. The load system: bridge segments with load against strength, rot; fixed-thickness ice; one strain language (creak 70%, crack 85%, sag 95%) for shaders and UI; collapse into launches and the swept state
+- [ ] 5. Launches: ballistic bodies with reduced gravity, landings by surface, a 2 m shallow fringe that only stuns, knock-downs that never chain; launched and stunned soldiers stay in their regiment's outline; landing spreads for the preview
+- [ ] 6. The four base types from S2 (infantry and ranged, cavalry, siege engines with crews and stones)
+- [ ] 7. Cavalry charges that trample and launch; herds and stampedes; Lightning v0 (fells a tree into navigation, ignites dry fuel minimally)
+- [ ] 8. Unity: strain overlay, landing-spread overlay, launch arcs from playback events, morale tints at strategic zoom, a results screen that names causes
+
+### Exit criteria
+- [ ] Scenario tests pass: a thin file crosses a bridge (and fixed ice) that a dense column breaks; a rotted bridge fails only under the bulk of the army; lightning near a herd stampedes it into a column, and the landing-spread preview matches the live result exactly; a charge or stampede tramples and launches soldiers but never chains; each first specialist answers part of a setup (fascines fill one crossing through a channel, a pontoon spans a flooded ford until a surge breaks it, marshals meter a rotted bridge so it holds while the bank queues, drovers walk a herd off the road, Spademen's ditch becomes a moat in the rain, engineers span a channel with a trestle, repair a rotted span and clear a felled tree)
+- [ ] Design gate B: first vertical slice. One grey-box campaign level from deployment to results, with rain, lightning and wind. Pass: testers can explain why they won or lost (needs the user and testers)
+
+### Decisions needed
+- Per-regiment stance at deployment (open or close order) and the campaign win condition: the user's, before or with S2.
+
+### Carried over from M2, M3 and M4
+- [ ] Measure on the floor laptop (a 2020-or-later laptop with Intel Iris Xe or Radeon 680M graphics): the 10,000-unit tick against the 6 ms floor budget (`godsim run --map data/maps/m2-bridge --plan data/plans/m2-bridge-ten-thousand.json --seconds 900 --threads 4`), and the debug view at 20 fps or better (`unity/Builds/DebugViewPlayer/GodGameDebugView.exe -repo <repo> -measure-fps fps.txt`, built by GodGame → Build → Debug View Player). Record both in sim/bench/GodGame.Sim.Bench/budgets.json and ADR 0002 if the Burst numbers there change.
+- [ ] Add the GitHub secrets UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD so the GameCI workflow runs, and check its first run.
+- [ ] Design gate A: is planning fun? Five people play three grey-box puzzles built from rain, channels and boulders. Pass: they read the 100 m rule as a bank shot rather than an error, use scrubbing without being told, and ask for another level (needs the user and testers; play them in the planning player, Builds/PlanningPlayer/GodGamePlanning.exe, with grey-box levels built from rain, channels and boulders)
+
+## Done
+
+### M4 — The timeline and the scrubbable future (2026-11-07)
+Started and closed 2026-11-07 with design gate A pending (it needs the user and five testers; carried into M5), and hinge markers deferred to M7 with the regiment AI.
 
 Goal: plan, scrub and re-plan fluidly. The preview is the game.
 
 Needs first (plan section 10 working defaults, used until the brief settles them; still open questions in the brief): the battle length is about 3 minutes per campaign battle with a hard cap of 15 minutes (powers.json latestCastTick 18,000 already uses the cap); foresight is unlimited (the preview may run to the cap); casts are pinned to clock times only, and the plan schema reserves world-field triggers (load, water level, temperature) in case event-pinned casts are chosen.
 
-### Checklist
+#### Checklist
 - [x] 1. Keyframes every 5 s and re-simulation from the earliest change: a timeline in the simulation that keeps keyframes (with older ones spilling to disk) and, after a plan edit, re-runs from the last keyframe before the first tick the edit can affect — sim/src/GodGame.Sim/Timeline: Timeline steps one battle and keeps a full snapshot every 100 ticks in a KeyframeStore (newest in memory up to a byte budget, older ones handed to an IKeyframeSpill; GodGame.Sim.Hosting has a directory spill). Edit(plan) finds the earliest change (tick 0 for an army or terrain edit, which starts over; otherwise the earlier of an added, removed or changed cast's old and new ticks), drops the later keyframes and resumes from the last one at or before it, rebased onto the edited plan: cast states and cast events carried by cast id, then written under the new battle's id. Each keyframe remembers the battle that wrote it, so chained edits rebase older keyframes from their own plan's layout; an edit builds its new head before changing anything, checks the keyframe's battle id, seed and tick, and keeps the head when nothing it has simulated changes. TimelineTests: moving, adding (shifting a fired cast's index) and removing casts, an army edit, chained edits resuming before the previous edit's point, an edit beyond the head, and spilled keyframes all end hash-identical to the edited plan run from tick 0; a random-edit fuzz probe (30 chained edits) matched too. Restoring an older keyframe for scrubbing goes through the same rebase in item 3.
 - [x] 2. The preview worker in SimHost: progressive fill with a buffer bar and first-30-s priority, never blocking the main thread — GodGame.Bridge.PreviewWorker: a background thread owns a Timeline and fills the future a second of battle at a time to the end (3 minutes by the working default); the main thread posts edits (a newer one replaces one not yet picked up) and reads Progress (edits applied, the resume tick, how far it is filled, the buffer bar's fraction, and the wall time until the first 30 s after the resume tick and the whole future were ready). The first window is simply the next ticks the worker runs, so it fills first. Bridge.ThreadedRunner is the hosting library's runner for Unity's threads. Edit Mode tests: a cast edit resumes at its keyframe and refills; posting never waits (under 50 ms for two posts); on m3-river with 1,700 soldiers and 4 threads in the editor, the first 30 s took 1.7 s and the full 3 minutes 10.1 s (budgets: 1.5 s and 12 s, measured in the player for the exit criterion). The debug view doesn't show the bar yet: the planning UI (item 7) does.
 - [x] 3. The playback track (5 samples per second plus launch events) and field snapshots for scrubbing at 60 fps — sim/src/GodGame.Sim/Timeline/PlaybackTrack.cs: the timeline records a unit sample every 4 ticks (positions in cm, alive and hazard flags) and a field frame every second in the GPU layout (a full frame every 10 s, otherwise only the 24 m tiles that changed); FieldsAt rebuilds any second exactly. Samples and frames never change once added and live in blocks that never move, so the preview worker writes while the main thread reads without a lock; an edit forks a new track sharing everything up to the resume tick. PreviewWorker publishes the track. Launch events join when launches exist (M5). Tests: samples and rebuilt fields match fresh runs exactly, before and after an edit. Scrubbing at 60 fps is measured with the planning UI (item 7).
@@ -16,19 +48,13 @@ Needs first (plan section 10 working defaults, used until the brief settles them
 - [x] 6. The causality trace in the UI: click a drowned regiment, see the chain back to the cast — right-click a regiment in the planning view: its losses by the scrub time and the trace of the latest ("a soldier of regiment a002 drowned at 2:58 ← regiment a002 swept at 2:43 ← rain \"storm\" cast at 0:50"), from the cause log the preview worker publishes (Bridge.CauseTrace words it).
 - [x] 7. Planning UI v0 in UI Toolkit: place regiments and terrain pieces, paint the rain area, drag casts along the timeline, held-key overlays, the no-cast area drawn as a ring — PlanningView (scene and player from GodGame.Editor.PlanningScene: Builds/PlanningPlayer/GodGamePlanning.exe -repo <repo> [-map -plan]): the preview worker fills the future in the background; a UI Toolkit timeline bar shows the buffer fill, scrubs on click or drag and carries the casts as draggable markers; tools 1 move regiments, 2 rain (a circle at the scrub time, [ ] for its radius), 3 boulder, 4 channel, Delete; hold V for foot speed and N for the no-cast rings (100 m beyond each regiment at the scrub time); units and fields are drawn from the playback track. Every edit goes through Bridge.PlanEditor to the simulation's plan loader, so a refused edit (outside a zone, a trap, a bad size) shows the loader's reason and keeps the last valid plan. Painted (free-shape) rain waits for a power with painted areas: S1 settled circles for Rain (D2).
 
-### Exit criteria
+#### Exit criteria
 - [x] Moving a cast updates the first 30 s of the preview in ≤ 1.5 s and a full 3-minute battle in ≤ 12 s; scrubbing holds 60 fps — planning player on the desktop, -measure-preview on m3-exit with rain (the storm moved 10 s later, resuming at 0:50): first 30 s in 1.49 s, the rest of the battle in 8.2 s; scrubbing back and forth across the battle at 144 fps (the display's cap). This needed S1's cost hysteresis (a cell's stored speed changes only on a 10% move or a swept or closed crossing) and navigation's water refresh every 2 s instead of 1 (S1 allows at most 1 Hz): a flood near the only ford otherwise repaired half the attackers' flow field every second. SimVersion 10. On m2-bridge with 10,000 soldiers (dry; the edit adds a cast at 0:01, so the battle restarts): first 30 s in 1.57 s, all 3 minutes in 10.0 s. The floor-laptop figures wait with the carried-over measurements.
 - [x] An invalid cast turns red with its reason within one re-simulation — PreviewWorkerTests (Edit Mode) and the planning view (item 4).
 - [ ] Design gate A: is planning fun? Five people play three grey-box puzzles built from rain, channels and boulders. Pass: they read the 100 m rule as a bank shot rather than an error, use scrubbing without being told, and ask for another level (needs the user and testers)
 
-### Decisions needed
+#### Decisions needed
 - Battle length (sunset cap), whether foresight is limited, and event-pinned casts: working defaults above until the user settles them in the brief.
-
-### Carried over from M2 and M3
-- [ ] Measure on the floor laptop (a 2020-or-later laptop with Intel Iris Xe or Radeon 680M graphics): the 10,000-unit tick against the 6 ms floor budget (`godsim run --map data/maps/m2-bridge --plan data/plans/m2-bridge-ten-thousand.json --seconds 900 --threads 4`), and the debug view at 20 fps or better (`unity/Builds/DebugViewPlayer/GodGameDebugView.exe -repo <repo> -measure-fps fps.txt`, built by GodGame → Build → Debug View Player). Record both in sim/bench/GodGame.Sim.Bench/budgets.json and ADR 0002 if the Burst numbers there change.
-- [ ] Add the GitHub secrets UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD so the GameCI workflow runs, and check its first run.
-
-## Done
 
 ### M3 — Water: first field, first power, first deaths (2026-11-02 to 2026-11-07)
 Started: 2026-11-02. Closed 2026-11-07 with the two items carried over from M2 (the floor-laptop measurements and the GameCI secrets) carried on into M4, both needing the user.

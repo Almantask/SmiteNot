@@ -46,6 +46,7 @@ namespace GodGame.Sim
             Simulation = battle.Start(runner);
             DropFrom(0);
             AddKeyframe(0, Simulation.CaptureSnapshot(), battle);
+            Track = NewTrack(Simulation);
         }
 
         public Battle Battle { get; private set; }
@@ -65,8 +66,10 @@ namespace GodGame.Sim
         {
             while (Simulation.Tick < tick)
             {
-                int next = (Simulation.Tick / KeyframeTicks + 1) * KeyframeTicks;
+                // Step to the next sample tick (every keyframe tick is one, as 100 is a multiple of 4).
+                int next = (Simulation.Tick / PlaybackTrack.SampleTicks + 1) * PlaybackTrack.SampleTicks;
                 Simulation.Step(System.Math.Min(tick, next) - Simulation.Tick);
+                Record(Track, Simulation);
                 if (Simulation.Tick % KeyframeTicks == 0)
                 {
                     AddKeyframe(Simulation.Tick, Simulation.CaptureSnapshot(), Battle);
@@ -112,14 +115,50 @@ namespace GodGame.Sim
             }
             var head = edited.Start(_runner);
             head.RestoreSnapshot(rebased);
+            var track = Track.Fork(at);
             Battle = edited;
             Simulation = head;
+            Track = track;
             DropFrom(at);
             if (at % KeyframeTicks == 0)
             {
                 AddKeyframe(at, rebased, edited);
             }
             return at;
+        }
+
+        /// <summary>
+        /// The playback track of the current plan: replaced by every edit (a fork sharing what came before the resume
+        /// tick), so a reader holding the old one keeps a consistent picture.
+        /// </summary>
+        public PlaybackTrack Track { get; private set; } = null!;
+
+        private PlaybackTrack NewTrack(Simulation simulation)
+        {
+            var fields = simulation.World.Fields;
+            var track = fields == null
+                ? new PlaybackTrack(Battle.PlayedMap.Columns, Battle.PlayedMap.Rows, 16)
+                : new PlaybackTrack(fields.Columns, fields.Rows, fields.Get(WaterModel.Depth).TileCells);
+            Record(track, simulation);
+            return track;
+        }
+
+        private void Record(PlaybackTrack track, Simulation simulation)
+        {
+            int tick = simulation.Tick;
+            if (tick % PlaybackTrack.SampleTicks == 0)
+            {
+                track.RecordUnits(tick, simulation.World);
+            }
+            if (tick % PlaybackTrack.FrameTicks == 0)
+            {
+                track.RecordFields(
+                    tick,
+                    simulation.World,
+                    Battle.PlayedMap.CellSizeMm,
+                    track.FrameCount % PlaybackTrack.FullFrameEvery == 0
+                );
+            }
         }
 
         private void Restart(Battle battle)
@@ -129,6 +168,7 @@ namespace GodGame.Sim
             Simulation = head;
             DropFrom(0);
             AddKeyframe(0, head.CaptureSnapshot(), battle);
+            Track = NewTrack(head);
         }
 
         private void AddKeyframe(int tick, byte[] keyframe, Battle source)

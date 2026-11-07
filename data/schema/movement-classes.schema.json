@@ -6,7 +6,8 @@
   "required": [
     "version",
     "fieldCostRefreshTicks",
-    "classes"
+    "classes",
+    "fieldCostHysteresisPermille"
   ],
   "additionalProperties": false,
   "properties": {
@@ -143,6 +144,12 @@
       "minimum": 1,
       "maximum": 200,
       "description": "Ticks between refreshes of field-driven costs (20 = 1 Hz)"
+    },
+    "fieldCostHysteresisPermille": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000,
+      "description": "A cell's stored speed changes only when it moves by this share of full speed, or crosses swept or closed"
     }
   },
   "$defs": {

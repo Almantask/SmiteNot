@@ -279,7 +279,7 @@ public class CostFieldTests
             + "\"sweptDepthSpeed\":1,\"sweptMinDepthMm\":1,\"carriedPermille\":1000,\"paddleMmPerS\":0,"
             + "\"drowningTicks\":1,\"regainPermille\":1000},\"mudSpeed\":[[0,1000]]}";
         string ThreeClasses =
-            "{\"version\":0,\"fieldCostRefreshTicks\":20,\"classes\":["
+            "{\"version\":0,\"fieldCostRefreshTicks\":20,\"fieldCostHysteresisPermille\":100,\"classes\":["
             + Class("foot")
             + ","
             + Class("horse")

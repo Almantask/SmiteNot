@@ -152,7 +152,12 @@ namespace GodGame.Sim.Rules
 
             bool placeholders = false;
             var unitTypes = ReadUnitTypes(unitTypesJson, ref placeholders);
-            var movement = ReadMovementClasses(movementJson, ref placeholders, out int refresh);
+            var movement = ReadMovementClasses(
+                movementJson,
+                ref placeholders,
+                out int refresh,
+                out int hysteresis
+            );
             var hazards = ReadHazards(hazardsJson, ref placeholders);
             var routes = ReadRoutes(routesJson, ref placeholders);
             var fields = ReadFields(fieldsJson, ref placeholders);
@@ -169,6 +174,7 @@ namespace GodGame.Sim.Rules
             )
             {
                 FieldCostRefreshTicks = refresh,
+                FieldCostHysteresisPermille = hysteresis,
                 Powers = powers,
                 LatestCastTick = latestCastTick,
                 Terrain = terrain,
@@ -178,15 +184,24 @@ namespace GodGame.Sim.Rules
         private static MovementClassRules[] ReadMovementClasses(
             JsonValue root,
             ref bool placeholders,
-            out int refreshTicks
+            out int refreshTicks,
+            out int hysteresisPermille
         )
         {
-            root.OnlyKeys("$comment", "version", "status", "fieldCostRefreshTicks", "classes");
+            root.OnlyKeys(
+                "$comment",
+                "version",
+                "status",
+                "fieldCostRefreshTicks",
+                "fieldCostHysteresisPermille",
+                "classes"
+            );
             if (root.Int("version") != MovementClassesVersion)
             {
                 throw new DataFormatException(root.Path + ": version must be 0.");
             }
             refreshTicks = root.Int("fieldCostRefreshTicks", 1, SimRefreshMaxTicks);
+            hysteresisPermille = root.Int("fieldCostHysteresisPermille", 0, 1_000);
             placeholders |= ReadStatus(root);
             var classes = new MovementClassRules?[4];
             foreach (var item in root.Array("classes"))

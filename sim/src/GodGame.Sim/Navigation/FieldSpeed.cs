@@ -40,6 +40,35 @@ namespace GodGame.Sim
             : code >= AllDryCode ? 1000 // a byte above 250 (bad data) still never speeds anyone up
             : code * 4;
 
+        /// <summary>
+        /// Whether new codes differ enough from the stored ones to rebuild navigation (spec S1, section 3: cost
+        /// hysteresis): some class crosses swept or closed, or its speed moves by at least
+        /// <paramref name="hysteresisPermille"/> of full speed. Smaller drifts keep the stored codes, so a rising flood
+        /// doesn't rebuild the whole river every second.
+        /// </summary>
+        public static bool Significant(int stored, int fresh, int hysteresisPermille)
+        {
+            if (stored == fresh)
+            {
+                return false;
+            }
+            int step = System.Math.Max(1, hysteresisPermille / 4); // codes are speed / 4
+            for (int c = 0; c < Classes; c++)
+            {
+                int a = stored >> (c * 8) & 0xFF;
+                int b = fresh >> (c * 8) & 0xFF;
+                if (a == b)
+                {
+                    continue;
+                }
+                if (a <= Closed || b <= Closed || System.Math.Abs(a - b) >= step)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /// <summary>The code for one class in water <paramref name="depthMm"/> deep, flowing at <paramref name="flowMmPerS"/>, on mud <paramref name="mud"/>.</summary>
         public static int CodeFor(MovementClassRules rules, long depthMm, long flowMmPerS, int mud)
         {

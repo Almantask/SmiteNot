@@ -354,6 +354,9 @@ namespace GodGame.Sim.Rules
         /// <summary>Ticks between refreshes of the field-driven navigation costs (S1: at most 1 Hz).</summary>
         public int FieldCostRefreshTicks { get; internal set; } = 20;
 
+        /// <summary>A class's stored speed code changes only when its speed moves by this much of full speed (S1).</summary>
+        public int FieldCostHysteresisPermille { get; internal set; } = 100;
+
         public MovementClassRules Movement(MovementClass movementClass) =>
             MovementClasses[(int)movementClass];
 

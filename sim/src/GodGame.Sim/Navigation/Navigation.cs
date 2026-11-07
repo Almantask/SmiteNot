@@ -84,9 +84,9 @@ namespace GodGame.Sim
                 for (int x = 0; x < Terrain.Columns; x++)
                 {
                     int code = _codes[row + x];
-                    if (code == stored[row + x])
+                    if (!FieldSpeed.Significant(stored[row + x], code, Rules.FieldCostHysteresisPermille))
                     {
-                        continue;
+                        continue; // S1's cost hysteresis: small speed drifts wait for a real change
                     }
                     // Tick 0 only learns the map's settled water: a river that already sweeps soldiers didn't overflow.
                     if (

@@ -6,6 +6,6 @@ namespace GodGame.Sim
     /// </summary>
     public static class SimVersion
     {
-        public const int Current = 9;
+        public const int Current = 10;
     }
 }

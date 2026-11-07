@@ -197,6 +197,7 @@ namespace GodGame.Sim
             {
                 Blocked = blocked,
                 IsPlayed = true,
+                InitialFields = InitialFields,
             };
         }
 
@@ -212,7 +213,94 @@ namespace GodGame.Sim
             throw new DataFormatException("Map " + Id + " has no " + side + " deployment zone.");
         }
 
-        public static MapData Load(string mapJson, byte[]? heightLayer = null)
+        /// <summary>
+        /// The map's starting field values (spec S1, section 7: the exporter settles the rivers offline, so every battle
+        /// starts with them flowing), by field id, one value per cell in the field's unit. Empty when the map has no
+        /// field layer: every field then starts at its rules' initial value.
+        /// </summary>
+        public IReadOnlyList<KeyValuePair<string, int[]>> InitialFields { get; private set; } =
+            Array.Empty<KeyValuePair<string, int[]>>();
+
+        /// <summary>The field layer's format (water.bin): "GGFL", version, count, then per field its id and values.</summary>
+        public const int FieldLayerMagic = 0x4C464747;
+
+        /// <summary>Writes a field layer for <see cref="Load"/> (little-endian; ids in ASCII).</summary>
+        public static byte[] WriteFieldLayer(IReadOnlyList<KeyValuePair<string, int[]>> fields)
+        {
+            var writer = new ByteWriter(1024);
+            writer.WriteInt32(FieldLayerMagic);
+            writer.WriteInt32(0);
+            writer.WriteInt32(fields.Count);
+            foreach (var field in fields)
+            {
+                byte[] id = System.Text.Encoding.ASCII.GetBytes(field.Key);
+                writer.WriteInt32(id.Length);
+                foreach (byte b in id)
+                {
+                    writer.WriteByte(b);
+                }
+                writer.WriteInt32(field.Value.Length);
+                foreach (int v in field.Value)
+                {
+                    writer.WriteInt32(v);
+                }
+            }
+            return writer.ToArray();
+        }
+
+        private static KeyValuePair<string, int[]>[] ReadFieldLayer(byte[] layer, int cells)
+        {
+            var reader = new ByteReader(layer);
+            if (reader.ReadInt32() != FieldLayerMagic || reader.ReadInt32() != 0)
+            {
+                throw new DataFormatException("water.bin: not a field layer of version 0.");
+            }
+            int count = reader.ReadInt32();
+            if (count < 0 || count > 64)
+            {
+                throw new DataFormatException("water.bin: implausible field count.");
+            }
+            var fields = new KeyValuePair<string, int[]>[count];
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            for (int f = 0; f < count; f++)
+            {
+                int length = reader.ReadInt32();
+                if (length < 1 || length > 64)
+                {
+                    throw new DataFormatException("water.bin: a field id is empty or too long.");
+                }
+                var id = new byte[length];
+                for (int i = 0; i < length; i++)
+                {
+                    id[i] = reader.ReadByte();
+                    if (id[i] < 0x21 || id[i] > 0x7E)
+                    {
+                        throw new DataFormatException("water.bin: a field id is not plain ASCII.");
+                    }
+                }
+                if (!ids.Add(System.Text.Encoding.ASCII.GetString(id)))
+                {
+                    throw new DataFormatException("water.bin: a field is listed twice.");
+                }
+                if (reader.ReadInt32() != cells)
+                {
+                    throw new DataFormatException("water.bin: a field has another number of cells than the map.");
+                }
+                var values = new int[cells];
+                for (int i = 0; i < cells; i++)
+                {
+                    values[i] = reader.ReadInt32();
+                }
+                fields[f] = new KeyValuePair<string, int[]>(System.Text.Encoding.ASCII.GetString(id), values);
+            }
+            if (!reader.AtEnd)
+            {
+                throw new DataFormatException("water.bin: trailing bytes.");
+            }
+            return fields;
+        }
+
+        public static MapData Load(string mapJson, byte[]? heightLayer = null, byte[]? fieldLayer = null)
         {
             var root = JsonReader.Parse(mapJson, "map.json");
             root.OnlyKeys(
@@ -307,6 +395,21 @@ namespace GodGame.Sim
             hash.AppendInt32(canonical.Length);
             hash.Append(canonical);
             hash.AppendInt32s(height);
+            var initialFields =
+                fieldLayer == null
+                    ? Array.Empty<KeyValuePair<string, int[]>>()
+                    : ReadFieldLayer(fieldLayer, height.Length);
+            if (initialFields.Length > 0)
+            {
+                hash.AppendInt32(initialFields.Length); // maps without a layer keep their hash
+            }
+            foreach (var field in initialFields)
+            {
+                byte[] fieldId = System.Text.Encoding.ASCII.GetBytes(field.Key);
+                hash.AppendInt32(fieldId.Length);
+                hash.Append(fieldId);
+                hash.AppendInt32s(field.Value);
+            }
             var soils = new List<SoilArea>();
             if (root.Has("soils"))
             {
@@ -370,7 +473,10 @@ namespace GodGame.Sim
                 sinks.ToArray(),
                 soils.ToArray(),
                 hash.Digest()
-            );
+            )
+            {
+                InitialFields = initialFields,
+            };
         }
 
         /// <summary>The largest single source: 10,000 m³/s, far above any river a battle needs.</summary>

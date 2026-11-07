@@ -49,10 +49,12 @@ namespace GodGame.Sim
             NearestDefender = new int[casts];
             DefenderDistanceMm = new int[casts];
             Carry = new int[writes];
+            Event = new int[casts];
             for (int c = 0; c < casts; c++)
             {
                 NearestAttacker[c] = NoRegiment;
                 NearestDefender[c] = NoRegiment;
+                Event[c] = CauseLog.None;
             }
         }
 
@@ -72,6 +74,9 @@ namespace GodGame.Sim
 
         public int[] DefenderDistanceMm { get; }
 
+        /// <summary>The cast's fired or fizzled event in the cause log, or <see cref="CauseLog.None"/> before its tick.</summary>
+        public int[] Event { get; }
+
         /// <summary>Per write of every cast, in plan order: the amount × ticks-per-second not yet written.</summary>
         public int[] Carry { get; }
 
@@ -87,6 +92,7 @@ namespace GodGame.Sim
                 writer.WriteInt32(AttackerDistanceMm[c]);
                 writer.WriteInt32(NearestDefender[c]);
                 writer.WriteInt32(DefenderDistanceMm[c]);
+                writer.WriteInt32(Event[c]);
             }
             foreach (int carry in Carry)
             {
@@ -118,6 +124,12 @@ namespace GodGame.Sim
                 AttackerDistanceMm[c] = reader.ReadInt32();
                 NearestDefender[c] = ReadRegiment(reader, regimentCapacity);
                 DefenderDistanceMm[c] = reader.ReadInt32();
+                int e = reader.ReadInt32();
+                if (e < CauseLog.None || (status == (byte)CastStatus.Pending) != (e == CauseLog.None))
+                {
+                    throw new FormatException("Snapshot cast event is invalid.");
+                }
+                Event[c] = e;
             }
             for (int w = 0; w < Carry.Length; w++)
             {
@@ -150,6 +162,7 @@ namespace GodGame.Sim
                 hash.AppendInt32(AttackerDistanceMm[c]);
                 hash.AppendInt32(NearestDefender[c]);
                 hash.AppendInt32(DefenderDistanceMm[c]);
+                hash.AppendInt32(Event[c]);
             }
             foreach (int carry in Carry)
             {

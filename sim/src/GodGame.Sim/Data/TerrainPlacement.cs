@@ -189,6 +189,15 @@ namespace GodGame.Sim
         {
             long buffer = rules.Terrain.BufferFromDeploymentMm;
             var boulders = new bool[map.Columns * map.Rows];
+            int[]? water = null;
+            foreach (var layer in map.InitialFields)
+            {
+                if (layer.Key == WaterModel.Depth)
+                {
+                    water = layer.Value;
+                }
+            }
+            int dry = rules.Fields.Water?.DryDepthUm ?? int.MaxValue;
             // Boulders first (in id order), so springs can be checked against all of them.
             foreach (
                 var kind in new[]
@@ -225,6 +234,21 @@ namespace GodGame.Sim
                                         + " deployment zone."
                                 );
                             }
+                        }
+                        if (
+                            water != null
+                            && water[i] >= dry
+                            && kind is PieceKind.Ridge or PieceKind.Hollow or PieceKind.Spring
+                        )
+                        {
+                            // S1 D5: dams are their own piece; a spring in a river adds little.
+                            throw new DataFormatException(
+                                "plan.json: "
+                                    + piece.Rules.Id
+                                    + " \""
+                                    + piece.Id
+                                    + "\" stands in the map's water; place it on dry ground."
+                            );
                         }
                         if (kind == PieceKind.Boulder)
                         {

@@ -14,3 +14,4 @@
 - [Hazards](pattern_hazards.md) — kernel flag scratch, Teetering timer-0 hand-off, 1 Hz codes vs live depth, counter misattribution, 2-chunk test
 - [Casts and powers](pattern_casts_powers.md) — direct Values writes vs model rate/stagger, any-field write targets, duration phase, shallow CastStates checks
 - [Terrain pieces](pattern_terrain_pieces.md) — dx*t bound rests on maxLengthMm, PlayedMap reuses base Id/Hash (double stamp), Blocked unversioned
+- [Cause log and field layers](pattern_cause_log.md) — emitter order, dead tie rule, stale per-slot links, rain restamps older tags, backwater uncaused, water.bin checks

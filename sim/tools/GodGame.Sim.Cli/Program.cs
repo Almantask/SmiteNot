@@ -23,6 +23,8 @@ public static class Program
           compare <a> <b>         Compare two hash files; report the first second that differs.
           compare --replay <file> Re-run a replay and compare with the hashes it recorded.
           compare --golden <name> Re-run one golden replay (sim/tests/golden) and compare.
+          settle --map <dir>      Run the map's water alone (--seconds, default 600) and write <dir>/water.bin, the
+                                  settled rivers every battle on it starts with (spec S1, section 7).
           golden list|verify      List the goldens, or verify them all (exit 2 on any divergence).
           golden add <name>       Record a new golden from the battle options below.
           golden regenerate --all|<name>
@@ -66,6 +68,8 @@ public static class Program
                     return Compare(args.Skip(1).ToArray());
                 case "golden":
                     return Golden(args.Skip(1).ToArray());
+                case "settle":
+                    return Settle(Options.Parse(args.Skip(1).ToArray()));
                 default:
                     Console.Error.WriteLine($"Unknown command '{args[0]}'.\n\n{Usage}");
                     return 1;
@@ -77,6 +81,56 @@ public static class Program
             Console.Error.WriteLine(e.Message);
             return 1;
         }
+    }
+
+    /// <summary>
+    /// Settles a map's water offline: water and ground alone, from dry, for the given seconds; then writes every water
+    /// and ground field as the map's starting layer. Overwrites any water.bin already there.
+    /// </summary>
+    private static int Settle(Options options)
+    {
+        string root = Options.RepoRoot();
+        string dir = options.MapDir ?? throw new ArgumentException("settle needs --map <dir>.");
+        var rules = Options.LoadRules(options.RulesDir ?? Path.Combine(root, "data", "rules"));
+        string height = Path.Combine(dir, "height.bin");
+        var map = MapData.Load(
+            File.ReadAllText(Path.Combine(dir, "map.json")),
+            File.Exists(height) ? File.ReadAllBytes(height) : null
+        );
+        int seconds = options.Seconds ?? 600;
+        var terrain = new Terrain(map);
+        var world = new World(1, 1);
+        world.AttachFields(new FieldStore(rules.Fields, map.Columns, map.Rows));
+        var water = new WaterModel(terrain, map, rules.Fields.Water!, TickOrder.FieldsRate);
+        water.WakeSources(world.Fields!);
+        var systems = TickOrder.CreateDefault();
+        systems[(int)TickStep.Fields] = new FieldSystem(
+            new IFieldModel[] { water, new GroundModel(terrain, map, rules, TickOrder.FieldsRate) }
+        );
+        var simulation = new Simulation(world, 1, options.Runner(), systems);
+        simulation.Step(seconds * SimConstants.TicksPerSecond);
+        var layer = new List<KeyValuePair<string, int[]>>();
+        foreach (
+            string id in new[]
+            {
+                WaterModel.Depth,
+                WaterModel.OutEast,
+                WaterModel.OutNorth,
+                WaterModel.OutWest,
+                WaterModel.OutSouth,
+                GroundModel.Wetness,
+                GroundModel.Mud,
+            }
+        )
+        {
+            layer.Add(new KeyValuePair<string, int[]>(id, (int[])world.Fields!.Get(id).Values.Clone()));
+        }
+        File.WriteAllBytes(Path.Combine(dir, "water.bin"), MapData.WriteFieldLayer(layer));
+        long total = world.Fields!.Get(WaterModel.Depth).Values.Sum(v => (long)v);
+        Console.WriteLine(
+            $"settled {map.Id} for {seconds} s: {total / 1_000_000.0 * map.CellSizeMm * map.CellSizeMm / 1_000_000.0:0} m³ of water on the map"
+        );
+        return 0;
     }
 
     private static int Run(Options options)

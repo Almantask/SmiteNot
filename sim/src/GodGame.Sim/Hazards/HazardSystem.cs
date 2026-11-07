@@ -20,6 +20,9 @@ namespace GodGame.Sim
     /// </summary>
     public sealed class HazardSystem : ISimSystem
     {
+        /// <summary>A regiment's soldiers swept within 5 s of its last sweep event share it (S1, section 12).</summary>
+        public const int SweptEventTicks = 5 * SimConstants.TicksPerSecond;
+
         private readonly Navigation _navigation;
         private readonly Ruleset _rules;
         private int[] _drowned = new int[64];
@@ -43,6 +46,8 @@ namespace GodGame.Sim
             var hazards = _rules.Hazards;
             var terrain = _navigation.Terrain;
             int drowned = 0;
+            var log = world.Causes;
+            int tick = context.Tick;
             for (int u = 0; u < world.Units.HighWater; u++)
             {
                 if (!world.Units.IsAlive(u))
@@ -52,9 +57,11 @@ namespace GodGame.Sim
                 var flags = world.Flags[u];
                 long depthMm = 0;
                 long flowMmPerS = 0;
+                int tile = -1;
                 if (depth != null)
                 {
                     terrain.CellOf(world.Position[u], out int x, out int y);
+                    tile = depth.TileOf(x, y);
                     long um = depth.Get(x, y);
                     if (um >= water!.DryDepthUm)
                     {
@@ -85,6 +92,11 @@ namespace GodGame.Sim
                             flags |= UnitFlags.Stunned;
                         }
                         world.Counters.ReachedBank++;
+                        if (log != null)
+                        {
+                            log.UnitSwept[u] = CauseLog.None;
+                            log.UnitPushed[u] = CauseLog.None;
+                        }
                     }
                     else if (--world.HazardTimer[u] <= 0)
                     {
@@ -100,9 +112,32 @@ namespace GodGame.Sim
 
                 if (depthMm > 0 && response.Sweeps(depthMm, flowMmPerS))
                 {
+                    int pushed = CauseLog.None;
                     if ((flags & UnitFlags.Teetering) != 0 && world.HazardTimer[u] == 0)
                     {
                         world.Counters.PushedOver++; // movement pushed him over this tick
+                        if (log != null)
+                        {
+                            int r = world.UnitRegiment[u];
+                            pushed = log.Add(CauseKind.SoldierPushedOver, tick, r, u, CauseLog.None);
+                        }
+                    }
+                    if (log != null)
+                    {
+                        // One sweep event per regiment per 5 s; its cause is the water's tag where the soldier stood.
+                        int r = world.UnitRegiment[u];
+                        int tag = tile >= 0 ? log.TileTag[tile] : CauseLog.None;
+                        if (
+                            log.RegimentSwept[r] == CauseLog.None
+                            || tick - log.RegimentSweptTick[r] >= SweptEventTicks
+                            || log.Events[log.RegimentSwept[r]].Cause != tag
+                        )
+                        {
+                            log.RegimentSwept[r] = log.Add(CauseKind.RegimentSwept, tick, r, 0, tag);
+                            log.RegimentSweptTick[r] = tick;
+                        }
+                        log.UnitSwept[u] = log.RegimentSwept[r];
+                        log.UnitPushed[u] = pushed;
                     }
                     flags = (flags & ~(UnitFlags.Stunned | UnitFlags.Teetering)) | UnitFlags.Swept;
                     world.HazardTimer[u] = response.DrowningTicks;
@@ -125,7 +160,21 @@ namespace GodGame.Sim
             }
             for (int k = 0; k < drowned; k++)
             {
-                world.DespawnUnit(world.Units.IdOf(_drowned[k]));
+                int u = _drowned[k];
+                if (log != null)
+                {
+                    log.Add(
+                        CauseKind.SoldierDrowned,
+                        tick,
+                        world.UnitRegiment[u],
+                        u,
+                        log.UnitSwept[u],
+                        log.UnitPushed[u]
+                    );
+                    log.UnitSwept[u] = CauseLog.None;
+                    log.UnitPushed[u] = CauseLog.None;
+                }
+                world.DespawnUnit(world.Units.IdOf(u));
                 world.Counters.Drowned++;
             }
         }

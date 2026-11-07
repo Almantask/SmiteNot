@@ -17,7 +17,7 @@ namespace GodGame.Sim
         /// <summary>"GGSN", little-endian.</summary>
         public const int Magic = 0x4E534747;
 
-        public const int FormatVersion = 6;
+        public const int FormatVersion = 7;
 
         internal static byte[] Write(ulong battleId, int tick, ulong seed, World world)
         {

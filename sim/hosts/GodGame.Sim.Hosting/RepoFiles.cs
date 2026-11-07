@@ -32,9 +32,11 @@ public static class RepoFiles
     public static MapData LoadMap(string dir)
     {
         string height = Path.Combine(dir, "height.bin");
+        string water = Path.Combine(dir, "water.bin");
         return MapData.Load(
             File.ReadAllText(Path.Combine(dir, "map.json")),
-            File.Exists(height) ? File.ReadAllBytes(height) : null
+            File.Exists(height) ? File.ReadAllBytes(height) : null,
+            File.Exists(water) ? File.ReadAllBytes(water) : null
         );
     }
 

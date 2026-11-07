@@ -28,6 +28,7 @@ namespace GodGame.Sim
         private readonly int _coarseMm;
         private readonly int _coarseColumns;
         private readonly Dictionary<long, int> _outlineCounts = new Dictionary<long, int>();
+        private int _tick; // the tick being run, for the events Check adds
 
         public CastSystem(BattlePlan plan, Navigation navigation)
         {
@@ -80,6 +81,7 @@ namespace GodGame.Sim
                 );
             }
             int tick = context.Tick;
+            _tick = tick;
             bool fieldStep = TickOrder.FieldsRate.IsDue(tick);
             for (int c = 0; c < _plan.Casts.Count; c++)
             {
@@ -99,7 +101,7 @@ namespace GodGame.Sim
                 }
                 for (int w = 0; w < cast.Power.Writes.Count; w++)
                 {
-                    Write(world, states, _writeOffset[c] + w, cast, cast.Power.Writes[w]);
+                    Write(world, states, _writeOffset[c] + w, cast, cast.Power.Writes[w], states.Event[c]);
                 }
             }
         }
@@ -164,6 +166,17 @@ namespace GodGame.Sim
             states.AttackerDistanceMm[c] = EdgeDistance(bestAttacker, cast.RadiusMm, attacker);
             states.NearestDefender[c] = defender;
             states.DefenderDistanceMm[c] = EdgeDistance(bestDefender, cast.RadiusMm, defender);
+            var log = world.Causes;
+            states.Event[c] =
+                log == null
+                    ? CauseLog.None
+                    : log.Add(
+                        reasons == FizzleReasons.None ? CauseKind.CastFired : CauseKind.CastFizzled,
+                        _tick,
+                        c,
+                        (int)reasons,
+                        CauseLog.None
+                    );
         }
 
         private long OutlineKey(World world, int u)
@@ -192,6 +205,25 @@ namespace GodGame.Sim
             return dx * dx + dy * dy; // both within the map (at most a few km): far inside a long
         }
 
+        /// <summary>Whether any cell centre of the tile lies inside the cast's circle.</summary>
+        private static bool TouchesCircle(CellRect cells, PlannedCast cast, int cellMm)
+        {
+            long r = cast.RadiusMm;
+            for (int y = cells.MinY; y <= cells.MaxY; y++)
+            {
+                long dy = (long)y * cellMm + cellMm / 2 - cast.YMm;
+                for (int x = cells.MinX; x <= cells.MaxX; x++)
+                {
+                    long dx = (long)x * cellMm + cellMm / 2 - cast.XMm;
+                    if (dx * dx + dy * dy <= r * r)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         private static int EdgeDistance(long distanceSquared, int radiusMm, int regiment) =>
             regiment == CastStates.NoRegiment
                 ? 0
@@ -203,7 +235,8 @@ namespace GodGame.Sim
             CastStates states,
             int carryIndex,
             PlannedCast cast,
-            PowerWrite write
+            PowerWrite write,
+            int cause
         )
         {
             var fields = world.Fields;
@@ -246,11 +279,21 @@ namespace GodGame.Sim
             // Wake every tile the circle touches and their neighbours, so the field models step the new water this very
             // tick and its runoff can leave the circle.
             int tile = grid.TileCells;
+            var log = string.Equals(write.Field, WaterModel.Depth, StringComparison.Ordinal)
+                ? world.Causes
+                : null;
             for (int ty = minY / tile; ty <= maxY / tile; ty++)
             {
                 for (int tx = minX / tile; tx <= maxX / tile; tx++)
                 {
-                    grid.WakeAround(grid.TileOf(tx * tile, ty * tile));
+                    int t = grid.TileOf(tx * tile, ty * tile);
+                    grid.WakeAround(t);
+                    // The water it adds carries the cast as its cause (S1, section 12): the newest cause wins, on tiles
+                    // the circle actually rains on.
+                    if (log != null && TouchesCircle(grid.TileRect(t), cast, cellMm))
+                    {
+                        log.TileTag[t] = System.Math.Max(log.TileTag[t], cause);
+                    }
                 }
             }
         }

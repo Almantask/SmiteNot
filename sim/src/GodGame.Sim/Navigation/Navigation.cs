@@ -76,6 +76,8 @@ namespace GodGame.Sim
             int minY = int.MaxValue;
             int maxX = -1;
             int maxY = -1;
+            var log = context.World.Causes;
+            var depthGrid = fields.Get(WaterModel.Depth);
             for (int y = 0; y < Terrain.Rows; y++)
             {
                 int row = y * Terrain.Columns;
@@ -85,6 +87,27 @@ namespace GodGame.Sim
                     if (code == stored[row + x])
                     {
                         continue;
+                    }
+                    // Tick 0 only learns the map's settled water: a river that already sweeps soldiers didn't overflow.
+                    if (
+                        log != null
+                        && context.Tick > 0
+                        && FieldSpeed.Code(code, MovementClass.Foot) == FieldSpeed.Swept
+                        && FieldSpeed.Code(stored[row + x], MovementClass.Foot) != FieldSpeed.Swept
+                    )
+                    {
+                        // The first cell of a water tile to sweep foot soldiers: the river overflowed here (S1 12).
+                        int tile = depthGrid.TileOf(x, y);
+                        if (log.TileOverflowed[tile] == CauseLog.None)
+                        {
+                            log.TileOverflowed[tile] = log.Add(
+                                CauseKind.RiverOverflowed,
+                                context.Tick,
+                                tile,
+                                0,
+                                log.TileTag[tile]
+                            );
+                        }
                     }
                     stored[row + x] = code;
                     minX = System.Math.Min(minX, x);

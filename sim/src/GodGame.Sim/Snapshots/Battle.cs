@@ -61,7 +61,8 @@ namespace GodGame.Sim
         /// <summary>
         /// The tick so far: the plan's casts (range rule, wind-up, Rain's water), the fields step (water, wetness and
         /// mud), navigation (regiment goals and flow fields),
-        /// movement and hazards (swept, drowning, bank exit); every other step is still empty. The navigation's cost fields are built with
+        /// movement, hazards (swept, drowning, bank exit) and bookkeeping (water's cause tags); every other step is
+        /// still empty. The navigation's cost fields are built with
         /// <paramref name="runner"/>, which never changes the result.
         /// </summary>
         public ISimSystem[] CreateSystems(IParallelRunner runner)
@@ -92,6 +93,7 @@ namespace GodGame.Sim
             systems[(int)TickStep.Navigation] = new NavigationSystem(navigation);
             systems[(int)TickStep.Movement] = new MovementSystem(navigation);
             systems[(int)TickStep.Hazards] = new HazardSystem(navigation);
+            systems[(int)TickStep.Bookkeeping] = new CauseSystem();
             return systems;
         }
 

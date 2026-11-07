@@ -36,9 +36,11 @@ namespace GodGame.Bridge
         {
             string dir = Path.Combine(repoRoot, "data", "maps", mapId);
             string height = Path.Combine(dir, "height.bin");
+            string water = Path.Combine(dir, "water.bin");
             return MapData.Load(
                 File.ReadAllText(Path.Combine(dir, "map.json")),
-                File.Exists(height) ? File.ReadAllBytes(height) : null
+                File.Exists(height) ? File.ReadAllBytes(height) : null,
+                File.Exists(water) ? File.ReadAllBytes(water) : null
             );
         }
 

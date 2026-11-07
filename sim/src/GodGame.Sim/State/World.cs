@@ -31,6 +31,19 @@ namespace GodGame.Sim
         /// <summary>The state of the plan's casts (<see cref="CastSystem"/>), or null in a world without a plan.</summary>
         public CastStates? Casts { get; private set; }
 
+        /// <summary>The battle's cause log (<see cref="CauseLog"/>), or null in a world built without one.</summary>
+        public CauseLog? Causes { get; private set; }
+
+        /// <summary>Gives the world its cause log; once, before the first tick.</summary>
+        public void AttachCauses(CauseLog causes)
+        {
+            if (Causes != null)
+            {
+                throw new InvalidOperationException("The world already has its cause log.");
+            }
+            Causes = causes ?? throw new ArgumentNullException(nameof(causes));
+        }
+
         /// <summary>Gives the world its cast states; once, before the first tick.</summary>
         public void AttachCasts(CastStates casts)
         {
@@ -62,6 +75,12 @@ namespace GodGame.Sim
             if (Casts != null)
             {
                 blank.AttachCasts(new CastStates(Casts.Count, Casts.Carry.Length));
+            }
+            if (Causes != null)
+            {
+                blank.AttachCauses(
+                    new CauseLog(Causes.TileTag.Length, Regiments.Capacity, Units.Capacity)
+                );
             }
             return blank;
         }
@@ -239,6 +258,12 @@ namespace GodGame.Sim
             Morale[u] = 0;
             Flags[u] = UnitFlags.None;
             HazardTimer[u] = 0;
+            if (Causes != null)
+            {
+                // A reused slot must never inherit this soldier's links.
+                Causes.UnitSwept[u] = CauseLog.None;
+                Causes.UnitPushed[u] = CauseLog.None;
+            }
             Units.Free(unit);
         }
 
@@ -267,6 +292,11 @@ namespace GodGame.Sim
             RegimentAnchor[r] = -1;
             RegimentFacing[r] = Angle.Zero;
             RegimentFiles[r] = 0;
+            if (Causes != null)
+            {
+                Causes.RegimentSwept[r] = CauseLog.None;
+                Causes.RegimentSweptTick[r] = 0;
+            }
             Regiments.Free(regiment);
         }
 
@@ -309,6 +339,8 @@ namespace GodGame.Sim
             Counters.WriteTo(writer);
             writer.WriteByte(Casts == null ? (byte)0 : (byte)1);
             Casts?.WriteTo(writer);
+            writer.WriteByte(Causes == null ? (byte)0 : (byte)1);
+            Causes?.WriteTo(writer);
         }
 
         /// <summary>
@@ -507,6 +539,11 @@ namespace GodGame.Sim
                 throw new FormatException("The snapshot's casts don't match this world's.");
             }
             Casts?.ReadFrom(reader, Regiments.Capacity);
+            if (reader.ReadByte() != (Causes == null ? 0 : 1))
+            {
+                throw new FormatException("The snapshot's cause log doesn't match this world's.");
+            }
+            Causes?.ReadFrom(reader);
         }
 
         /// <summary>
@@ -553,6 +590,7 @@ namespace GodGame.Sim
             }
             Counters.AppendTo(hash);
             Casts?.AppendTo(hash);
+            Causes?.AppendTo(hash);
         }
     }
 }

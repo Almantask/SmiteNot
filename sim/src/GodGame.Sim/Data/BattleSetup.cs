@@ -1,5 +1,6 @@
 using GodGame.Sim.Math;
 using GodGame.Sim.Rules;
+using GodGame.Sim.Rules.Json;
 
 namespace GodGame.Sim
 {
@@ -10,6 +11,40 @@ namespace GodGame.Sim
     /// </summary>
     public static class BattleSetup
     {
+        /// <summary>
+        /// Puts the map's settled fields in place before tick 0 (spec S1, section 7), waking every tile that differs from
+        /// the field's initial value so the models step it from the first tick.
+        /// </summary>
+        public static void ApplyInitialFields(FieldStore fields, MapData map)
+        {
+            foreach (var layer in map.InitialFields)
+            {
+                if (fields.Rules.IndexOf(layer.Key) < 0)
+                {
+                    throw new DataFormatException(
+                        "Map " + map.Id + " starts the field \"" + layer.Key + "\", which the rules don't define."
+                    );
+                }
+                var grid = fields.Get(layer.Key);
+                int[] values = layer.Value;
+                for (int i = 0; i < values.Length; i++)
+                {
+                    int v = values[i];
+                    if (v != grid.Clamp(v))
+                    {
+                        throw new DataFormatException(
+                            "Map " + map.Id + ": a starting " + layer.Key + " value is out of the field's range."
+                        );
+                    }
+                    grid.Values[i] = v;
+                    if (v != grid.Definition.Initial)
+                    {
+                        grid.WakeAround(grid.TileOf(i % grid.Columns, i / grid.Columns));
+                    }
+                }
+            }
+        }
+
         public static World Deploy(
             MapData map,
             BattlePlan plan,
@@ -27,7 +62,15 @@ namespace GodGame.Sim
                 System.Math.Max(1, plan.Army.Count)
             );
             world.AttachFields(new FieldStore(rules.Fields, map.Columns, map.Rows));
+            ApplyInitialFields(world.Fields!, map);
             world.AttachCasts(CastSystem.StatesFor(plan));
+            world.AttachCauses(
+                new CauseLog(
+                    world.Fields!.Get(WaterModel.Depth).TileCount,
+                    world.Regiments.Capacity,
+                    world.Units.Capacity
+                )
+            );
             Fix maxX = map.Width - Fix.FromRaw(1);
             Fix maxY = map.Depth - Fix.FromRaw(1);
 

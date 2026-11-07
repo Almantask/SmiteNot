@@ -6,7 +6,7 @@ namespace GodGame.Sim.Tests;
 /// </summary>
 internal static class PinnedHashes
 {
-    public const ulong PlaceholderSeed1Units8After60s = 13689155283760745960UL; // SimVersion 8 (the hash includes it)
+    public const ulong PlaceholderSeed1Units8After60s = 907473930516361962UL; // SimVersion 9 (the hash includes it)
 
     /// <summary>Every sine value plus atan2 over a 129 × 129 grid (TrigTests). Pinned 2026-11-01.</summary>
     public const ulong TrigTables = 0xFA3751819458DAD5UL;
@@ -20,7 +20,7 @@ internal static class PinnedHashes
     /// <summary>data/maps/m1-flat (map hash), data/plans/m1-ten-thousand.json (plan hash) and the world it deploys. Pinned 2026-11-01.</summary>
     public const ulong MapM1Flat = 0x59885A55C9609ABBUL;
     public const ulong PlanM1TenThousand = 0xE6CC8D05245963B5UL;
-    public const ulong WorldM1TenThousandDeployed = 7244661824674325519UL;
+    public const ulong WorldM1TenThousandDeployed = 12937608590738241517UL;
 
     /// <summary>All four cost fields over a seeded 64 × 48 terrain with the repo's movement classes (TerrainCostTests). Pinned 2026-11-02.</summary>
     public const ulong CostFieldsSeed6 = 0x6DB36691903731AFUL;

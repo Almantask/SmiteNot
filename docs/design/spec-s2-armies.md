@@ -1,6 +1,6 @@
 # Spec S2: armies, load, launches and the first specialists
 
-Draft, 2026-11-07, for milestone M5 ("the signature moments work: crowds breaking bridges and ice, stampedes, charges, launches and the landing preview"). Implementation plan section 9 sets the scope (the S2 row and M5's build list); `docs/milestones/STATUS.md` lists the M5 checklist and exit criteria this spec is calibrated against (section 17). Draft rules data: `docs/design/s2-data/*.json` (section 19). These files are not in `data/rules/` yet. The implementer wires them in with the items that read them, because the loader rejects unknown files.
+Written 2026-11-07, decisions settled the same day, for milestone M5 ("the signature moments work: crowds breaking bridges and ice, stampedes, charges, launches and the landing preview"). Implementation plan section 9 sets the scope (the S2 row and M5's build list); `docs/milestones/STATUS.md` lists the M5 checklist and exit criteria this spec is calibrated against (section 17). Draft rules data: `docs/design/s2-data/*.json` (section 19). These files are not in `data/rules/` yet. The implementer wires them in with the items that read them, because the loader rejects unknown files.
 
 The brief (`docs/design/game-brief.md`) wins over this spec. Every number carries one of three labels, as in S1:
 
@@ -14,11 +14,11 @@ This spec covers only what M5 needs. Prices, fire spread, temperature, cold, cas
 
 ---
 
-## Decisions (open, for the user)
+## Decisions (settled 2026-11-07)
 
-Each row is a recommendation. Accept or change them; once accepted they are recorded in the brief with the game-design skill, and mirrored to the claude.ai project. The proposals elsewhere in this spec are working numbers, tuned against the M5 tests (section 17), not decisions.
+The user accepted every recommendation below on 2026-11-07; they are recorded in the brief ("Armies, load, launches and the first specialists (spec pass S2)"). The proposals elsewhere in this spec are still working numbers, tuned against the M5 tests (section 17), not decisions.
 
-| # | Question | Options | Recommendation |
+| # | Question | Options | Decided (the recommendation) |
 |---|---|---|---|
 | D1 | **Stance at deployment** (brief open question; plan section 10 default: a data flag, off). The brief's wording offers behavioural stances (hold, skirmish, counterattack); the plan and STATUS frame it as open or close order. | (a) none; (b) one order flag per regiment, close or open, set in the army layer; (c) behavioural stances | **(b), flag on, close order by default.** Open order doubles file and rank spacing, so it quarters a regiment's load per square metre (the thin file that crosses ice), halves the arrows that hit it, and lengthens the column (slower over a crossing, more exposed to a stampede across it); close order is the only order that braces against a charge. It is a geometry change, so every effect comes from systems that already exist, and the brief already leans on it ("open order against thin ice", 2026-10-11 attack mode). Behavioural stances need the regiment AI and its openings (M7); leave them for S4. |
 | D2 | **Campaign win condition** (brief open question; plan section 10: both variants as data). | (a) survival only, as in PvP; (b) protect an objective; (c) the level picks either | **(c), survival by default.** Survival: the defender wins if any defending regiment isn't wiped at sunset, or the attacking army routs; it loses when every defending regiment is wiped. Objective: the same, plus a loss if the attacker holds the level's objective area (at least 50 of its soldiers inside) for 30 s without a break. Survival matches PvP and attack mode, so the campaign trains them; objectives give level designers villages, bridges and relics to defend (IB 14, IB 44). Numbers in section 7.5. |

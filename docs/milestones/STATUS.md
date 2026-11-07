@@ -8,7 +8,7 @@ Goal: the signature moments work: crowds breaking bridges and ice, stampedes, ch
 Needs first (open questions; plan section 10 working defaults until decided): a per-regiment stance at deployment (open or close order), and the campaign win condition (both survival and objective variants as data until decided). Specs first: S2 (units, steering pressure, masses, load and strength, launches, the first specialists), drafted by the design-lead with the game-design skill.
 
 ### Checklist
-- [ ] 0. Spec pass S2 (design-lead): the four base types, steering and crowd pressure numbers, masses and churn, bridge and ice load and strength, launch distances and landing rules, the first six specialists, as numbers in docs/design and data/rules
+- [x] 0. Spec pass S2 (design-lead): the four base types, steering and crowd pressure numbers, masses and churn, bridge and ice load and strength, launch distances and landing rules, the first six specialists, as numbers in docs/design and data/rules — docs/design/spec-s2-armies.md with draft rules in docs/design/s2-data (14 files, placeholders); decisions D1 to D15 settled 2026-11-07 with the recommendations and recorded in the brief ("Armies, load, launches and the first specialists (spec pass S2)"). The drafts move into data/rules with the items that read them. Calibrate steering first: S2 section 4.2 sets crowd density and bridge throughput targets the bridge strengths assume.
 - [ ] 1. Melee through the spatial hash; regiment volleys from the projectile tables, with wind along the shot and height; morale per regiment with contagion, casualty events and routing; fleeing off the map and regiments under about 10% count as wiped
 - [ ] 2. Hedgerows and drystone walls as navigation blockers (burning and toppling in M6)
 - [ ] 3. The shared specialist executor (actions as data, charges, per-action reachability validation, markers on regiment lanes, unit-made edits through the incremental navigation and heightfield path) and the first six specialists: Spademen, Fascine Carriers, Pontoon Train, Drovers, Crossing Marshals, Engineers
@@ -23,7 +23,7 @@ Needs first (open questions; plan section 10 working defaults until decided): a 
 - [ ] Design gate B: first vertical slice. One grey-box campaign level from deployment to results, with rain, lightning and wind. Pass: testers can explain why they won or lost (needs the user and testers)
 
 ### Decisions needed
-- Per-regiment stance at deployment (open or close order) and the campaign win condition: the user's, before or with S2.
+- (none open: the deployment order flag and the campaign win condition were settled with S2 on 2026-11-07, see the brief)
 
 ### Carried over from M2, M3 and M4
 - [ ] Measure on the floor laptop (a 2020-or-later laptop with Intel Iris Xe or Radeon 680M graphics): the 10,000-unit tick against the 6 ms floor budget (`godsim run --map data/maps/m2-bridge --plan data/plans/m2-bridge-ten-thousand.json --seconds 900 --threads 4`), and the debug view at 20 fps or better (`unity/Builds/DebugViewPlayer/GodGameDebugView.exe -repo <repo> -measure-fps fps.txt`, built by GodGame → Build → Debug View Player). Record both in sim/bench/GodGame.Sim.Bench/budgets.json and ADR 0002 if the Burst numbers there change.

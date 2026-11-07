@@ -21,7 +21,8 @@ Paths inside the copies keep the project's form: read `claude/<name>.md` as `doc
 | `gamer-review.md` | The gamer reviews | **Missing** |
 | `content-roadmap.md` | What content comes first, by wave | Copied 2026-10-11 |
 | `spec-s1-water.md` | Spec pass S1: water, wetness, mud, Rain and the first terrain pieces, in numbers (draft rules in `s1-data/`) | Written here 2026-11-02 (not yet in the claude.ai project); decisions settled 2026-11-03 |
+| `spec-s2-armies.md` | Spec pass S2: armies, load, launches, herds, Lightning, Rot, Wind shift and the first six specialists, in numbers (draft rules in `s2-data/`) | Written here 2026-11-07 (not yet in the claude.ai project); decisions settled 2026-11-07 |
 
-Later spec passes add `roster.md` (S2), `launch-powers.md` (S3), `attacker-behaviour.md` (S4) and `economy.md` (S5); see the implementation plan, section 9.
+Later spec passes add `launch-powers.md` (S3), `attacker-behaviour.md` (S4) and `economy.md` (S5); see the implementation plan, section 9.
 
 When a file arrives, change its row to "Copied YYYY-MM-DD". Pasting from the project can escape Markdown (`\#`, `\*`), leave `&#x20;` lines and put blank lines between table rows; undo those so the copy matches the original.

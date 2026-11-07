@@ -11,7 +11,7 @@ public class WaterTests
     private const int Cell = 1_500;
 
     /// <summary>A map from a height function, with optional water JSON (sources and sinks) and no zones.</summary>
-    private static MapData Map(
+    internal static MapData Map(
         Func<int, int, int> heightMm,
         int columns,
         int rows,
@@ -40,7 +40,7 @@ public class WaterTests
         return MapData.Load(json, bytes);
     }
 
-    private static Simulation Run(MapData map, IParallelRunner? runner = null)
+    internal static Simulation Run(MapData map, IParallelRunner? runner = null)
     {
         var rules = RepoData.Rules();
         var terrain = new Terrain(map);
@@ -54,7 +54,7 @@ public class WaterTests
         return new Simulation(world, 1, runner ?? new SerialRunner(), systems);
     }
 
-    private static FieldGrid Water(Simulation s) => s.World.Fields!.Get(WaterModel.Depth);
+    internal static FieldGrid Water(Simulation s) => s.World.Fields!.Get(WaterModel.Depth);
 
     private static long Volume(Simulation s) => Water(s).Values.Sum(v => (long)v);
 
@@ -212,8 +212,13 @@ public class WaterTests
             )
         );
     }
+}
 
-    [Test, Category("Slow")]
+/// <summary>Water over fifteen simulated minutes: runs with the slow tests.</summary>
+[TestFixture, Category("Slow")]
+public class WaterSlowTests
+{
+    [Test]
     public void ASourceTile_StaysAwakeEvenWhenItsRiverIsInExactBalance()
     {
         // A trickle (20 L/s) settles into a balance where the source cell's depth stops changing to the µm; its
@@ -221,9 +226,9 @@ public class WaterTests
         string waterJson =
             "{\"sources\":[{\"minXMm\":15000,\"minYMm\":118500,\"maxXMm\":28500,\"maxYMm\":120000,\"litresPerSecond\":20}],"
             + "\"sinks\":[{\"minXMm\":15000,\"minYMm\":0,\"maxXMm\":28500,\"maxYMm\":1500}]}";
-        var map = Map((x, y) => (x >= 10 && x < 19 ? -1_500 : 0) + y * 15 / 10, 30, 80, waterJson);
-        var simulation = Run(map);
-        var water = Water(simulation);
+        var map = WaterTests.Map((x, y) => (x >= 10 && x < 19 ? -1_500 : 0) + y * 15 / 10, 30, 80, waterJson);
+        var simulation = WaterTests.Run(map);
+        var water = WaterTests.Water(simulation);
         int sourceTile = water.TileOf(14, 79);
 
         simulation.Step(900 * SimConstants.TicksPerSecond);

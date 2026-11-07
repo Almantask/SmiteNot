@@ -22,8 +22,9 @@ public class DeterminismScenarios
         );
         var battle = new Battle(rules, map, plan, seed: 2026);
 
-        ulong[] first = battle.PerSecondHashes(60, new SerialRunner());
-        ulong[] second = battle.PerSecondHashes(60, new ThreadedRunner(3));
+        // 20 s runs every system on 10,000 soldiers; the goldens cover the full three minutes.
+        ulong[] first = battle.PerSecondHashes(20, new SerialRunner());
+        ulong[] second = battle.PerSecondHashes(20, new ThreadedRunner(3));
 
         Assert.That(second, Is.EqualTo(first));
     }

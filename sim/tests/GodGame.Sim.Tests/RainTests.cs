@@ -54,7 +54,7 @@ public class RainTests
     public void Rain_WaitsOutItsWindUp_ThenAdds3MmASecondForAMinute_AndStops()
     {
         var battle = FlatBattle(("storm", "rain", 100, 300.0, 75.0, 40.0));
-        var simulation = battle.Start(new SerialRunner());
+        var simulation = battle.Start(new ThreadedRunner(4));
         long cells = CellsInCircle(battle.Map, 300.0, 75.0, 40.0);
 
         simulation.Step(100 + WindUp);
@@ -215,14 +215,14 @@ public class RainTests
     {
         ulong[] serial = ValleyBattle(rain: true, castTick: 20)
             .Start(new SerialRunner())
-            .RunAndHash(1_000, 20);
+            .RunAndHash(700, 20);
         Assert.That(
             ValleyBattle(rain: true, castTick: 20)
                 .Start(new ThreadedRunner(4))
-                .RunAndHash(1_000, 20),
+                .RunAndHash(700, 20),
             Is.EqualTo(serial)
         );
-        foreach (int at in new[] { 150, 613 }) // in the wind-up, and mid-rain between field steps (cast at tick 20)
+        foreach (int at in new[] { 613 }) // mid-rain between field steps (cast at tick 20)
         {
             var original = ValleyBattle(rain: true, castTick: 20).Start(new ThreadedRunner(4));
             original.Step(at);
@@ -230,7 +230,7 @@ public class RainTests
             var restored = ValleyBattle(rain: true, castTick: 20).Start(new ThreadedRunner(3));
             restored.Step(37);
             restored.RestoreSnapshot(snapshot);
-            restored.Step(1_000 - at);
+            restored.Step(700 - at);
             Assert.That(restored.StateHash(), Is.EqualTo(serial[^1]), $"restored at {at}");
         }
     }

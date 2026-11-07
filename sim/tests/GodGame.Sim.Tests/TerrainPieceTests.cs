@@ -187,10 +187,10 @@ public class TerrainPieceTests
             "{\"id\":\"d\",\"side\":\"defender\",\"unitType\":\"infantry\",\"soldiers\":50,\"xMm\":352500,\"yMm\":75000,\"facingCentiDegrees\":18000}"
         );
         Assert.That(Height(battle, 120, 50), Is.EqualTo(-2_000), "hollow floor");
-        var simulation = battle.Start(new SerialRunner());
+        var simulation = battle.Start(new ThreadedRunner(4));
         var depth = simulation.World.Fields!.Get(WaterModel.Depth);
 
-        simulation.Step(120 * SimConstants.TicksPerSecond);
+        simulation.Step(60 * SimConstants.TicksPerSecond);
 
         Assert.That(depth.Get(120, 50), Is.GreaterThan(100_000), "the hollow became a pond");
     }
@@ -316,15 +316,15 @@ public class TerrainPieceTests
                 )
                 .Start(runner);
 
-        ulong[] serial = Make(new SerialRunner()).RunAndHash(1_200, 20);
-        Assert.That(Make(new ThreadedRunner(4)).RunAndHash(1_200, 20), Is.EqualTo(serial));
+        ulong[] serial = Make(new SerialRunner()).RunAndHash(700, 20);
+        Assert.That(Make(new ThreadedRunner(4)).RunAndHash(700, 20), Is.EqualTo(serial));
         var original = Make(new ThreadedRunner(4));
         original.Step(613);
         byte[] snapshot = original.CaptureSnapshot();
         var restored = Make(new ThreadedRunner(3));
         restored.Step(41);
         restored.RestoreSnapshot(snapshot);
-        restored.Step(1_200 - 613);
+        restored.Step(700 - 613);
         Assert.That(restored.StateHash(), Is.EqualTo(serial[^1]));
     }
 

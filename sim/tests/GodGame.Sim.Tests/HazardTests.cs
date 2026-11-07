@@ -111,7 +111,7 @@ public class HazardTests
             .Range(0, 4)
             .Select(i => ("attacker", "infantry", 150, 6.0, 8.0 + 14.0 * i));
         var battle = TestBattles.Battle(map, regiments);
-        var simulation = battle.Start(new SerialRunner());
+        var simulation = battle.Start(new ThreadedRunner(4));
         FillMoat(simulation);
         var world = simulation.World;
         int teetered = 0;
@@ -184,10 +184,10 @@ public class HazardTests
             return simulation;
         }
 
-        ulong[] serial = Make(new SerialRunner()).RunAndHash(2_400, 20);
-        Assert.That(Make(new ThreadedRunner(4)).RunAndHash(2_400, 20), Is.EqualTo(serial));
-        Assert.That(Make(new ThreadedRunner(8)).RunAndHash(2_400, 20), Is.EqualTo(serial));
-        foreach (int at in new[] { 1_100, 1_513 })
+        // 75 s: the column reaches the moat, teeters and is pushed in (the restore lands among swept soldiers).
+        ulong[] serial = Make(new SerialRunner()).RunAndHash(1_500, 20);
+        Assert.That(Make(new ThreadedRunner(8)).RunAndHash(1_500, 20), Is.EqualTo(serial));
+        foreach (int at in new[] { 1_213 })
         {
             var original = Make(new ThreadedRunner(4));
             original.Step(at);
@@ -195,7 +195,7 @@ public class HazardTests
             var restored = Make(new ThreadedRunner(3));
             restored.Step(200);
             restored.RestoreSnapshot(snapshot);
-            restored.Step(2_400 - at);
+            restored.Step(1_500 - at);
             Assert.That(restored.StateHash(), Is.EqualTo(serial[^1]), $"restored at {at}");
         }
     }

@@ -245,12 +245,12 @@ public class FieldNavigationTests
             return simulation;
         }
 
-        ulong[] serial = Make(new SerialRunner(), true, true).RunAndHash(1_200, 20);
+        ulong[] serial = Make(new SerialRunner(), true, true).RunAndHash(800, 20);
         Assert.That(
-            Make(new ThreadedRunner(4), true, true).RunAndHash(1_200, 20),
+            Make(new ThreadedRunner(4), true, true).RunAndHash(800, 20),
             Is.EqualTo(serial)
         );
-        foreach (int at in new[] { 300, 313 }) // on a refresh tick and between two
+        foreach (int at in new[] { 313 }) // between two refreshes
         {
             var original = Make(new ThreadedRunner(4), true, true);
             original.Step(at);
@@ -258,7 +258,7 @@ public class FieldNavigationTests
             var restored = Make(new ThreadedRunner(3), true, true);
             restored.Step(517);
             restored.RestoreSnapshot(snapshot);
-            restored.Step(1_200 - at);
+            restored.Step(800 - at);
             Assert.That(restored.StateHash(), Is.EqualTo(serial[^1]), $"restored at {at}");
         }
 

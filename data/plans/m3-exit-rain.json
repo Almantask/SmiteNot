@@ -1,0 +1,90 @@
+{
+  "$comment": "M3 exit (tools/maps/make_m3_exit.py): the same march, and an 80 m storm on the river 300 m upstream of the ford at 0:50.",
+  "version": 0,
+  "map": "m3-exit",
+  "army": [
+    {
+      "id": "a000",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 100000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a001",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 120000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a002",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 140000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a003",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 160000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a004",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 180000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a005",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 200000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d000",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 465000,
+      "yMm": 130000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d001",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 465000,
+      "yMm": 170000,
+      "facingCentiDegrees": 18000
+    }
+  ],
+  "terrain": [],
+  "casts": [
+    {
+      "id": "storm",
+      "power": "rain",
+      "tick": 1000,
+      "xMm": 240000,
+      "yMm": 450000,
+      "radiusMm": 80000
+    }
+  ]
+}

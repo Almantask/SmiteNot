@@ -1,0 +1,43 @@
+{
+  "$comment": "M3 exit-criteria map (spec S1, section 13; written by tools/maps/make_m3_exit.py): a 480 x 600 m valley falling 10 permille to an 18 m river (1.2 m banks, 0.5 permille fall), 10 m3/s in at the north edge and out at the south; a 30 m ford at y = 140 to 160 m over a bed 0.6 m below the banks.",
+  "version": 0,
+  "id": "m3-exit",
+  "widthMm": 480000,
+  "depthMm": 600000,
+  "cellSizeMm": 1500,
+  "deployment": [
+    {
+      "side": "attacker",
+      "minXMm": 0,
+      "minYMm": 0,
+      "maxXMm": 30000,
+      "maxYMm": 600000
+    },
+    {
+      "side": "defender",
+      "minXMm": 450000,
+      "minYMm": 0,
+      "maxXMm": 480000,
+      "maxYMm": 600000
+    }
+  ],
+  "water": {
+    "sources": [
+      {
+        "minXMm": 225000,
+        "minYMm": 598500,
+        "maxXMm": 255000,
+        "maxYMm": 600000,
+        "litresPerSecond": 10000
+      }
+    ],
+    "sinks": [
+      {
+        "minXMm": 225000,
+        "minYMm": 0,
+        "maxXMm": 255000,
+        "maxYMm": 1500
+      }
+    ]
+  }
+}

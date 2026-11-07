@@ -1,0 +1,65 @@
+{
+  "$comment": "Terrain pieces (ruleset v0; spec S1, section 9: docs/design/spec-s1-water.md, settled 2026-11-03). Integers only: mm, permille, L/s. Settled: every piece's whole footprint stays bufferFromDeploymentMm (100 m) from both deployment zones (brief 2026-10-08), and no placement may fully trap an army or push its route past twice the straight line (brief 2026-10-09: the reachability check). Pieces edit the heightfield before tick 0: channels and hollows lower it (relative to the original ground, by min), then ridges raise it (by max), then boulders stand boulderHeightMm over the highest ground under them, closed to every class; springs flow from tick 0 to the end. Sizes and limits are S1 proposals and prices wait for S5, so the file is marked placeholder.",
+  "version": 0,
+  "status": "placeholder",
+  "bufferFromDeploymentMm": 100000,
+  "pieces": [
+    {
+      "$comment": "Palette: routes a river toward or away from a ford; floods later with rain (staple 5, the moat opening). Bottom cells at -depth, sideCells on each edge at sideDepthPermille of it: 2 m deep gives 667 permille steps, so foot and horse cross it dry and wheeled only up to 750 mm (D8); a swept soldier climbs out at the sides (D10). Spoil vanishes. Allowed in water.",
+      "id": "channel",
+      "kind": "channel",
+      "minPoints": 2,
+      "maxPoints": 8,
+      "minLengthMm": 15000,
+      "maxLengthMm": 150000,
+      "minWidthMm": 3000,
+      "maxWidthMm": 6000,
+      "minDepthMm": 500,
+      "maxDepthMm": 2000,
+      "sideCells": 1,
+      "sideDepthPermille": 500
+    },
+    {
+      "$comment": "Palette: high ground for archers. Under the 4 m cliff drop, so never lethal itself. 400 permille sides: foot and horse climb it, wheeled goes around (D8). S1 refuses ridges in tick-0 water (D5); maps start dry until settled tick-0 water exists, so the check waits for it.",
+      "id": "ridge",
+      "kind": "ridge",
+      "minPoints": 2,
+      "maxPoints": 8,
+      "minLengthMm": 10000,
+      "maxLengthMm": 120000,
+      "minHeightMm": 1000,
+      "maxHeightMm": 3000,
+      "topWidthMm": 3000,
+      "sideSlopePermille": 400
+    },
+    {
+      "$comment": "The ridge's negative (D6), applied by min: a hollow that collects floodwater. Dry ground only.",
+      "id": "hollow",
+      "kind": "hollow",
+      "minPoints": 2,
+      "maxPoints": 8,
+      "minLengthMm": 10000,
+      "maxLengthMm": 120000,
+      "minDepthMm": 1000,
+      "maxDepthMm": 3000,
+      "topWidthMm": 3000,
+      "sideSlopePermille": 400
+    },
+    {
+      "$comment": "Palette: open a spring on a hillside to flood a valley floor gradually. A sourceBlockCells-square source centred on its point, flowing all battle; its water is battle-made, so it skips the no-trap check (D4), and maxDischargeLPerS caps it. Not on a boulder.",
+      "id": "spring",
+      "kind": "spring",
+      "sourceBlockCells": 3,
+      "minDischargeLPerS": 500,
+      "maxDischargeLPerS": 3000,
+      "defaultDischargeLPerS": 1500
+    },
+    {
+      "$comment": "Palette: hard blockers that funnel the column; fire can't clear them; in a stream they dam it. One per placement, a grid-aligned square whose south-west cell holds the point, closed to every class (brief 2026-10-09) and solid to water below its top. Not on another boulder. Static until the tremor (M6).",
+      "id": "boulder",
+      "kind": "boulder",
+      "sizeMm": 3000,
+      "boulderHeightMm": 2000
+    }
+  ]
+}

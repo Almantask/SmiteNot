@@ -331,6 +331,10 @@ namespace GodGame.Sim.Rules
         /// <summary>The god powers, in file order; <see cref="PowerRules.Index"/> is the position here.</summary>
         public IReadOnlyList<PowerRules> Powers { get; internal set; } = Array.Empty<PowerRules>();
 
+        /// <summary>Terrain pieces (<c>terrain.json</c>).</summary>
+        public TerrainRules Terrain { get; internal set; } =
+            new TerrainRules(0, Array.Empty<PieceRules>());
+
         /// <summary>The latest tick a cast may be queued for (the battle cap; plan section 10: 15 minutes).</summary>
         public int LatestCastTick { get; internal set; }
 

@@ -61,7 +61,7 @@ namespace GodGame.Bridge
         {
             Battle = battle ?? throw new ArgumentNullException(nameof(battle));
             _simulation = battle.Start(new SerialRunner());
-            _terrain = new Terrain(battle.Map);
+            _terrain = new Terrain(battle.PlayedMap);
             int capacity = _simulation.World.Units.Capacity;
             _previous = new UnitSnapshot(capacity);
             _current = new UnitSnapshot(capacity);
@@ -82,7 +82,7 @@ namespace GodGame.Bridge
 
         public Ruleset Rules => Battle.Rules;
 
-        public MapData Map => Battle.Map;
+        public MapData Map => Battle.PlayedMap;
 
         /// <summary>Each regiment's side, copied at the start (sides never change in a battle).</summary>
         public Side[] RegimentSides { get; }

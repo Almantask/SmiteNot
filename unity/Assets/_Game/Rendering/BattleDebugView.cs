@@ -145,7 +145,7 @@ namespace GodGame.Rendering
             _fields = new FieldUpload(map.Columns, map.Rows);
 
             BuildNavigationViews(battle);
-            BuildGround(map);
+            BuildGround(battle.PlayedMap);
             BuildHud();
             if (_camera != null)
             {
@@ -197,7 +197,7 @@ namespace GodGame.Rendering
         private void BuildNavigationViews(Battle battle)
         {
             // A navigation of its own for the overlays (derived data; the battle's lives on the worker thread).
-            _navigation = new Navigation(battle.Map, battle.Rules, new SerialRunner());
+            _navigation = new Navigation(battle.PlayedMap, battle.Rules, new SerialRunner());
             var deployed = battle.Start(new SerialRunner()).World;
             var routes = RoutePreview.AttackerRoutes(_navigation, deployed);
             for (int r = 0; r < routes.Length && _attackerFlow == null; r++)
@@ -215,7 +215,7 @@ namespace GodGame.Rendering
             {
                 var check = new Reachability(
                     _navigation.Costs,
-                    battle.Map,
+                    battle.PlayedMap,
                     battle.Rules.Routes
                 ).Check(new SerialRunner());
                 for (int i = 0; i < check.Checks.Count; i++)

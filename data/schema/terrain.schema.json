@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Terrain pieces, ruleset v0",
+  "description": "Read by GodGame.Sim.Rules.RulesetLoader. Integers only; each kind reads its own keys and rejects the rest.",
+  "type": "object",
+  "required": [
+    "version",
+    "bufferFromDeploymentMm",
+    "pieces"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "version": {
+      "const": 0
+    },
+    "status": {
+      "enum": [
+        "placeholder",
+        "settled"
+      ]
+    },
+    "bufferFromDeploymentMm": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "pieces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "$comment": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]{1,64}$"
+          },
+          "kind": {
+            "enum": [
+              "channel",
+              "ridge",
+              "hollow",
+              "spring",
+              "boulder"
+            ]
+          },
+          "minPoints": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Polyline points, at least"
+          },
+          "maxPoints": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Polyline points, at most"
+          },
+          "minLengthMm": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total polyline length"
+          },
+          "maxLengthMm": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minWidthMm": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Channel bottom width"
+          },
+          "maxWidthMm": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minDepthMm": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Channel or hollow depth"
+          },
+          "maxDepthMm": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minHeightMm": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Ridge height"
+          },
+          "maxHeightMm": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "topWidthMm": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Ridge crest or hollow floor"
+          },
+          "sideSlopePermille": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Ridge and hollow sides"
+          },
+          "sideCells": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Channel side cells per edge"
+          },
+          "sideDepthPermille": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Channel side depth, share of the depth"
+          },
+          "sourceBlockCells": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Spring source block side"
+          },
+          "minDischargeLPerS": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Spring discharge"
+          },
+          "maxDischargeLPerS": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "defaultDischargeLPerS": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sizeMm": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Boulder side"
+          },
+          "boulderHeightMm": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Boulder height over the highest ground under it"
+          }
+        }
+      }
+    }
+  }
+}

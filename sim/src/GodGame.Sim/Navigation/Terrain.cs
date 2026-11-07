@@ -12,6 +12,7 @@ namespace GodGame.Sim
     public sealed class Terrain
     {
         private readonly int[] _heightMm;
+        private readonly bool[]? _blocked;
 
         public Terrain(MapData map)
         {
@@ -23,6 +24,7 @@ namespace GodGame.Sim
             Rows = map.Rows;
             CellSizeMm = map.CellSizeMm;
             _heightMm = (int[])map.HeightMm.Clone();
+            _blocked = map.Blocked == null ? null : (bool[])map.Blocked.Clone();
         }
 
         /// <summary>Bumped by every <see cref="SetHeight"/>, so derived fields can tell they are out of date.</summary>
@@ -39,6 +41,9 @@ namespace GodGame.Sim
         public int Index(int x, int y) => y * Columns + x;
 
         public bool InBounds(int x, int y) => x >= 0 && y >= 0 && x < Columns && y < Rows;
+
+        /// <summary>Closed to every class whatever its slope (a boulder).</summary>
+        public bool IsBlocked(int index) => _blocked != null && _blocked[index];
 
         public int HeightMm(int x, int y) => _heightMm[Index(Clamp(x, Columns), Clamp(y, Rows))];
 

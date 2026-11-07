@@ -27,6 +27,10 @@ namespace GodGame.Sim.Rules
 
         public const string PowersFile = "powers.json";
 
+        public const string TerrainFile = "terrain.json";
+
+        public const int TerrainVersion = 0;
+
         public const int PowersVersion = 0;
 
         /// <summary>Ticks per field step (the simulation's 5 Hz fields): power timings are whole field steps.</summary>
@@ -77,6 +81,7 @@ namespace GodGame.Sim.Rules
             JsonValue? routesJson = null;
             JsonValue? fieldsJson = null;
             JsonValue? powersJson = null;
+            JsonValue? terrainJson = null;
             foreach (var file in files)
             {
                 var value = JsonReader.Parse(file.Value, file.Key);
@@ -104,6 +109,10 @@ namespace GodGame.Sim.Rules
                 else if (string.Equals(file.Key, PowersFile, StringComparison.Ordinal))
                 {
                     powersJson = value;
+                }
+                else if (string.Equals(file.Key, TerrainFile, StringComparison.Ordinal))
+                {
+                    terrainJson = value;
                 }
                 else
                 {
@@ -136,6 +145,10 @@ namespace GodGame.Sim.Rules
             {
                 throw new DataFormatException(PowersFile + " is missing.");
             }
+            if (terrainJson == null)
+            {
+                throw new DataFormatException(TerrainFile + " is missing.");
+            }
 
             bool placeholders = false;
             var unitTypes = ReadUnitTypes(unitTypesJson, ref placeholders);
@@ -144,6 +157,7 @@ namespace GodGame.Sim.Rules
             var routes = ReadRoutes(routesJson, ref placeholders);
             var fields = ReadFields(fieldsJson, ref placeholders);
             var powers = ReadPowers(powersJson, fields, ref placeholders, out int latestCastTick);
+            var terrain = ReadTerrain(terrainJson, hazards, ref placeholders);
             return new Ruleset(
                 unitTypes,
                 movement,
@@ -157,6 +171,7 @@ namespace GodGame.Sim.Rules
                 FieldCostRefreshTicks = refresh,
                 Powers = powers,
                 LatestCastTick = latestCastTick,
+                Terrain = terrain,
             };
         }
 
@@ -649,6 +664,145 @@ namespace GodGame.Sim.Rules
                 );
             }
             return list.ToArray();
+        }
+
+        private static TerrainRules ReadTerrain(
+            JsonValue root,
+            HazardRules hazards,
+            ref bool placeholders
+        )
+        {
+            root.OnlyKeys("$comment", "version", "status", "bufferFromDeploymentMm", "pieces");
+            if (root.Int("version") != TerrainVersion)
+            {
+                throw new DataFormatException(root.Path + ": version must be 0.");
+            }
+            placeholders |= ReadStatus(root);
+            int buffer = root.Int("bufferFromDeploymentMm", 0, 1_000_000);
+            var list = new List<PieceRules>();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var item in root.Array("pieces"))
+            {
+                string id = DataIds.Require(item["id"]);
+                if (!ids.Add(id))
+                {
+                    throw new DataFormatException(item.Path + ": the piece is listed twice.");
+                }
+                string kindName = item.Str("kind");
+                PieceRules piece;
+                switch (kindName)
+                {
+                    case "channel":
+                        item.OnlyKeys(
+                            "$comment",
+                            "id",
+                            "kind",
+                            "minPoints",
+                            "maxPoints",
+                            "minLengthMm",
+                            "maxLengthMm",
+                            "minWidthMm",
+                            "maxWidthMm",
+                            "minDepthMm",
+                            "maxDepthMm",
+                            "sideCells",
+                            "sideDepthPermille"
+                        );
+                        piece = Polyline(item, id, PieceKind.Channel);
+                        piece.MinWidthMm = item.Int("minWidthMm", 1, 100_000);
+                        piece.MaxWidthMm = item.Int("maxWidthMm", piece.MinWidthMm, 100_000);
+                        // Never a cliff: a lethal drop needs the ruleset's lethal height.
+                        piece.MinDepthMm = item.Int("minDepthMm", 1, hazards.LethalDropMm - 1);
+                        piece.MaxDepthMm = item.Int(
+                            "maxDepthMm",
+                            piece.MinDepthMm,
+                            hazards.LethalDropMm - 1
+                        );
+                        piece.SideCells = item.Int("sideCells", 0, 16);
+                        piece.SideDepthPermille = item.Int("sideDepthPermille", 0, 1_000);
+                        break;
+                    case "ridge":
+                    case "hollow":
+                        bool ridge = kindName == "ridge";
+                        string size = ridge ? "Height" : "Depth";
+                        item.OnlyKeys(
+                            "$comment",
+                            "id",
+                            "kind",
+                            "minPoints",
+                            "maxPoints",
+                            "minLengthMm",
+                            "maxLengthMm",
+                            "min" + size + "Mm",
+                            "max" + size + "Mm",
+                            "topWidthMm",
+                            "sideSlopePermille"
+                        );
+                        piece = Polyline(item, id, ridge ? PieceKind.Ridge : PieceKind.Hollow);
+                        // Never a cliff: a lethal drop needs the ruleset's lethal height.
+                        int min = item.Int("min" + size + "Mm", 1, hazards.LethalDropMm - 1);
+                        int max = item.Int("max" + size + "Mm", min, hazards.LethalDropMm - 1);
+                        if (ridge)
+                        {
+                            piece.MinHeightMm = min;
+                            piece.MaxHeightMm = max;
+                        }
+                        else
+                        {
+                            piece.MinDepthMm = min;
+                            piece.MaxDepthMm = max;
+                        }
+                        piece.TopWidthMm = item.Int("topWidthMm", 0, 100_000);
+                        piece.SideSlopePermille = item.Int("sideSlopePermille", 1, 100_000);
+                        break;
+                    case "spring":
+                        item.OnlyKeys(
+                            "$comment",
+                            "id",
+                            "kind",
+                            "sourceBlockCells",
+                            "minDischargeLPerS",
+                            "maxDischargeLPerS",
+                            "defaultDischargeLPerS"
+                        );
+                        piece = new PieceRules(id, PieceKind.Spring);
+                        piece.SourceBlockCells = item.Int("sourceBlockCells", 1, 64);
+                        piece.MinDischargeLPerS = item.Int("minDischargeLPerS", 1, 1_000_000);
+                        piece.MaxDischargeLPerS = item.Int(
+                            "maxDischargeLPerS",
+                            piece.MinDischargeLPerS,
+                            1_000_000
+                        );
+                        piece.DefaultDischargeLPerS = item.Int(
+                            "defaultDischargeLPerS",
+                            piece.MinDischargeLPerS,
+                            piece.MaxDischargeLPerS
+                        );
+                        break;
+                    case "boulder":
+                        item.OnlyKeys("$comment", "id", "kind", "sizeMm", "boulderHeightMm");
+                        piece = new PieceRules(id, PieceKind.Boulder);
+                        piece.SizeMm = item.Int("sizeMm", 1, 100_000);
+                        piece.BoulderHeightMm = item.Int("boulderHeightMm", 1, hazards.LethalDropMm - 1);
+                        break;
+                    default:
+                        throw new DataFormatException(
+                            item.Path + ".kind: channel, ridge, hollow, spring or boulder."
+                        );
+                }
+                list.Add(piece);
+            }
+            return new TerrainRules(buffer, list.AsReadOnly());
+        }
+
+        private static PieceRules Polyline(JsonValue item, string id, PieceKind kind)
+        {
+            var piece = new PieceRules(id, kind);
+            piece.MinPoints = item.Int("minPoints", 2, 64);
+            piece.MaxPoints = item.Int("maxPoints", piece.MinPoints, 64);
+            piece.MinLengthMm = item.Int("minLengthMm", 1, 1_000_000);
+            piece.MaxLengthMm = item.Int("maxLengthMm", piece.MinLengthMm, 1_000_000);
+            return piece;
         }
 
         /// <summary>A timing in whole field steps, so the number of writes never depends on the cast tick's phase.</summary>

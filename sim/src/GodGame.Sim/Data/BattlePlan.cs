@@ -79,11 +79,11 @@ namespace GodGame.Sim
     }
 
     /// <summary>
-    /// Plan format v0 (plan, section 3.8): the three layers (army, terrain, casts) with stable ids. v0 reads the army
-    /// and casts layers; terrain pieces (M3 item 8) must be an empty list until then. Regiments and casts are kept in
-    /// ordinal id order, whatever order the file lists them in, so nothing depends on file order. A cast that can't be
-    /// placed (an unknown power, a radius out of bounds, a circle not wholly on the map, a tick before 0 or after the
-    /// battle cap) is refused here, while planning: it is never a fizzle (S1, section 8).
+    /// Plan format v0 (plan, section 3.8): the three layers (army, terrain, casts) with stable ids, each kept in ordinal
+    /// id order whatever order the file lists them in, so nothing depends on file order. A cast that can't be placed (an
+    /// unknown power, a radius out of bounds, a circle not wholly on the map, a tick before 0 or after the battle cap)
+    /// and a terrain piece that breaks the placement rules (<see cref="TerrainPlacement"/>) are refused here, while
+    /// planning: neither is ever a fizzle (S1, sections 8 and 9).
     /// </summary>
     public sealed class BattlePlan
     {
@@ -95,6 +95,7 @@ namespace GodGame.Sim
         private BattlePlan(
             string mapId,
             PlannedRegiment[] army,
+            PlannedPiece[] terrain,
             PlannedCast[] casts,
             ulong hash,
             string canonicalJson
@@ -104,6 +105,7 @@ namespace GodGame.Sim
             MapId = mapId;
             Army = army;
             Casts = casts;
+            Terrain = terrain;
             Hash = hash;
         }
 
@@ -115,6 +117,9 @@ namespace GodGame.Sim
         /// <summary>In ordinal id order.</summary>
         public IReadOnlyList<PlannedRegiment> Army { get; }
 
+        /// <summary>The terrain layer, in ordinal id order; stamped onto the map before tick 0 (<see cref="Battle.PlayedMap"/>).</summary>
+        public IReadOnlyList<PlannedPiece> Terrain { get; }
+
         /// <summary>In ordinal id order; <see cref="World.Casts"/> keeps their state in the same order.</summary>
         public IReadOnlyList<PlannedCast> Casts { get; }
 
@@ -123,6 +128,13 @@ namespace GodGame.Sim
 
         public static BattlePlan Load(string planJson, MapData map, Ruleset rules)
         {
+            if (map.IsPlayed)
+            {
+                throw new ArgumentException(
+                    "A played map already carries a plan's pieces; pass the map as loaded.",
+                    nameof(map)
+                );
+            }
             var root = JsonReader.Parse(planJson, "plan.json");
             root.OnlyKeys("$comment", "version", "map", "army", "terrain", "casts");
             if (root.Int("version") != FormatVersion)
@@ -136,12 +148,7 @@ namespace GodGame.Sim
                     "plan.json: made for map \"" + mapId + "\", not \"" + map.Id + "\"."
                 );
             }
-            if (root.Array("terrain").Count != 0)
-            {
-                throw new DataFormatException(
-                    "plan.json: terrain pieces arrive in M3; plan v0 needs an empty list."
-                );
-            }
+            var terrain = TerrainPlacement.Read(root["terrain"], map, rules);
             var casts = ReadCasts(root, map, rules);
 
             var army = new List<PlannedRegiment>();
@@ -232,7 +239,18 @@ namespace GodGame.Sim
             }
             text.Append(']');
             text.Append(",\"map\":").Append(JsonCanonical.ToText(root["map"]));
-            text.Append(",\"terrain\":").Append(JsonCanonical.ToText(root["terrain"]));
+            var sortedPieces = new List<KeyValuePair<string, JsonValue>>();
+            foreach (var item in root.Array("terrain"))
+            {
+                sortedPieces.Add(new KeyValuePair<string, JsonValue>(item.Str("id"), item));
+            }
+            sortedPieces.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
+            text.Append(",\"terrain\":[");
+            for (int i = 0; i < sortedPieces.Count; i++)
+            {
+                text.Append(i == 0 ? "" : ",").Append(JsonCanonical.ToText(sortedPieces[i].Value));
+            }
+            text.Append(']');
             text.Append(",\"version\":").Append(JsonCanonical.ToText(root["version"])).Append('}');
             string canonical = text.ToString();
             byte[] bytes = System.Text.Encoding.ASCII.GetBytes(canonical);
@@ -240,7 +258,7 @@ namespace GodGame.Sim
             var hash = new SimHash();
             hash.AppendInt32(bytes.Length);
             hash.Append(bytes);
-            return new BattlePlan(mapId, army.ToArray(), casts, hash.Digest(), canonical);
+            return new BattlePlan(mapId, army.ToArray(), terrain, casts, hash.Digest(), canonical);
         }
 
         private static PlannedCast[] ReadCasts(JsonValue root, MapData map, Ruleset rules)

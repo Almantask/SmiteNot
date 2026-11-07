@@ -15,17 +15,31 @@ namespace GodGame.Sim
         {
             Rules = rules ?? throw new ArgumentNullException(nameof(rules));
             Map = map ?? throw new ArgumentNullException(nameof(map));
+            if (map.IsPlayed)
+            {
+                throw new ArgumentException(
+                    "A played map already carries a plan's pieces; pass the map as loaded.",
+                    nameof(map)
+                );
+            }
             Plan = plan ?? throw new ArgumentNullException(nameof(plan));
             Seed = seed;
             if (!string.Equals(plan.MapId, map.Id, StringComparison.Ordinal))
             {
                 throw new ArgumentException("The plan was made for another map.", nameof(plan));
             }
+            PlayedMap = TerrainPieces.Apply(map, plan.Terrain);
         }
 
         public Ruleset Rules { get; }
 
         public MapData Map { get; }
+
+        /// <summary>
+        /// The map as the battle plays it: <see cref="Map"/> with the plan's terrain pieces stamped in before tick 0
+        /// (the same object when there are none). Navigation, the fields and presentation all read this one.
+        /// </summary>
+        public MapData PlayedMap { get; }
 
         public BattlePlan Plan { get; }
 
@@ -52,7 +66,7 @@ namespace GodGame.Sim
         /// </summary>
         public ISimSystem[] CreateSystems(IParallelRunner runner)
         {
-            var navigation = new Navigation(Map, Rules, runner);
+            var navigation = new Navigation(PlayedMap, Rules, runner);
             var systems = TickOrder.CreateDefault();
             systems[(int)TickStep.PlanEvents] = new CastSystem(Plan, navigation);
             // The fields at 5 Hz, in the interaction order (plan, section 3.4): water, then wetness and mud.
@@ -62,7 +76,7 @@ namespace GodGame.Sim
                 models.Add(
                     new WaterModel(
                         navigation.Terrain,
-                        Map,
+                        PlayedMap,
                         Rules.Fields.Water,
                         TickOrder.FieldsRate
                     )
@@ -70,7 +84,9 @@ namespace GodGame.Sim
             }
             if (Rules.Fields.Ground != null)
             {
-                models.Add(new GroundModel(navigation.Terrain, Map, Rules, TickOrder.FieldsRate));
+                models.Add(
+                    new GroundModel(navigation.Terrain, PlayedMap, Rules, TickOrder.FieldsRate)
+                );
             }
             systems[(int)TickStep.Fields] = new FieldSystem(models);
             systems[(int)TickStep.Navigation] = new NavigationSystem(navigation);
@@ -82,7 +98,7 @@ namespace GodGame.Sim
         /// <summary>A fresh simulation at tick 0. Each call builds new systems: they belong to one simulation.</summary>
         public Simulation Start(IParallelRunner runner) =>
             new Simulation(
-                BattleSetup.Deploy(Map, Plan, Rules),
+                BattleSetup.Deploy(PlayedMap, Plan, Rules),
                 Seed,
                 runner,
                 CreateSystems(runner),

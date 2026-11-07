@@ -192,6 +192,14 @@ namespace GodGame.Sim
                         int slope = _terrain.SlopePermille(x, y);
                         int i = _terrain.Index(x, y);
                         int codes = _codes == null ? FieldSpeed.AllDry : _codes[i];
+                        if (_terrain.IsBlocked(i))
+                        {
+                            for (int c = 0; c < _classes.Length; c++)
+                            {
+                                _costs[c][i] = Impassable;
+                            }
+                            continue;
+                        }
                         for (int c = 0; c < _classes.Length; c++)
                         {
                             _costs[c][i] = CellCost(

@@ -160,6 +160,46 @@ namespace GodGame.Sim
         /// <summary>Over the canonical map.json and the height layer: what replays record as the map hash.</summary>
         public ulong Hash { get; }
 
+        /// <summary>
+        /// Cells closed to every class whatever their slope (boulders, from the plan's terrain pieces), or null. Never in
+        /// a map file: <see cref="WithTerrain"/> sets it.
+        /// </summary>
+        public bool[]? Blocked { get; private set; }
+
+        /// <summary>
+        /// True for a map made by <see cref="WithTerrain"/>: it already carries a plan's pieces, so it must never be fed
+        /// back into a battle or a plan, which would stamp the pieces twice under the same id and hash.
+        /// </summary>
+        public bool IsPlayed { get; private set; }
+
+        /// <summary>
+        /// The same map with the plan's terrain pieces stamped in (<see cref="TerrainPieces"/>): other heights, closed
+        /// cells and extra water sources. The id and hash stay the base map's: the plan's hash covers the pieces.
+        /// </summary>
+        internal MapData WithTerrain(int[] heightMm, bool[] blocked, WaterSource[] sources)
+        {
+            if (heightMm.Length != HeightMm.Length || blocked.Length != HeightMm.Length)
+            {
+                throw new ArgumentException("One height and one closed flag per cell.");
+            }
+            return new MapData(
+                Id,
+                WidthMm,
+                DepthMm,
+                CellSizeMm,
+                heightMm,
+                (DeploymentZone[])DeploymentZones,
+                sources,
+                (RectMm[])WaterSinks,
+                (SoilArea[])SoilAreas,
+                Hash
+            )
+            {
+                Blocked = blocked,
+                IsPlayed = true,
+            };
+        }
+
         public DeploymentZone ZoneOf(Side side)
         {
             foreach (var zone in DeploymentZones)

@@ -121,6 +121,17 @@ namespace GodGame.Bridge
             return true;
         }
 
+        /// <summary>Uploads cells in the same layout (the planning view's scrubbed frame from the playback track).</summary>
+        public void Upload(uint[] cells)
+        {
+            if (cells == null || cells.Length != Columns * Rows * Stride)
+            {
+                throw new ArgumentException("Four uints per cell.", nameof(cells));
+            }
+            _buffer.SetData(cells);
+            _uploadedTick = -1;
+        }
+
         /// <summary>Points a material at the buffer.</summary>
         public void Bind(Material material)
         {

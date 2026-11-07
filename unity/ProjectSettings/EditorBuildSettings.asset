@@ -11,4 +11,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_Game/Scenes/BattleDebug.unity
     guid: a06c4129fde600347893fcf63c6ddd0e
+  - enabled: 1
+    path: Assets/_Game/Scenes/Planning.unity
+    guid: 86fa28b83ccc6274e9f5ca6f1400f8d3
   m_configObjects: {}

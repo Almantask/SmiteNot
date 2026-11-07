@@ -128,7 +128,7 @@ namespace GodGame.Editor
                 BuildPlayer();
             });
 
-        private static void RunAndExit(Action action)
+        internal static void RunAndExit(Action action)
         {
             try
             {
@@ -142,7 +142,7 @@ namespace GodGame.Editor
             }
         }
 
-        private static PanelSettings PanelSettingsAsset()
+        internal static PanelSettings PanelSettingsAsset()
         {
             var settings = AssetDatabase.LoadAssetAtPath<PanelSettings>(PanelSettingsPath);
             if (settings != null)
@@ -157,7 +157,7 @@ namespace GodGame.Editor
             return settings;
         }
 
-        private static void AddToBuildSettings(string path)
+        internal static void AddToBuildSettings(string path)
         {
             var scenes = EditorBuildSettings.scenes;
             foreach (var entry in scenes)
@@ -173,7 +173,7 @@ namespace GodGame.Editor
             EditorBuildSettings.scenes = updated;
         }
 
-        private static void EnsureFolder(string path)
+        internal static void EnsureFolder(string path)
         {
             if (AssetDatabase.IsValidFolder(path))
             {

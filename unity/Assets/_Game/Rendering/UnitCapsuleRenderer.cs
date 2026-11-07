@@ -32,6 +32,26 @@ namespace GodGame.Rendering
         private readonly Bounds _bounds;
 
         public UnitCapsuleRenderer(Shader shader, BattleHost host)
+            : this(shader, CapacityOf(host), host.Rules, host.RegimentSides, host.Map, null) { }
+
+        private static int CapacityOf(BattleHost host)
+        {
+            host.Read(out _, out var current, out _);
+            return current.X.Length;
+        }
+
+        /// <summary>
+        /// A renderer for <paramref name="capacity"/> unit slots of a battle on <paramref name="map"/>. With a
+        /// <paramref name="tint"/>, every regiment is drawn in that colour (the planning view's ghost of the previous plan).
+        /// </summary>
+        public UnitCapsuleRenderer(
+            Shader shader,
+            int capacity,
+            GodGame.Sim.Rules.Ruleset rules,
+            Side[] sides,
+            MapData map,
+            Color? tint
+        )
         {
             if (shader == null)
             {
@@ -42,8 +62,6 @@ namespace GodGame.Rendering
             UnityEngine.Object.DestroyImmediate(primitive);
             _material = new Material(shader) { enableInstancing = true };
 
-            host.Read(out _, out var current, out _);
-            int capacity = current.X.Length;
             _unitData = new Vector4[capacity];
             _shapeData = new Vector4[capacity];
             _units = new GraphicsBuffer(
@@ -62,7 +80,6 @@ namespace GodGame.Rendering
                 GraphicsBuffer.IndirectDrawIndexedArgs.size
             );
 
-            var rules = host.Rules;
             _typeShapes = new Vector4[rules.UnitTypes.Count];
             for (int t = 0; t < _typeShapes.Length; t++)
             {
@@ -74,20 +91,18 @@ namespace GodGame.Rendering
                 );
             }
 
-            var sides = host.RegimentSides;
             var palette = new Vector4[Math.Max(1, sides.Length)];
             for (int r = 0; r < sides.Length; r++)
             {
                 // Golden-ratio steps through a narrow band of each side's hue, so neighbouring regiments differ.
                 float step = (r * 0.618034f) % 1f;
                 float hue = sides[r] == Side.Attacker ? 0.03f + 0.07f * step : 0.55f + 0.08f * step;
-                Color c = Color.HSVToRGB(hue, 0.75f, 0.55f + 0.4f * ((r * 0.381966f) % 1f));
+                Color c = tint ?? Color.HSVToRGB(hue, 0.75f, 0.55f + 0.4f * ((r * 0.381966f) % 1f));
                 palette[r] = new Vector4(c.r, c.g, c.b, 1);
             }
             _palette = new GraphicsBuffer(GraphicsBuffer.Target.Structured, palette.Length, 16);
             _palette.SetData(palette);
 
-            var map = host.Map;
             var size = new Vector3(map.WidthMm / 1000f, 200f, map.DepthMm / 1000f);
             _bounds = new Bounds(size * 0.5f, size + Vector3.one * 50f);
         }
@@ -106,6 +121,12 @@ namespace GodGame.Rendering
         public void Draw(BattleHost host)
         {
             host.Read(out var previous, out var current, out float alpha);
+            Draw(previous, current, alpha);
+        }
+
+        /// <summary>Draws every live soldier of <paramref name="current"/>, blended from <paramref name="previous"/> by <paramref name="alpha"/>.</summary>
+        public void Draw(BattleHost.UnitSnapshot previous, BattleHost.UnitSnapshot current, float alpha)
+        {
             int count = 0;
             for (int u = 0; u < current.Count; u++)
             {

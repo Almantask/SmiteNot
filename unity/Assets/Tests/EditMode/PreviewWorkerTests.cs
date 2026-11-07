@@ -56,10 +56,12 @@ namespace GodGame.Tests.EditMode
         public void OnItsThread_TheWorkerNeverBlocksTheCaller_FillsTheFirst30sFirst_AndKeepsTheNewestEdit()
         {
             using var worker = new PreviewWorker(River(false), new ThreadedRunner(4), new KeyframeStore(long.MaxValue));
+            var first = River(true, 1_200).Plan;
+            var second = River(true, 1_000).Plan; // loading plans is the caller's cost, not the post's
             worker.Start();
             var clock = Stopwatch.StartNew();
-            worker.Edit(River(true, 1_200).Plan);
-            worker.Edit(River(true, 1_000).Plan); // replaces the first if the worker hasn't picked it up
+            worker.Edit(first);
+            worker.Edit(second); // replaces the first if the worker hasn't picked it up
             long postMs = clock.ElapsedMilliseconds;
 
             var progress = worker.ReadProgress();

@@ -61,9 +61,14 @@ namespace GodGame.Sim
     public static class TerrainPieces
     {
         /// <summary>The map as the battle plays it: the original map when the plan has no pieces.</summary>
-        public static MapData Apply(MapData map, IReadOnlyList<PlannedPiece> pieces)
+        public static MapData Apply(
+            MapData map,
+            IReadOnlyList<PlannedPiece> pieces,
+            Ruleset? rules = null
+        )
         {
-            if (pieces.Count == 0)
+            bool mapDecks = map.StoneBridges.Count > 0 || map.FrozenPonds.Count > 0;
+            if (pieces.Count == 0 && (rules == null || !mapDecks))
             {
                 return map;
             }
@@ -140,7 +145,18 @@ namespace GodGame.Sim
                     (i, d) => stamped[i] = FieldSpeed.Combine(stamped[i], codes)
                 );
             }
-            return map.WithTerrain(heights, blocked, sources.ToArray(), speed);
+            // Decks last (S2 8.1): the map's stone bridges and ponds, then the plan's bridges over the finished ground.
+            var decks =
+                rules == null
+                    ? null
+                    : DeckLayout.Build(
+                        map,
+                        heights,
+                        pieces,
+                        rules.Structures,
+                        rules.Fields.Water?.DryDepthUm ?? 1
+                    );
+            return map.WithTerrain(heights, blocked, sources.ToArray(), speed, decks);
         }
 
         /// <summary>
@@ -158,6 +174,9 @@ namespace GodGame.Sim
             {
                 case PieceKind.Boulder:
                     ForEach(map, BoulderCells(map, piece), cells.Add);
+                    break;
+                case PieceKind.Bridge:
+                    cells.AddRange(DeckLayout.BridgeFootprint(map, piece));
                     break;
                 case PieceKind.Spring:
                     var area = SpringArea(map, piece);

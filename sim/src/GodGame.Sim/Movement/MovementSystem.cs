@@ -1016,7 +1016,10 @@ namespace GodGame.Sim
                                 continue;
                             }
                             int i = terrain.Index(x, y);
-                            if (depth.Values[i] >= shallow || costs[i] == CostFields.Impassable)
+                            if (
+                                terrain.FootingDepthUm(i, depth.Values[i]) >= shallow
+                                || costs[i] == CostFields.Impassable
+                            )
                             {
                                 continue;
                             }

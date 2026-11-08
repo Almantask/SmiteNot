@@ -26,6 +26,77 @@ namespace GodGame.Sim
             _heightMm = (int[])map.HeightMm.Clone();
             _blocked = map.Blocked == null ? null : (bool[])map.Blocked.Clone();
             _pieceSpeed = map.PieceSpeed == null ? null : (int[])map.PieceSpeed.Clone();
+            Decks = map.Decks;
+            _broken = Decks == null ? new bool[0] : new bool[Decks.Segments.Count];
+        }
+
+        private readonly bool[] _broken;
+
+        /// <summary>The decks (bridges and ice, spec S2 8.1), or null when the map has none.</summary>
+        public DeckLayout? Decks { get; }
+
+        /// <summary>The standing segment whose deck covers the cell, or -1 (none, or it failed).</summary>
+        public int StandingSegment(int index)
+        {
+            if (Decks == null)
+            {
+                return -1;
+            }
+            int s = Decks.SegmentOfCell[index];
+            return s >= 0 && !_broken[s] ? s : -1;
+        }
+
+        /// <summary>The class bits a cell's deck carries (a standing segment or a bridge's approach), or 0.</summary>
+        public int DeckClasses(int index)
+        {
+            if (Decks == null)
+            {
+                return 0;
+            }
+            int s = StandingSegment(index);
+            return s >= 0 ? Decks.Segments[s].Kind.ClassMask : Decks.ApproachMask[index];
+        }
+
+        /// <summary>Whether a cell is standing ice (units on it stand on the ice, at ice speed).</summary>
+        public bool IsIce(int index)
+        {
+            int s = StandingSegment(index);
+            return s >= 0 && Decks!.Segments[s].Kind.IsIce;
+        }
+
+        /// <summary>
+        /// The water a unit standing in the cell is in, µm (spec S2 8.1, 8.4): on standing ice none; on a standing bridge
+        /// deck only what tops the deck (awash); anywhere else the water itself.
+        /// </summary>
+        public long EffectiveDepthUm(int index, long depthUm)
+        {
+            int s = StandingSegment(index);
+            if (s < 0)
+            {
+                return depthUm;
+            }
+            var segment = Decks!.Segments[s];
+            if (segment.Kind.IsIce)
+            {
+                return 0;
+            }
+            long surfaceUm = (long)_heightMm[index] * 1000 + depthUm;
+            return System.Math.Max(0, surfaceUm - (long)segment.DeckHeightMm * 1000);
+        }
+
+        /// <summary>
+        /// The water a swept soldier in the cell is in, µm: standing ice is footing he can climb onto out of his hole (S2
+        /// 8.4), but a bridge deck is above him, so he is in the water under it.
+        /// </summary>
+        public long FootingDepthUm(int index, long depthUm) => IsIce(index) ? 0 : depthUm;
+
+        /// <summary>Marks a segment failed (or standing again after a restore).</summary>
+        public void SetBroken(int segment, bool broken)
+        {
+            if (_broken[segment] != broken)
+            {
+                _broken[segment] = broken;
+            }
         }
 
         private readonly int[]? _pieceSpeed;

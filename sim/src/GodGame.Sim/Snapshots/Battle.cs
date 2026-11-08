@@ -28,7 +28,7 @@ namespace GodGame.Sim
             {
                 throw new ArgumentException("The plan was made for another map.", nameof(plan));
             }
-            PlayedMap = TerrainPieces.Apply(map, plan.Terrain);
+            PlayedMap = TerrainPieces.Apply(map, plan.Terrain, rules);
         }
 
         public Ruleset Rules { get; }
@@ -90,6 +90,7 @@ namespace GodGame.Sim
                 );
             }
             systems[(int)TickStep.Fields] = new FieldSystem(models);
+            systems[(int)TickStep.StructuresAndLoad] = new LoadSystem(Rules, navigation);
             systems[(int)TickStep.RegimentAi] = new RegimentOrderSystem(Rules, navigation, Plan);
             systems[(int)TickStep.Navigation] = new NavigationSystem(navigation);
             systems[(int)TickStep.Movement] = new MovementSystem(navigation);

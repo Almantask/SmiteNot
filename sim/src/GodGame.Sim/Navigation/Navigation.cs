@@ -69,7 +69,7 @@ namespace GodGame.Sim
             context.Runner.For(
                 Terrain.Rows,
                 CostFields.RowsPerChunk,
-                new CodeKernel(fields, Rules, Terrain.CellSizeMm, _codes, Terrain.Columns)
+                new CodeKernel(fields, Rules, Terrain, _codes, Terrain.Columns)
             );
             // Serial, in cell order: copy what changed and grow the rectangle around it.
             int minX = int.MaxValue;
@@ -144,6 +144,14 @@ namespace GodGame.Sim
             _builtFromWorld = true;
             // The ground: the played map plus whatever soldiers dug and filled before this moment.
             Terrain.ResetHeights(Map.HeightMm);
+            var structures = world.Structures;
+            if (Terrain.Decks != null)
+            {
+                for (int s = 0; s < Terrain.Decks.Segments.Count; s++)
+                {
+                    Terrain.SetBroken(s, structures != null && structures.Broken[s]);
+                }
+            }
             var ground = world.Ground;
             for (int i = 0; i < ground.Count; i++)
             {
@@ -271,6 +279,66 @@ namespace GodGame.Sim
             return true;
         }
 
+        /// <summary>
+        /// A deck segment failed (spec S2 8.4): its cells fall back to the ground and water below. Recomputes their speed
+        /// codes at once (no hysteresis: a collapse is never a small drift), rebuilds the costs, the route checker's cells,
+        /// the flow fields and the lethal distances around them. Serial, in segment order.
+        /// </summary>
+        public void SegmentFailed(TickContext context, int segment)
+        {
+            Terrain.SetBroken(segment, true);
+            var cells = Terrain.Decks!.Segments[segment].Cells;
+            if (cells.Length == 0)
+            {
+                return;
+            }
+            int minX = int.MaxValue;
+            int minY = int.MaxValue;
+            int maxX = -1;
+            int maxY = -1;
+            foreach (int cell in cells)
+            {
+                int x = cell % Terrain.Columns;
+                int y = cell / Terrain.Columns;
+                minX = System.Math.Min(minX, x);
+                minY = System.Math.Min(minY, y);
+                maxX = System.Math.Max(maxX, x);
+                maxY = System.Math.Max(maxY, y);
+            }
+            var fields = context.World.Fields;
+            if (
+                fields != null
+                && fields.Rules.IndexOf(FieldSpeed.FieldId) >= 0
+                && fields.Rules.Water != null
+            )
+            {
+                var stored = fields.Get(FieldSpeed.FieldId).Values;
+                var depth = fields.Get(WaterModel.Depth);
+                var mud = fields.Get(GroundModel.Mud);
+                foreach (int cell in cells)
+                {
+                    stored[cell] = FieldSpeed.CellCodes(
+                        fields,
+                        depth,
+                        mud,
+                        Rules,
+                        Terrain.CellSizeMm,
+                        fields.Rules.Water.DryDepthUm,
+                        cell % Terrain.Columns,
+                        cell / Terrain.Columns,
+                        Terrain
+                    );
+                }
+                Costs.UseFieldCodes(stored);
+                Lethal.UseFieldCodes(stored);
+            }
+            var dirty = Terrain.DirtyAround(minX, minY, maxX, maxY);
+            Costs.Rebuild(dirty, context.Runner);
+            _routes?.Update(dirty);
+            FlowFields.Repair(dirty, context.Runner);
+            Lethal.Rebuild(dirty);
+        }
+
         private void Set(int[] cells, int[] heightsMm, int count)
         {
             for (int k = 0; k < count; k++)
@@ -294,14 +362,18 @@ namespace GodGame.Sim
             private readonly int[] _codes;
             private readonly int _columns;
 
+            private readonly Terrain _terrain;
+
             public CodeKernel(
                 FieldStore fields,
                 Ruleset rules,
-                int cellSizeMm,
+                Terrain terrain,
                 int[] codes,
                 int columns
             )
             {
+                _terrain = terrain;
+                int cellSizeMm = terrain.CellSizeMm;
                 _fields = fields;
                 _depth = fields.Get(WaterModel.Depth);
                 _mud = fields.Get(GroundModel.Mud);
@@ -327,7 +399,8 @@ namespace GodGame.Sim
                             _cellSizeMm,
                             _dryDepthUm,
                             x,
-                            y
+                            y,
+                            _terrain
                         );
                     }
                 }

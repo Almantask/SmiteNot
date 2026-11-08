@@ -213,6 +213,9 @@ namespace GodGame.Sim.Rules
         /// <summary>What it shoots, or null.</summary>
         public ProjectileRules? Projectile { get; internal set; }
 
+        /// <summary>Mass in kg (spec S2 2.1): what it weighs on a bridge or ice.</summary>
+        public int MassKg { get; internal set; }
+
         /// <summary>Whether the attacker may buy it (a seat lock, spec S2 14.2: Fascine Carriers attacker only).</summary>
         public bool AttackerMay { get; internal set; } = true;
 
@@ -360,6 +363,9 @@ namespace GodGame.Sim.Rules
 
         /// <summary>Melee, volleys and the regiment targeting default (<c>combat.json</c>, <c>projectiles.json</c>).</summary>
         public CombatRules Combat { get; internal set; } = null!;
+
+        /// <summary>Decks, load, strain and collapse (<c>load.json</c>).</summary>
+        public StructureRules Structures { get; internal set; } = new StructureRules();
 
         /// <summary>The specialist executor's actions (<c>specialists.json</c>).</summary>
         public SpecialistRules Specialists { get; internal set; } = new SpecialistRules();

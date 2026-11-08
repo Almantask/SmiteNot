@@ -18,3 +18,4 @@
 - [Timeline and keyframes](pattern_timeline_keyframes.md) — kept keyframes keep old plan layout (chained edits), Edit not transactional, Rebase skips header
 - [Combat and morale](pattern_combat_morale.md) — goldens have no combat, 1-chunk thread test, empty-outline Gap overflow, melee probe recipe
 - [Specialists and ground edits](pattern_specialists_ground_edits.md) — FieldOf empty after restore, stale _routes cache, SameArmy misses DitchMm, probe recipe
+- [Decks and load](pattern_decks_load.md) — 0-cell segments fail unloaded, lethal/footing ignore decks, broken-flag restore shape, collapse probe recipe

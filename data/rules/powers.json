@@ -25,6 +25,28 @@
           "ratePerS": 3000
         }
       ]
+    },
+    {
+      "$comment": "Rot v0 (spec S2 12.3, D12, settled 2026-11-07): a small circle; after a 10 s wind-up (the fungus spreading, the warning) every wooden segment with a cell in the area falls linearly to floorPermille of its maximum over durationTicks and stays there; a further Rot lowers it by stackPermille more, never below stackFloorPermille. Stone and ice are unaffected. Counters: Engineers repair, Crossing Marshals keep the load under it, a second crossing.",
+      "id": "rot",
+      "area": {
+        "shape": "circle",
+        "minRadiusMm": 10000,
+        "maxRadiusMm": 30000,
+        "defaultRadiusMm": 15000
+      },
+      "rangeRule": {
+        "minDistanceMm": 100000,
+        "minSoldiersPerCoarseCell": 2
+      },
+      "windUpTicks": 200,
+      "durationTicks": 600,
+      "writes": [],
+      "rot": {
+        "floorPermille": 500,
+        "stackPermille": 200,
+        "stackFloorPermille": 300
+      }
     }
   ]
 }

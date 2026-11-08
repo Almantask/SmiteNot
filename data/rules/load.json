@@ -1,0 +1,74 @@
+{
+  "$comment": "Load and decks (ruleset v0; spec S2 section 8, settled 2026-11-07; numbers are proposals). A structure layer marks deck cells: units on an intact deck stand on it at deck height, not in the water below, unless the water surface tops the deck (awash). Segment strength = deck area (m2) x strengthKgPerM2 x its current strength permille / 1000; ice patches (patchCells square, on the map grid) hold iceKgPerM2PerMm per mm of the map's thickness. Load = the masses of units whose centre is on the segment, not swept ones; checked every field step (4 ticks); a segment fails when load >= strength at failChecks checks in a row. Strain stages creak, crack and sag at their thresholds (for the player only: regiments never read them, brief 2026-10-09), falling back stageHysteresisPermille below. A failed bridge segment's neighbours lose neighbourLossPermille of their maximum; a broken ice patch's lose iceNeighbourLossPermille; a broken patch is open water for the rest of the battle. iceSpeedPermille: speeds on intact ice (S2 3.2). coldDrowningTicks: drowning timers in a broken-ice hole (until S3 owns cold). Pontoons and trestles join with their specialists.",
+  "version": 0,
+  "status": "placeholder",
+  "failChecks": 2,
+  "stages": {
+    "creakPermille": 700,
+    "crackPermille": 850,
+    "sagPermille": 950,
+    "stageHysteresisPermille": 50
+  },
+  "neighbourLossPermille": 250,
+  "iceNeighbourLossPermille": 150,
+  "iceSpeedPermille": {
+    "foot": 850,
+    "horse": 700,
+    "wheeled": 700
+  },
+  "coldDrowningTicks": {
+    "foot": 160,
+    "horse": 240,
+    "wheeled": 80
+  },
+  "kinds": [
+    {
+      "id": "footbridge",
+      "material": "wood",
+      "segmentCellsAlong": 2,
+      "minWidthMm": 1500,
+      "maxWidthMm": 3000,
+      "strengthKgPerM2": 150,
+      "classes": [
+        "foot"
+      ]
+    },
+    {
+      "id": "wooden-bridge",
+      "material": "wood",
+      "segmentCellsAlong": 2,
+      "minWidthMm": 3000,
+      "maxWidthMm": 6000,
+      "strengthKgPerM2": 300,
+      "classes": [
+        "foot",
+        "horse",
+        "wheeled"
+      ]
+    },
+    {
+      "id": "stone-bridge",
+      "material": "stone",
+      "segmentCellsAlong": 2,
+      "strengthKgPerM2": 1200,
+      "classes": [
+        "foot",
+        "horse",
+        "wheeled"
+      ]
+    },
+    {
+      "id": "ice",
+      "material": "ice",
+      "patchCells": 4,
+      "iceKgPerM2PerMm": 1,
+      "minThicknessMm": 60,
+      "maxThicknessMm": 250,
+      "classes": [
+        "foot",
+        "horse",
+        "wheeled"
+      ]
+    }
+  ]
+}

@@ -125,10 +125,22 @@ namespace GodGame.Sim
             int cellSizeMm,
             int dryDepthUm,
             int x,
-            int y
+            int y,
+            Terrain? terrain = null
         )
         {
-            long depthUm = depth.Get(x, y);
+            if (terrain != null && terrain.IsIce(terrain.Index(x, y)))
+            {
+                // Standing ice (S2 3.2, 8.1): units walk on it at ice speed, out of the water below.
+                var ice = rules.Structures.IceSpeedPermille;
+                return CodeForPermille(ice[0])
+                    | CodeForPermille(ice[1]) << 8
+                    | CodeForPermille(ice[2]) << 16;
+            }
+            long depthUm =
+                terrain == null
+                    ? depth.Get(x, y)
+                    : terrain.EffectiveDepthUm(terrain.Index(x, y), depth.Get(x, y));
             int mud = mudGrid.Get(x, y);
             long depthMm = 0;
             long flow = 0;

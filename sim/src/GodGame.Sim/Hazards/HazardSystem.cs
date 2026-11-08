@@ -62,7 +62,11 @@ namespace GodGame.Sim
                 {
                     terrain.CellOf(world.Position[u], out int x, out int y);
                     tile = depth.TileOf(x, y);
-                    long um = depth.Get(x, y);
+                    int cell = terrain.Index(x, y);
+                    long um =
+                        (flags & UnitFlags.Swept) != 0
+                            ? terrain.FootingDepthUm(cell, depth.Get(x, y))
+                            : terrain.EffectiveDepthUm(cell, depth.Get(x, y));
                     if (um >= water!.DryDepthUm)
                     {
                         depthMm = um / 1000;

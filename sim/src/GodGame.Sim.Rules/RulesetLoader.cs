@@ -37,6 +37,8 @@ namespace GodGame.Sim.Rules
 
         public const string SpecialistsFile = "specialists.json";
 
+        public const string LoadFile = "load.json";
+
         public const int TerrainVersion = 0;
 
         public const int PowersVersion = 0;
@@ -94,6 +96,7 @@ namespace GodGame.Sim.Rules
             JsonValue? projectilesJson = null;
             JsonValue? moraleJson = null;
             JsonValue? specialistsJson = null;
+            JsonValue? loadJson = null;
             foreach (var file in files)
             {
                 var value = JsonReader.Parse(file.Value, file.Key);
@@ -141,6 +144,10 @@ namespace GodGame.Sim.Rules
                 else if (string.Equals(file.Key, SpecialistsFile, StringComparison.Ordinal))
                 {
                     specialistsJson = value;
+                }
+                else if (string.Equals(file.Key, LoadFile, StringComparison.Ordinal))
+                {
+                    loadJson = value;
                 }
                 else
                 {
@@ -200,7 +207,12 @@ namespace GodGame.Sim.Rules
             var routes = ReadRoutes(routesJson, ref placeholders);
             var fields = ReadFields(fieldsJson, ref placeholders);
             var powers = ReadPowers(powersJson, fields, ref placeholders, out int latestCastTick);
-            var terrain = ReadTerrain(terrainJson, hazards, ref placeholders);
+            if (loadJson == null)
+            {
+                throw new DataFormatException(LoadFile + " is missing.");
+            }
+            var structures = ReadStructures(loadJson, ref placeholders);
+            var terrain = ReadTerrain(terrainJson, hazards, structures, ref placeholders);
             var combat = ReadCombat(combatJson, projectilesJson, ref placeholders);
             var morale = ReadMorale(moraleJson, ref placeholders);
             if (specialistsJson == null)
@@ -227,6 +239,7 @@ namespace GodGame.Sim.Rules
                 Combat = combat,
                 Morale = morale,
                 Specialists = specialists,
+                Structures = structures,
             };
         }
 
@@ -370,6 +383,7 @@ namespace GodGame.Sim.Rules
                     "id",
                     "seats",
                     "action",
+                    "massKg",
                     "movementClass",
                     "health",
                     "morale",
@@ -421,6 +435,7 @@ namespace GodGame.Sim.Rules
             {
                 var item = items[i];
                 var type = types[i];
+                type.MassKg = item.Int("massKg", 1, 100_000);
                 type.RunSpeedMmPerSecond = item.Int(
                     "runMmPerS",
                     type.SpeedMmPerSecond,
@@ -576,6 +591,119 @@ namespace GodGame.Sim.Rules
                 targeting.Int("rangedFallbackCooldownTicks", 0, 72_000),
                 projectiles.AsReadOnly()
             );
+        }
+
+        private static StructureRules ReadStructures(JsonValue root, ref bool placeholders)
+        {
+            root.OnlyKeys(
+                "$comment",
+                "version",
+                "status",
+                "failChecks",
+                "stages",
+                "neighbourLossPermille",
+                "iceNeighbourLossPermille",
+                "iceSpeedPermille",
+                "coldDrowningTicks",
+                "kinds"
+            );
+            if (root.Int("version") != 0)
+            {
+                throw new DataFormatException(root.Path + ": version must be 0.");
+            }
+            placeholders |= ReadStatus(root);
+            var stages = root["stages"];
+            stages.OnlyKeys(
+                "$comment",
+                "creakPermille",
+                "crackPermille",
+                "sagPermille",
+                "stageHysteresisPermille"
+            );
+            var ice = root["iceSpeedPermille"];
+            ice.OnlyKeys("foot", "horse", "wheeled");
+            var cold = root["coldDrowningTicks"];
+            cold.OnlyKeys("foot", "horse", "wheeled");
+            int creak = stages.Int("creakPermille", 1, 1_000);
+            int crack = stages.Int("crackPermille", creak, 1_000);
+            var result = new StructureRules
+            {
+                FailChecks = root.Int("failChecks", 1, 100),
+                CreakPermille = creak,
+                CrackPermille = crack,
+                SagPermille = stages.Int("sagPermille", crack, 1_000),
+                StageHysteresisPermille = stages.Int("stageHysteresisPermille", 0, 500),
+                NeighbourLossPermille = root.Int("neighbourLossPermille", 0, 1_000),
+                IceNeighbourLossPermille = root.Int("iceNeighbourLossPermille", 0, 1_000),
+                IceSpeedPermille = new[]
+                {
+                    ice.Int("foot", 0, 1_000),
+                    ice.Int("horse", 0, 1_000),
+                    ice.Int("wheeled", 0, 1_000),
+                },
+                ColdDrowningTicks = new[]
+                {
+                    cold.Int("foot", 1, 72_000),
+                    cold.Int("horse", 1, 72_000),
+                    cold.Int("wheeled", 1, 72_000),
+                },
+            };
+            var kinds = new List<StructureKindRules>();
+            foreach (var item in root.Array("kinds"))
+            {
+                item.OnlyKeys(
+                    "$comment",
+                    "id",
+                    "material",
+                    "segmentCellsAlong",
+                    "patchCells",
+                    "minWidthMm",
+                    "maxWidthMm",
+                    "strengthKgPerM2",
+                    "iceKgPerM2PerMm",
+                    "minThicknessMm",
+                    "maxThicknessMm",
+                    "classes"
+                );
+                string id = DataIds.Require(item["id"]);
+                if (result.Kind(id) != null || kinds.Exists(k => k.Id == id))
+                {
+                    throw new DataFormatException(item.Path + ": the kind is listed twice.");
+                }
+                var kind = new StructureKindRules(kinds.Count, id)
+                {
+                    Material = DataIds.Require(item["material"]),
+                };
+                if (kind.IsIce)
+                {
+                    kind.PatchCells = item.Int("patchCells", 1, 64);
+                    kind.IceKgPerM2PerMm = item.Int("iceKgPerM2PerMm", 1, 1_000);
+                    kind.MinThicknessMm = item.Int("minThicknessMm", 1, 10_000);
+                    kind.MaxThicknessMm = item.Int("maxThicknessMm", kind.MinThicknessMm, 10_000);
+                }
+                else
+                {
+                    kind.SegmentCellsAlong = item.Int("segmentCellsAlong", 1, 64);
+                    kind.StrengthKgPerM2 = item.Int("strengthKgPerM2", 1, 100_000);
+                    if (item.Has("minWidthMm"))
+                    {
+                        kind.MinWidthMm = item.Int("minWidthMm", 1, 100_000);
+                        kind.MaxWidthMm = item.Int("maxWidthMm", kind.MinWidthMm, 100_000);
+                    }
+                }
+                foreach (var c in item.Array("classes"))
+                {
+                    var movementClass = ParseMovementClass(c);
+                    if (movementClass == MovementClass.Water)
+                    {
+                        throw new DataFormatException(c.Path + ": decks carry land classes.");
+                    }
+                    kind.ClassMask |= 1 << (int)movementClass;
+                }
+                kinds.Add(kind);
+            }
+            result.Kinds = kinds.AsReadOnly();
+            return result;
         }
 
         private static SpecialistRules ReadSpecialists(JsonValue root, ref bool placeholders)
@@ -1024,7 +1152,8 @@ namespace GodGame.Sim.Rules
                     "rangeRule",
                     "windUpTicks",
                     "durationTicks",
-                    "writes"
+                    "writes",
+                    "rot"
                 );
                 string id = DataIds.Require(item["id"]);
                 if (!ids.Add(id))
@@ -1059,20 +1188,50 @@ namespace GodGame.Sim.Rules
                     }
                     writes.Add(new PowerWrite(field, write.Int("ratePerS", 1, 100_000_000)));
                 }
-                list.Add(
-                    new PowerRules(
-                        id,
-                        list.Count,
-                        min,
-                        max,
-                        byDefault,
-                        range.Int("minDistanceMm", 0, 1_000_000),
-                        range.Int("minSoldiersPerCoarseCell", 1, 1_000),
-                        WholeFieldSteps(item, "windUpTicks", 0),
-                        WholeFieldSteps(item, "durationTicks", FieldStepTicks),
-                        writes.AsReadOnly()
-                    )
+                var power = new PowerRules(
+                    id,
+                    list.Count,
+                    min,
+                    max,
+                    byDefault,
+                    range.Int("minDistanceMm", 0, 1_000_000),
+                    range.Int("minSoldiersPerCoarseCell", 1, 1_000),
+                    WholeFieldSteps(item, "windUpTicks", 0),
+                    WholeFieldSteps(item, "durationTicks", FieldStepTicks),
+                    writes.AsReadOnly()
                 );
+                if (item.Has("rot"))
+                {
+                    // Rot v0 (S2 12.3): its duration is the time a segment takes to fall to its new strength.
+                    var rot = item["rot"];
+                    rot.OnlyKeys(
+                        "$comment",
+                        "floorPermille",
+                        "stackPermille",
+                        "stackFloorPermille"
+                    );
+                    if (power.WindUpTicks == 0)
+                    {
+                        // A Rot's state counts from the tick its wind-up ends; tick 0 means "none under way".
+                        throw new DataFormatException(
+                            item.Path + ".windUpTicks: a Rot needs a wind-up."
+                        );
+                    }
+                    power.Rot = new RotRules
+                    {
+                        RotTicks = power.DurationTicks,
+                        FloorPermille = rot.Int("floorPermille", 0, 1_000),
+                        StackPermille = rot.Int("stackPermille", 0, 1_000),
+                        StackFloorPermille = rot.Int("stackFloorPermille", 0, 1_000),
+                    };
+                }
+                if ((power.Rot == null) == (writes.Count == 0))
+                {
+                    throw new DataFormatException(
+                        item.Path + ": a power writes fields or rots wood, one of the two."
+                    );
+                }
+                list.Add(power);
             }
             return list.ToArray();
         }
@@ -1080,6 +1239,7 @@ namespace GodGame.Sim.Rules
         private static TerrainRules ReadTerrain(
             JsonValue root,
             HazardRules hazards,
+            StructureRules structures,
             ref bool placeholders
         )
         {
@@ -1200,6 +1360,38 @@ namespace GodGame.Sim.Rules
                             hazards.LethalDropMm - 1
                         );
                         break;
+                    case "bridge":
+                        item.OnlyKeys(
+                            "$comment",
+                            "id",
+                            "kind",
+                            "structure",
+                            "minSpanMm",
+                            "maxSpanMm",
+                            "bankMinAboveWaterMm",
+                            "footprintEndCells"
+                        );
+                        piece = new PieceRules(id, PieceKind.Bridge);
+                        string structure = item.Str("structure");
+                        piece.Structure =
+                            structures.Kind(structure)
+                            ?? throw new DataFormatException(
+                                item.Path
+                                    + ".structure: no kind \""
+                                    + structure
+                                    + "\" in load.json."
+                            );
+                        if (piece.Structure.IsIce || piece.Structure.SegmentCellsAlong < 1)
+                        {
+                            throw new DataFormatException(
+                                item.Path + ".structure: a bridge kind with segments."
+                            );
+                        }
+                        piece.MinSpanMm = item.Int("minSpanMm", 1_000, 1_000_000);
+                        piece.MaxSpanMm = item.Int("maxSpanMm", piece.MinSpanMm, 1_000_000);
+                        piece.BankMinAboveWaterMm = item.Int("bankMinAboveWaterMm", 0, 100_000);
+                        piece.FootprintEndCells = item.Int("footprintEndCells", 0, 8);
+                        break;
                     case "line-blocker":
                         item.OnlyKeys(
                             "$comment",
@@ -1228,7 +1420,7 @@ namespace GodGame.Sim.Rules
                     default:
                         throw new DataFormatException(
                             item.Path
-                                + ".kind: channel, ridge, hollow, spring, boulder or line-blocker."
+                                + ".kind: channel, ridge, hollow, spring, boulder, line-blocker or bridge."
                         );
                 }
                 list.Add(piece);

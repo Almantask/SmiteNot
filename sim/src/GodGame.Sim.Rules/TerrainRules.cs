@@ -26,6 +26,12 @@ namespace GodGame.Sim.Rules
         /// drystone wall). It edits no height; it stamps the map's piece speed layer after the height edits.
         /// </summary>
         Line = 5,
+
+        /// <summary>
+        /// Two bank points and a width (spec S2 13.4): a deck of segments at the higher bank's height, carrying the
+        /// classes its structure kind carries, over water that flows beneath it.
+        /// </summary>
+        Bridge = 6,
     }
 
     /// <summary>
@@ -95,6 +101,19 @@ namespace GodGame.Sim.Rules
 
         /// <summary>Boulder: how far it stands above the highest ground under it.</summary>
         public int BoulderHeightMm { get; internal set; }
+
+        /// <summary>A bridge's structure kind (<c>load.json</c>): its segments, strength and classes.</summary>
+        public StructureKindRules? Structure { get; internal set; }
+
+        public int MinSpanMm { get; internal set; }
+
+        public int MaxSpanMm { get; internal set; }
+
+        /// <summary>A bank point stands on ground at least this far above its tick-0 water (dry ground).</summary>
+        public int BankMinAboveWaterMm { get; internal set; }
+
+        /// <summary>Approach cells beyond each end, flat for the classes the bridge carries.</summary>
+        public int FootprintEndCells { get; internal set; }
 
         /// <summary>A line's material (hedge, stone): what burns or topples it once fire and tremors exist (M6).</summary>
         public string Material { get; internal set; } = "";

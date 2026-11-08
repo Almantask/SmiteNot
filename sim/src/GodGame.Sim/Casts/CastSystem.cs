@@ -92,6 +92,14 @@ namespace GodGame.Sim
                 {
                     Check(world, states, c, cast);
                 }
+                if (
+                    cast.Power.Rot != null
+                    && states.Status[c] == CastStatus.Fired
+                    && tick == (long)cast.Tick + cast.Power.WindUpTicks
+                )
+                {
+                    StartRot(world, cast, states.Event[c], tick);
+                }
                 if (!fieldStep || states.Status[c] != CastStatus.Fired)
                 {
                     continue;
@@ -112,6 +120,68 @@ namespace GodGame.Sim
                         states.Event[c]
                     );
                 }
+            }
+        }
+
+        /// <summary>
+        /// Rot v0 (spec S2 12.3): when the wind-up ends, every standing wooden segment with a cell centre in the circle
+        /// starts falling to the Rot's floor (a first Rot) or a stack lower (a further one, never below the stack floor),
+        /// over the Rot's ticks; the load step carries it out. Stone and ice are untouched.
+        /// </summary>
+        private void StartRot(World world, PlannedCast cast, int castEvent, int tick)
+        {
+            var states = world.Structures;
+            var decks = _navigation.Terrain.Decks;
+            var rot = cast.Power.Rot!;
+            if (states == null || decks == null)
+            {
+                return;
+            }
+            int cellMm = _navigation.Terrain.CellSizeMm;
+            long r = cast.RadiusMm;
+            for (int s = 0; s < decks.Segments.Count; s++)
+            {
+                var segment = decks.Segments[s];
+                if (!segment.Kind.IsWood || states.Broken[s])
+                {
+                    continue;
+                }
+                bool inside = false;
+                foreach (int cell in segment.Cells)
+                {
+                    long dx =
+                        (long)(cell % _navigation.Terrain.Columns) * cellMm + cellMm / 2 - cast.XMm;
+                    long dy =
+                        (long)(cell / _navigation.Terrain.Columns) * cellMm + cellMm / 2 - cast.YMm;
+                    if (dx * dx + dy * dy <= r * r)
+                    {
+                        inside = true;
+                        break;
+                    }
+                }
+                if (!inside)
+                {
+                    continue;
+                }
+                int now = states.Strength[s];
+                int target;
+                if (states.RotCause[s] == CauseLog.None)
+                {
+                    target = System.Math.Min(now, rot.FloorPermille);
+                }
+                else
+                {
+                    int was = states.RotStart[s] != 0 ? System.Math.Min(now, states.RotTo[s]) : now;
+                    target = System.Math.Min(
+                        now,
+                        System.Math.Max(rot.StackFloorPermille, was - rot.StackPermille)
+                    );
+                }
+                states.RotFrom[s] = now;
+                states.RotTo[s] = target;
+                states.RotStart[s] = tick;
+                states.RotTicks[s] = System.Math.Max(1, rot.RotTicks);
+                states.RotCause[s] = castEvent;
             }
         }
 

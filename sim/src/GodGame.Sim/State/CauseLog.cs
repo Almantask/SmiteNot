@@ -48,6 +48,9 @@ namespace GodGame.Sim
 
         /// <summary>An edit batch was skipped because it would close the last route (a gap). Subject: the regiment; detail: the action.</summary>
         SpecialistEditSkipped = 14,
+
+        /// <summary>A deck segment failed under its load. Subject: the segment; detail: 1 bridge, 2 ice; cause: the latest Rot on it.</summary>
+        SegmentFailed = 15,
     }
 
     /// <summary>One entry in the cause log: what, when, and the (up to two) earlier events that caused it.</summary>
@@ -240,7 +243,7 @@ namespace GodGame.Sim
                 int cause2 = reader.ReadInt32();
                 if (
                     kind < (byte)CauseKind.CastFired
-                    || kind > (byte)CauseKind.SpecialistEditSkipped
+                    || kind > (byte)CauseKind.SegmentFailed
                     || cause < None
                     || cause >= i
                     || cause2 < None

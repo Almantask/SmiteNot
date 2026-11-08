@@ -203,6 +203,19 @@ namespace GodGame.Sim
                             }
                             continue;
                         }
+                        int deck = _terrain.DeckClasses(i);
+                        if (deck != 0)
+                        {
+                            for (int c = 0; c < _classes.Length; c++)
+                            {
+                                var cls = _classes[c].MovementClass;
+                                _costs[c][i] =
+                                    (deck & (1 << (int)cls)) != 0
+                                        ? CellCost(_classes[c], 0, FieldSpeed.Code(codes, cls))
+                                        : Impassable;
+                            }
+                            continue;
+                        }
                         for (int c = 0; c < _classes.Length; c++)
                         {
                             _costs[c][i] = CellCost(

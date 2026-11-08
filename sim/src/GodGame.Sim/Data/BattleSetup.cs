@@ -72,6 +72,10 @@ namespace GodGame.Sim
             world.AttachFields(new FieldStore(rules.Fields, map.Columns, map.Rows));
             ApplyInitialFields(world.Fields!, map);
             world.AttachCasts(CastSystem.StatesFor(plan));
+            if (map.Decks != null)
+            {
+                world.AttachStructures(new StructureStates(map.Decks.Segments.Count));
+            }
             world.AttachCauses(
                 new CauseLog(
                     world.Fields!.Get(WaterModel.Depth).TileCount,

@@ -79,6 +79,10 @@ namespace GodGame.Sim
         /// <summary>Lethal itself: on the map edge, a cliff top, or water that sweeps a foot soldier away.</summary>
         public bool IsLethal(int x, int y)
         {
+            if (_terrain.StandingSegment(_terrain.Index(x, y)) >= 0)
+            {
+                return false; // a standing deck is footing, whatever drop or water lies under it (S2 8.1)
+            }
             if (x == 0 || y == 0 || x == _terrain.Columns - 1 || y == _terrain.Rows - 1)
             {
                 return true;

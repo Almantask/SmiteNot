@@ -75,5 +75,8 @@ namespace GodGame.Sim.Rules
         public int DurationTicks { get; }
 
         public IReadOnlyList<PowerWrite> Writes { get; }
+
+        /// <summary>Rot's effect on wooden segments (spec S2 12.3), or null for a power that writes fields.</summary>
+        public RotRules? Rot { get; internal set; }
     }
 }

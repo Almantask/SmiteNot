@@ -183,6 +183,20 @@ namespace GodGame.Sim
         public int[]? PieceSpeed { get; private set; }
 
         /// <summary>
+        /// The battle's decks (bridges and ice, spec S2 8.1), or null when there are none. Only on a played map:
+        /// <see cref="TerrainPieces.Apply"/> builds them from the map's stone bridges and ponds and the plan's bridges.
+        /// </summary>
+        public DeckLayout? Decks { get; private set; }
+
+        /// <summary>Stone bridges the map authors (spec S2 13.6): ends, width and deck height.</summary>
+        public IReadOnlyList<StoneBridgeSpec> StoneBridges { get; private set; } =
+            Array.Empty<StoneBridgeSpec>();
+
+        /// <summary>Frozen ponds the map authors (spec S2 13.6): a rectangle of ice of one thickness.</summary>
+        public IReadOnlyList<FrozenPondSpec> FrozenPonds { get; private set; } =
+            Array.Empty<FrozenPondSpec>();
+
+        /// <summary>
         /// True for a map made by <see cref="WithTerrain"/>: it already carries a plan's pieces, so it must never be fed
         /// back into a battle or a plan, which would stamp the pieces twice under the same id and hash.
         /// </summary>
@@ -196,7 +210,8 @@ namespace GodGame.Sim
             int[] heightMm,
             bool[] blocked,
             WaterSource[] sources,
-            int[]? pieceSpeed = null
+            int[]? pieceSpeed = null,
+            DeckLayout? decks = null
         )
         {
             if (pieceSpeed != null && pieceSpeed.Length != HeightMm.Length)
@@ -222,10 +237,13 @@ namespace GodGame.Sim
             {
                 Blocked = blocked,
                 PieceSpeed = pieceSpeed,
+                Decks = decks,
                 IsPlayed = true,
                 InitialFields = InitialFields,
                 WindXMmPerS = WindXMmPerS,
                 WindYMmPerS = WindYMmPerS,
+                StoneBridges = StoneBridges,
+                FrozenPonds = FrozenPonds,
             };
         }
 
@@ -350,7 +368,9 @@ namespace GodGame.Sim
                 "deployment",
                 "water",
                 "soils",
-                "wind"
+                "wind",
+                "stoneBridges",
+                "frozenPonds"
             );
             if (root.Int("version") != FormatVersion)
             {
@@ -500,6 +520,85 @@ namespace GodGame.Sim
                 }
             }
 
+            var stoneBridges = new List<StoneBridgeSpec>();
+            if (root.Has("stoneBridges"))
+            {
+                foreach (var item in root.Array("stoneBridges"))
+                {
+                    item.OnlyKeys("$comment", "points", "widthMm", "deckHeightMm");
+                    var points = item.Array("points");
+                    if (points.Count != 2)
+                    {
+                        throw new DataFormatException(
+                            item.Path + ".points: a stone bridge has two ends."
+                        );
+                    }
+                    var a = points[0].Items;
+                    var b = points[1].Items;
+                    if (a.Count != 2 || b.Count != 2)
+                    {
+                        throw new DataFormatException(
+                            item.Path + ".points: a point is [xMm, yMm]."
+                        );
+                    }
+                    int ax = (int)a[0].AsInteger;
+                    int ay = (int)a[1].AsInteger;
+                    int bx = (int)b[0].AsInteger;
+                    int by = (int)b[1].AsInteger;
+                    foreach (int v in new[] { ax, bx })
+                    {
+                        if (v < 0 || v >= width)
+                        {
+                            throw new DataFormatException(item.Path + ".points: off the map.");
+                        }
+                    }
+                    foreach (int v in new[] { ay, by })
+                    {
+                        if (v < 0 || v >= depth)
+                        {
+                            throw new DataFormatException(item.Path + ".points: off the map.");
+                        }
+                    }
+                    stoneBridges.Add(
+                        new StoneBridgeSpec(
+                            ax,
+                            ay,
+                            bx,
+                            by,
+                            item.Int("widthMm", 1_000, 100_000),
+                            item.Int("deckHeightMm", -MaxHeightMm, MaxHeightMm)
+                        )
+                    );
+                }
+            }
+            var ponds = new List<FrozenPondSpec>();
+            if (root.Has("frozenPonds"))
+            {
+                foreach (var item in root.Array("frozenPonds"))
+                {
+                    item.OnlyKeys(
+                        "$comment",
+                        "minXMm",
+                        "minYMm",
+                        "maxXMm",
+                        "maxYMm",
+                        "thicknessMm"
+                    );
+                    var area = new RectMm(
+                        item.Int("minXMm", 0, width),
+                        item.Int("minYMm", 0, depth),
+                        item.Int("maxXMm", 0, width),
+                        item.Int("maxYMm", 0, depth)
+                    );
+                    if (area.MaxX <= area.MinX || area.MaxY <= area.MinY)
+                    {
+                        throw new DataFormatException(item.Path + ": an empty pond.");
+                    }
+                    // The thickness range is the ruleset's (load.json ice); a map only promises a positive one.
+                    ponds.Add(new FrozenPondSpec(area, item.Int("thicknessMm", 1, 10_000)));
+                }
+            }
+
             int windX = 0;
             int windY = 0;
             if (root.Has("wind"))
@@ -533,6 +632,8 @@ namespace GodGame.Sim
                 InitialFields = initialFields,
                 WindXMmPerS = windX,
                 WindYMmPerS = windY,
+                StoneBridges = stoneBridges.ToArray(),
+                FrozenPonds = ponds.ToArray(),
             };
         }
 

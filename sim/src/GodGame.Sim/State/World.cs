@@ -34,6 +34,19 @@ namespace GodGame.Sim
         /// <summary>The battle's cause log (<see cref="CauseLog"/>), or null in a world built without one.</summary>
         public CauseLog? Causes { get; private set; }
 
+        /// <summary>The decks' state (spec S2 section 8), or null in a battle without bridges or ice.</summary>
+        public StructureStates? Structures { get; private set; }
+
+        /// <summary>Gives the world its structures' state; once, before the first tick.</summary>
+        public void AttachStructures(StructureStates structures)
+        {
+            if (Structures != null)
+            {
+                throw new InvalidOperationException("The world already has its structures.");
+            }
+            Structures = structures ?? throw new ArgumentNullException(nameof(structures));
+        }
+
         /// <summary>Gives the world its cause log; once, before the first tick.</summary>
         public void AttachCauses(CauseLog causes)
         {
@@ -79,6 +92,10 @@ namespace GodGame.Sim
             if (Casts != null)
             {
                 blank.AttachCasts(new CastStates(Casts.Count, Casts.Carry.Length));
+            }
+            if (Structures != null)
+            {
+                blank.AttachStructures(new StructureStates(Structures.Count));
             }
             if (Causes != null)
             {
@@ -355,6 +372,8 @@ namespace GodGame.Sim
             Counters.WriteTo(writer);
             Army.WriteTo(writer);
             Ground.WriteTo(writer);
+            writer.WriteByte(Structures == null ? (byte)0 : (byte)1);
+            Structures?.WriteTo(writer);
             writer.WriteByte(Casts == null ? (byte)0 : (byte)1);
             Casts?.WriteTo(writer);
             writer.WriteByte(Causes == null ? (byte)0 : (byte)1);
@@ -555,6 +574,11 @@ namespace GodGame.Sim
             Counters.ReadFrom(reader);
             Army.ReadFrom(reader);
             Ground.ReadFrom(reader, Fields == null ? MaxGroundCells : Fields.Columns * Fields.Rows);
+            if (reader.ReadByte() != (Structures == null ? 0 : 1))
+            {
+                throw new FormatException("The snapshot's structures don't match this world's.");
+            }
+            Structures?.ReadFrom(reader);
             if (reader.ReadByte() != (Casts == null ? 0 : 1))
             {
                 throw new FormatException("The snapshot's casts don't match this world's.");
@@ -612,6 +636,7 @@ namespace GodGame.Sim
             Counters.AppendTo(hash);
             Army.AppendTo(hash, Regiments);
             Ground.AppendTo(hash);
+            Structures?.AppendTo(hash);
             Casts?.AppendTo(hash);
             Causes?.AppendTo(hash);
         }

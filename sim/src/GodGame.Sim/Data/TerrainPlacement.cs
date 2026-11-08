@@ -69,6 +69,8 @@ namespace GodGame.Sim
                             rules.MaxDischargeLPerS
                         )
                     );
+                case PieceKind.Bridge:
+                    return ReadBridge(item, id, rules, map);
                 case PieceKind.Boulder:
                     item.OnlyKeys("id", "piece", "xMm", "yMm");
                     CheckFits(item, System.Math.Max(1, rules.SizeMm / map.CellSizeMm), map);
@@ -177,6 +179,84 @@ namespace GodGame.Sim
             }
         }
 
+        /// <summary>
+        /// A bridge (spec S2 13.4): two bank points on dry ground (tick-0 water below the bank threshold), a span in
+        /// range and a width its structure kind allows.
+        /// </summary>
+        private static PlannedPiece ReadBridge(
+            JsonValue item,
+            string id,
+            PieceRules rules,
+            MapData map
+        )
+        {
+            item.OnlyKeys("id", "piece", "points", "widthMm");
+            var points = item.Array("points");
+            if (points.Count != 2)
+            {
+                throw new DataFormatException(item.Path + ".points: a bridge has two bank points.");
+            }
+            var xy = new int[4];
+            for (int k = 0; k < 2; k++)
+            {
+                var pair = points[k].Items;
+                if (pair.Count != 2)
+                {
+                    throw new DataFormatException(points[k].Path + ": a point is [xMm, yMm].");
+                }
+                long x = pair[0].AsInteger;
+                long y = pair[1].AsInteger;
+                if (x < 0 || y < 0 || x >= map.WidthMm || y >= map.DepthMm)
+                {
+                    throw new DataFormatException(points[k].Path + ": the point is off the map.");
+                }
+                xy[2 * k] = (int)x;
+                xy[2 * k + 1] = (int)y;
+                int cell = (int)(y / map.CellSizeMm) * map.Columns + (int)(x / map.CellSizeMm);
+                foreach (var layer in map.InitialFields)
+                {
+                    if (
+                        layer.Key == WaterModel.Depth
+                        && layer.Value[cell] / 1000 >= rules.BankMinAboveWaterMm
+                    )
+                    {
+                        throw new DataFormatException(
+                            points[k].Path
+                                + ": a bank point stands in the water; put it on the dry bank."
+                        );
+                    }
+                }
+            }
+            long dx = xy[2] - (long)xy[0];
+            long dy = xy[3] - (long)xy[1];
+            long span = GodGame.Sim.Math.IntMath.Sqrt((ulong)(dx * dx + dy * dy));
+            if (span < rules.MinSpanMm || span > rules.MaxSpanMm)
+            {
+                throw new DataFormatException(
+                    item.Path
+                        + ".points: a "
+                        + rules.Id
+                        + " spans "
+                        + rules.MinSpanMm
+                        + " to "
+                        + rules.MaxSpanMm
+                        + " mm, this one "
+                        + span
+                        + "."
+                );
+            }
+            var kind = rules.Structure!;
+            return new PlannedPiece(
+                id,
+                rules,
+                xy,
+                item.Int("widthMm", kind.MinWidthMm, kind.MaxWidthMm),
+                0,
+                0,
+                0
+            );
+        }
+
         private static int[] Point(JsonValue item, MapData map)
         {
             return new[]
@@ -199,6 +279,16 @@ namespace GodGame.Sim
         {
             long buffer = rules.Terrain.BufferFromDeploymentMm;
             var boulders = new bool[map.Columns * map.Rows];
+            // Decks may not overlap (the audit's empty segments): the map's own and each bridge already placed.
+            var decked = new bool[map.Columns * map.Rows];
+            var mapDecks = TerrainPieces.Apply(map, Array.Empty<PlannedPiece>(), rules).Decks;
+            if (mapDecks != null)
+            {
+                for (int i = 0; i < decked.Length; i++)
+                {
+                    decked[i] = mapDecks.SegmentOfCell[i] >= 0 || mapDecks.ApproachMask[i] != 0;
+                }
+            }
             int[]? water = null;
             foreach (var layer in map.InitialFields)
             {
@@ -218,6 +308,7 @@ namespace GodGame.Sim
                     PieceKind.Hollow,
                     PieceKind.Spring,
                     PieceKind.Line,
+                    PieceKind.Bridge,
                 }
             )
             {
@@ -264,6 +355,18 @@ namespace GodGame.Sim
                                     + piece.Id
                                     + "\" stands in the map's water; place it on dry ground."
                             );
+                        }
+                        if (kind == PieceKind.Bridge)
+                        {
+                            if (decked[i] || boulders[i])
+                            {
+                                throw new DataFormatException(
+                                    "plan.json: bridge \""
+                                        + piece.Id
+                                        + "\" overlaps another deck or a boulder."
+                                );
+                            }
+                            decked[i] = true;
                         }
                         if (kind == PieceKind.Boulder)
                         {
@@ -323,13 +426,19 @@ namespace GodGame.Sim
                 return;
             }
             var runner = new SerialRunner();
-            var with = Check(TerrainPieces.Apply(map, pieces), rules, runner);
+            var with = Check(TerrainPieces.Apply(map, pieces, rules), rules, runner);
             if (with.Ok)
             {
                 return;
             }
             // A map that fails on its own is the author's problem, not this plan's.
-            if (!Check(map, rules, runner).Ok)
+            if (
+                !Check(
+                    TerrainPieces.Apply(map, Array.Empty<PlannedPiece>(), rules),
+                    rules,
+                    runner
+                ).Ok
+            )
             {
                 return;
             }

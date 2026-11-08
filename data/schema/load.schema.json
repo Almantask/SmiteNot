@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Load and decks, ruleset v0",
+  "description": "Read by GodGame.Sim.Rules.RulesetLoader, which rejects unknown keys; integers only, units in the file's $comment (spec S2 section 8).",
+  "type": "object",
+  "required": [
+    "version",
+    "failChecks",
+    "stages",
+    "kinds"
+  ]
+}

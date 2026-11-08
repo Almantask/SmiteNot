@@ -71,7 +71,11 @@
       "minLengthMm": 10000,
       "maxLengthMm": 200000,
       "heightMm": 1500,
-      "crossingPermille": { "foot": 250, "horse": 0, "wheeled": 0 }
+      "crossingPermille": {
+        "foot": 250,
+        "horse": 0,
+        "wheeled": 0
+      }
     },
     {
       "$comment": "Spec S2 13.3: the hedgerow's stone twin. Foot climb over at 300 permille; horse and wheeled closed. Falls to a tremor in M6; fire can't clear it.",
@@ -83,7 +87,31 @@
       "minLengthMm": 10000,
       "maxLengthMm": 200000,
       "heightMm": 1200,
-      "crossingPermille": { "foot": 300, "horse": 0, "wheeled": 0 }
+      "crossingPermille": {
+        "foot": 300,
+        "horse": 0,
+        "wheeled": 0
+      }
+    },
+    {
+      "$comment": "Spec S2 13.4 (settled 2026-11-07, D13): two bank points on dry ground and a width; the deck is flat at the higher bank's height, segments 2 cells along (load.json wooden-bridge), water flows under it; one approach cell at each end is flat for the classes it carries. The buffer counts the deck and its ends. Rot weakens it; a flood that tops it is awash.",
+      "id": "wooden-bridge",
+      "kind": "bridge",
+      "structure": "wooden-bridge",
+      "minSpanMm": 6000,
+      "maxSpanMm": 40000,
+      "bankMinAboveWaterMm": 5,
+      "footprintEndCells": 1
+    },
+    {
+      "$comment": "Spec S2 13.4 (settled 2026-11-07, D13): two bank points on dry ground and a width; the deck is flat at the higher bank's height, segments 2 cells along (load.json footbridge), water flows under it; one approach cell at each end is flat for the classes it carries. The buffer counts the deck and its ends. Rot weakens it; a flood that tops it is awash. Foot only.",
+      "id": "footbridge",
+      "kind": "bridge",
+      "structure": "footbridge",
+      "minSpanMm": 6000,
+      "maxSpanMm": 40000,
+      "bankMinAboveWaterMm": 5,
+      "footprintEndCells": 1
     }
   ]
 }

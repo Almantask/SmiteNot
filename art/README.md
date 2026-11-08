@@ -6,7 +6,8 @@ Blender sources and the rules every asset follows. The full pipeline is in `docs
 
 | Folder | What lives there |
 |---|---|
-| `art/source/` | `.blend` files (Git LFS), one asset per file, named after the asset: `U_<type>_<variant>.blend`, `P_<prop>_<state>.blend` |
+| `art/source/` | `.blend` files (Git LFS), one asset per file, named after the asset: `U_<type>_<variant>.blend`, `P_<prop>_<state>.blend`. A `<name>.source.json` beside it records where the model came from (library, author, licence, changes); the model-asset skill writes it, and CC-BY credits also go in `art/CREDITS.md` |
+| `art/audio/<category>/` | Generated sounds `S_<category>_<name>.wav` (Git LFS), each with a `.json` sidecar holding the prompt, seed, model, licence and checks; the sound-gen skill writes both |
 | `art/palettes/` | The shared palette: `palette.json` (grid and named cells); `palette.png` arrives with the look-development spike |
 | `art/textures/<category>/` | Generated textures `T_<category>_<name>.png` (Git LFS), each with a `.json` sidecar holding the prompt, seed, model, licence and workflow; the texture-gen skill writes both |
 | `unity/Assets/_Game/Art/Generated/<asset>/` | Exported FBX and `export.json` (Git LFS). Never edited by hand |

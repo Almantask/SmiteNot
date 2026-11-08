@@ -390,6 +390,8 @@ Tips:
 | `unity-tests` | Claude or you | Runs Edit Mode and Play Mode tests through the Unity MCP server when the editor is open, or in batch mode when it is closed, and summarises failures. |
 | `art-export` | Claude or you | Runs the headless Blender export and validation scripts for changed `.blend` files, then triggers VAT baking in Unity. |
 | `texture-gen` | Claude or you | Generates textures locally (seamless terrain tiles, icon drafts, concept art) with ComfyUI and Z-Image Turbo through the `comfy` MCP server, checks tile seams, and saves approved results to `art/textures/` with a reproducible sidecar. |
+| `sound-gen` | Claude or you | Generates sound effects, ambience loops and instrumental music locally with Stable Audio 3 through the `thunder-fx` MCP server, checks each take (clipping, late starts, loop clicks), lets you pick by ear, and saves the chosen take to `art/audio/` with a reproducible sidecar. |
+| `model-asset` | Claude or you | Finds a free 3D model (Poly Pizza, Sketchfab, Poly Haven, Kenney, Quaternius; CC0 or CC-BY) through the Blender MCP server, or builds one in Blender when none fits, then conforms it to the art rules (LODs, palette UVs, budgets) and records its source and licence. |
 | `adr` | You | Writes an architecture decision record in `docs/adr/` (context, options, decision, consequences). |
 
 Skills can inject live context with `` !`command` `` (for example the milestone skill pulls `git log` and the status file), and can pre-approve the commands they need with `allowed-tools`. Keep each `SKILL.md` under 500 lines and put long reference material in supporting files next to it.
@@ -400,6 +402,8 @@ Skills can inject live context with `` !`command` `` (for example the milestone 
 |---|---|---|
 | Unity editor | **MCP for Unity** (CoplayDev, free, MIT; package `com.coplaydev.unity-mcp`) as the default. Alternative: Unity's official MCP server in the AI Assistant package (`com.unity.ai.assistant`), in open beta since May 2026, which needs a Unity Cloud project and a Unity AI trial or subscription. | Lets Claude read the console, inspect and edit scenes and components, create scripts, refresh assets and run tests. Install the package, then use its "Configure detected clients" menu for Claude Code. Its configuration holds machine-specific paths, so keep it in local scope, not in the shared `.mcp.json`. |
 | Blender | **blender-mcp** (`uvx blender-mcp` plus its Blender add-on) | Scene inspection, object and material edits, Python execution inside Blender. The add-on's socket has no authentication, so keep it on localhost; set `BLENDER_MCP_SAFE_MODE=1` and `DISABLE_TELEMETRY=true`; save before asking for big edits. Production exports still go through the headless scripts in `tools/blender/`, not through MCP. |
+| ComfyUI | **comfy MCP** (`E:\AI\comfy\comfy-mcp.cmd`, driving the local ComfyUI through comfy-cli) | Local image generation for the texture-gen skill. Machine-specific path, so it lives in local scope. Never the paid partner or cloud tools. |
+| Thunder FX | **thunder-fx MCP** (`engine\mcp_server.py` in the Thunder FX repo, run by its engine venv) | Local Stable Audio 3 generation for the sound-gen skill. Local scope; its `env` sets `HF_HUB_OFFLINE=1` so it reads the cached weights instead of asking Hugging Face for the gated model. |
 | GitHub | `gh` CLI (no MCP needed) | Issues, pull requests, CI logs. |
 
 ### 5.7 Hooks

@@ -15,7 +15,7 @@ internal static class PinnedHashes
     public const ulong WorldBattleSeed7 = 1631372241034031227UL;
 
     /// <summary>RulesetHash of data/rules (unit-types.json with speed, radius and formation, movement-classes.json, hazards.json, routes.json and fields.json, v0, placeholder values; canonical form without $comment). Pinned 2026-11-02.</summary>
-    public const ulong RulesV0 = 18088109343337982458UL;
+    public const ulong RulesV0 = 8213738850556315298UL;
 
     /// <summary>data/maps/m1-flat (map hash), data/plans/m1-ten-thousand.json (plan hash) and the world it deploys. Pinned 2026-11-01.</summary>
     public const ulong MapM1Flat = 0x59885A55C9609ABBUL;

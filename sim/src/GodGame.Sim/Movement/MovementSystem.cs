@@ -531,11 +531,16 @@ namespace GodGame.Sim
                     }
                     Fix speed = _s._typeSpeed[type];
                     Fix run = _s._typeRun[type];
-                    if (_s._codes != null)
+                    if (_s._codes != null || _terrain.HasPieceSpeed)
                     {
-                        // Wading and mud: the speed the cell's code allows. A soldier caught in water that closed
-                        // around it wades out at the class's deepest wading speed.
-                        int code = FieldSpeed.Code(_s._codes[CellIndex(p)], _s._typeClass[type]);
+                        // Wading, mud and climbing a hedge or wall: the speed the cell's codes allow. A soldier caught
+                        // in water that closed around it wades out at the class's deepest wading speed.
+                        int cell = CellIndex(p);
+                        int codes = FieldSpeed.Combine(
+                            _s._codes == null ? FieldSpeed.AllDry : _s._codes[cell],
+                            _terrain.PieceCodes(cell)
+                        );
+                        int code = FieldSpeed.Code(codes, _s._typeClass[type]);
                         int permille =
                             code <= FieldSpeed.Closed
                                 ? _s._typeDeepPermille[type]

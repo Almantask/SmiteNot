@@ -41,6 +41,37 @@ namespace GodGame.Sim
             : code * 4;
 
         /// <summary>
+        /// One cell's water and mud codes combined with its terrain piece codes (a hedgerow, a wall): per class, water that
+        /// sweeps still sweeps, either closed closes, else the slower speed wins. Symmetric and associative, so the order lines
+        /// are stamped in never matters.
+        /// </summary>
+        public static int Combine(int fieldCodes, int pieceCodes)
+        {
+            if (pieceCodes == AllDry)
+            {
+                return fieldCodes;
+            }
+            int result = 0;
+            for (int c = 0; c < Classes; c++)
+            {
+                int a = fieldCodes >> (c * 8) & 0xFF;
+                int b = pieceCodes >> (c * 8) & 0xFF;
+                int code =
+                    a == Swept || b == Swept ? Swept
+                    : a <= Closed || b <= Closed ? Closed
+                    : System.Math.Min(a, b);
+                result |= code << (c * 8);
+            }
+            return result;
+        }
+
+        /// <summary>The code for a crossing speed in ‰: closed at 0, dry at 1,000 or more, else speed / 4 (at least 2).</summary>
+        public static int CodeForPermille(int permille) =>
+            permille <= 0 ? Closed
+            : permille >= 1000 ? AllDryCode
+            : System.Math.Max(2, permille / 4);
+
+        /// <summary>
         /// Whether new codes differ enough from the stored ones to rebuild navigation (spec S1, section 3: cost
         /// hysteresis): some class crosses swept or closed, or its speed moves by at least
         /// <paramref name="hysteresisPermille"/> of full speed. Smaller drifts keep the stored codes, so a rising flood

@@ -176,6 +176,13 @@ namespace GodGame.Sim
         public bool[]? Blocked { get; private set; }
 
         /// <summary>
+        /// Per cell, the crossing speed codes the plan's line pieces set (hedgerows, walls: <see cref="FieldSpeed"/>
+        /// packing, <see cref="FieldSpeed.AllDry"/> where there is none), or null when no line was placed. Never in a map
+        /// file: <see cref="WithTerrain"/> sets it.
+        /// </summary>
+        public int[]? PieceSpeed { get; private set; }
+
+        /// <summary>
         /// True for a map made by <see cref="WithTerrain"/>: it already carries a plan's pieces, so it must never be fed
         /// back into a battle or a plan, which would stamp the pieces twice under the same id and hash.
         /// </summary>
@@ -185,8 +192,17 @@ namespace GodGame.Sim
         /// The same map with the plan's terrain pieces stamped in (<see cref="TerrainPieces"/>): other heights, closed
         /// cells and extra water sources. The id and hash stay the base map's: the plan's hash covers the pieces.
         /// </summary>
-        internal MapData WithTerrain(int[] heightMm, bool[] blocked, WaterSource[] sources)
+        internal MapData WithTerrain(
+            int[] heightMm,
+            bool[] blocked,
+            WaterSource[] sources,
+            int[]? pieceSpeed = null
+        )
         {
+            if (pieceSpeed != null && pieceSpeed.Length != HeightMm.Length)
+            {
+                throw new ArgumentException("One piece speed code per cell.");
+            }
             if (heightMm.Length != HeightMm.Length || blocked.Length != HeightMm.Length)
             {
                 throw new ArgumentException("One height and one closed flag per cell.");
@@ -205,6 +221,7 @@ namespace GodGame.Sim
             )
             {
                 Blocked = blocked,
+                PieceSpeed = pieceSpeed,
                 IsPlayed = true,
                 InitialFields = InitialFields,
                 WindXMmPerS = WindXMmPerS,

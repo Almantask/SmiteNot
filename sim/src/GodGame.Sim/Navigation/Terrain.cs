@@ -25,7 +25,17 @@ namespace GodGame.Sim
             CellSizeMm = map.CellSizeMm;
             _heightMm = (int[])map.HeightMm.Clone();
             _blocked = map.Blocked == null ? null : (bool[])map.Blocked.Clone();
+            _pieceSpeed = map.PieceSpeed == null ? null : (int[])map.PieceSpeed.Clone();
         }
+
+        private readonly int[]? _pieceSpeed;
+
+        /// <summary>The cell's crossing speed codes from line pieces (<see cref="FieldSpeed"/> packing; all dry where there is none).</summary>
+        public int PieceCodes(int index) =>
+            _pieceSpeed == null ? FieldSpeed.AllDry : _pieceSpeed[index];
+
+        /// <summary>Whether any line piece stands on the map (the cost and movement kernels skip the lookup otherwise).</summary>
+        public bool HasPieceSpeed => _pieceSpeed != null;
 
         /// <summary>Bumped by every <see cref="SetHeight"/>, so derived fields can tell they are out of date.</summary>
         public int Version { get; private set; }

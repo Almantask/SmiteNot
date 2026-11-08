@@ -52,7 +52,8 @@ namespace GodGame.Sim
             bool anyRouting = false;
             for (int r = 0; r < world.Regiments.HighWater && !anyRouting; r++)
             {
-                anyRouting = world.Regiments.IsAlive(r) && world.Army.Order[r] == RegimentOrder.Rout;
+                anyRouting =
+                    world.Regiments.IsAlive(r) && world.Army.Order[r] == RegimentOrder.Rout;
             }
             if (!anyRouting)
             {

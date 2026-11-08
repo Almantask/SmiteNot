@@ -1037,9 +1037,35 @@ namespace GodGame.Sim.Rules
                             hazards.LethalDropMm - 1
                         );
                         break;
+                    case "line-blocker":
+                        item.OnlyKeys(
+                            "$comment",
+                            "id",
+                            "kind",
+                            "material",
+                            "minPoints",
+                            "maxPoints",
+                            "minLengthMm",
+                            "maxLengthMm",
+                            "heightMm",
+                            "crossingPermille"
+                        );
+                        piece = Polyline(item, id, PieceKind.Line);
+                        piece.Material = DataIds.Require(item["material"]);
+                        piece.LineHeightMm = item.Int("heightMm", 0, 100_000);
+                        var crossing = item["crossingPermille"];
+                        crossing.OnlyKeys("foot", "horse", "wheeled");
+                        piece.CrossingPermille = new[]
+                        {
+                            crossing.Int("foot", 0, 1_000),
+                            crossing.Int("horse", 0, 1_000),
+                            crossing.Int("wheeled", 0, 1_000),
+                        };
+                        break;
                     default:
                         throw new DataFormatException(
-                            item.Path + ".kind: channel, ridge, hollow, spring or boulder."
+                            item.Path
+                                + ".kind: channel, ridge, hollow, spring, boulder or line-blocker."
                         );
                 }
                 list.Add(piece);

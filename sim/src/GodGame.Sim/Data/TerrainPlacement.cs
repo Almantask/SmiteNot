@@ -75,7 +75,11 @@ namespace GodGame.Sim
                     return new PlannedPiece(id, rules, Point(item, map), 0, 0, 0, 0);
             }
             string size = rules.Kind == PieceKind.Ridge ? "heightMm" : "depthMm";
-            if (rules.Kind == PieceKind.Channel)
+            if (rules.Kind == PieceKind.Line)
+            {
+                item.OnlyKeys("id", "piece", "points");
+            }
+            else if (rules.Kind == PieceKind.Channel)
             {
                 item.OnlyKeys("id", "piece", "points", "widthMm", "depthMm");
             }
@@ -158,6 +162,8 @@ namespace GodGame.Sim
                         item.Int("heightMm", rules.MinHeightMm, rules.MaxHeightMm),
                         0
                     );
+                case PieceKind.Line:
+                    return new PlannedPiece(id, rules, xy, 0, 0, 0, 0);
                 default:
                     return new PlannedPiece(
                         id,
@@ -211,6 +217,7 @@ namespace GodGame.Sim
                     PieceKind.Ridge,
                     PieceKind.Hollow,
                     PieceKind.Spring,
+                    PieceKind.Line,
                 }
             )
             {
@@ -242,7 +249,11 @@ namespace GodGame.Sim
                         if (
                             water != null
                             && water[i] >= dry
-                            && kind is PieceKind.Ridge or PieceKind.Hollow or PieceKind.Spring
+                            && kind
+                                is PieceKind.Ridge
+                                    or PieceKind.Hollow
+                                    or PieceKind.Spring
+                                    or PieceKind.Line
                         )
                         {
                             // S1 D5: dams are their own piece; a spring in a river adds little.
@@ -266,10 +277,16 @@ namespace GodGame.Sim
                             }
                             boulders[i] = true;
                         }
-                        else if (kind == PieceKind.Spring && boulders[i])
+                        else if (
+                            (kind == PieceKind.Spring || kind == PieceKind.Line) && boulders[i]
+                        )
                         {
                             throw new DataFormatException(
-                                "plan.json: spring \"" + piece.Id + "\" is on a boulder."
+                                "plan.json: "
+                                    + piece.Rules.Id
+                                    + " \""
+                                    + piece.Id
+                                    + "\" is on a boulder."
                             );
                         }
                     }

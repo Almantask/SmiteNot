@@ -110,8 +110,45 @@ namespace GodGame.Sim
                     sources.Add(new WaterSource(SpringArea(map, piece), piece.LitresPerSecond));
                 }
             }
-            return map.WithTerrain(heights, blocked, sources.ToArray());
+            // Lines last (S2 13.3): they edit no height and only set each class's crossing speed, the slowest line
+            // winning where two cross.
+            int[]? speed = null;
+            foreach (var piece in pieces)
+            {
+                if (piece.Rules.Kind != PieceKind.Line)
+                {
+                    continue;
+                }
+                if (speed == null)
+                {
+                    speed = new int[heights.Length];
+                    for (int i = 0; i < speed.Length; i++)
+                    {
+                        speed[i] = FieldSpeed.AllDry;
+                    }
+                }
+                int codes = 0;
+                for (int c = 0; c < FieldSpeed.Classes; c++)
+                {
+                    codes |= FieldSpeed.CodeForPermille(piece.Rules.CrossingPermille[c]) << (c * 8);
+                }
+                var stamped = speed;
+                ForEachNear(
+                    map,
+                    piece,
+                    HalfFootprint(map, piece),
+                    (i, d) => stamped[i] = FieldSpeed.Combine(stamped[i], codes)
+                );
+            }
+            return map.WithTerrain(heights, blocked, sources.ToArray(), speed);
         }
+
+        /// <summary>
+        /// How far from a line's centre a cell's centre may lie and still be one of its cells: half a cell's diagonal,
+        /// rounded up. Every cell the line passes through is within it, so a diagonal line's cells touch edge to edge and
+        /// leave no corner a horse could slip through; a line along the grid stays one cell wide.
+        /// </summary>
+        private static long LineReach(MapData map) => ((long)map.CellSizeMm * 7072 + 9999) / 10000;
 
         /// <summary>The cells a piece covers, for the buffer and overlap checks (the whole footprint, S1 9.1).</summary>
         public static List<int> Footprint(MapData map, PlannedPiece piece)
@@ -222,6 +259,8 @@ namespace GodGame.Sim
                 case PieceKind.Ridge:
                     return rules.TopWidthMm / 2
                         + (long)piece.HeightMm * 1000 / rules.SideSlopePermille;
+                case PieceKind.Line:
+                    return LineReach(map);
                 default:
                     return rules.TopWidthMm / 2
                         + (long)piece.DepthMm * 1000 / rules.SideSlopePermille;

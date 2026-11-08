@@ -20,6 +20,12 @@ namespace GodGame.Sim.Rules
 
         /// <summary>A point: a 2 × 2-cell stone, closed to every class and solid to water below its top.</summary>
         Boulder = 4,
+
+        /// <summary>
+        /// A polyline one cell wide that every class crosses at its own speed or not at all (spec S2 13.3: hedgerow,
+        /// drystone wall). It edits no height; it stamps the map's piece speed layer after the height edits.
+        /// </summary>
+        Line = 5,
     }
 
     /// <summary>
@@ -39,7 +45,7 @@ namespace GodGame.Sim.Rules
         public PieceKind Kind { get; }
 
         /// <summary>Whether the piece is drawn as a polyline (channel, ridge, hollow) rather than placed at a point.</summary>
-        public bool IsPolyline => Kind <= PieceKind.Hollow;
+        public bool IsPolyline => Kind <= PieceKind.Hollow || Kind == PieceKind.Line;
 
         public int MinPoints { get; internal set; }
 
@@ -89,6 +95,15 @@ namespace GodGame.Sim.Rules
 
         /// <summary>Boulder: how far it stands above the highest ground under it.</summary>
         public int BoulderHeightMm { get; internal set; }
+
+        /// <summary>A line's material (hedge, stone): what burns or topples it once fire and tremors exist (M6).</summary>
+        public string Material { get; internal set; } = "";
+
+        /// <summary>A line's height, for presentation (height bonuses arrive with cover in M6).</summary>
+        public int LineHeightMm { get; internal set; }
+
+        /// <summary>A line's crossing speed per land class (foot, horse, wheeled), in ‰ of the class's speed; 0 is closed.</summary>
+        public int[] CrossingPermille { get; internal set; } = new int[3];
     }
 
     /// <summary>The terrain pieces and the rules every placement shares (spec S1, section 9.1).</summary>

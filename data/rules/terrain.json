@@ -1,5 +1,5 @@
 {
-  "$comment": "Terrain pieces (ruleset v0; spec S1, section 9: docs/design/spec-s1-water.md, settled 2026-11-03). Integers only: mm, permille, L/s. Settled: every piece's whole footprint stays bufferFromDeploymentMm (100 m) from both deployment zones (brief 2026-10-08), and no placement may fully trap an army or push its route past twice the straight line (brief 2026-10-09: the reachability check). Pieces edit the heightfield before tick 0: channels and hollows lower it (relative to the original ground, by min), then ridges raise it (by max), then boulders stand boulderHeightMm over the highest ground under them, closed to every class; springs flow from tick 0 to the end. Sizes and limits are S1 proposals and prices wait for S5, so the file is marked placeholder.",
+  "$comment": "Terrain pieces (ruleset v0; spec S1, section 9: docs/design/spec-s1-water.md, settled 2026-11-03). Integers only: mm, permille, L/s. Settled: every piece's whole footprint stays bufferFromDeploymentMm (100 m) from both deployment zones (brief 2026-10-08), and no placement may fully trap an army or push its route past twice the straight line (brief 2026-10-09: the reachability check). Pieces edit the heightfield before tick 0: channels and hollows lower it (relative to the original ground, by min), then ridges raise it (by max), then boulders stand boulderHeightMm over the highest ground under them, closed to every class; springs flow from tick 0 to the end; line blockers (S2 13.3) then set each class's crossing speed on their cells, the slowest line winning where two cross. Sizes and limits are S1 and S2 proposals and prices wait for S5, so the file is marked placeholder.",
   "version": 0,
   "status": "placeholder",
   "bufferFromDeploymentMm": 100000,
@@ -60,6 +60,30 @@
       "kind": "boulder",
       "sizeMm": 3000,
       "boulderHeightMm": 2000
+    },
+    {
+      "$comment": "Spec S2 13.3 (settled 2026-11-07, D13): the cheap funnel, drawn as a line. One cell wide (every cell the line passes through, so a diagonal line has no corner gaps); infantry climb through slowly, horse and wheeled need a gap, which the reachability check makes the line leave. Edits no height and lets water through. Not in tick-0 water, not on a boulder. Burns in M6 (fuel); no cover or wind shelter in M5.",
+      "id": "hedgerow",
+      "kind": "line-blocker",
+      "material": "hedge",
+      "minPoints": 2,
+      "maxPoints": 16,
+      "minLengthMm": 10000,
+      "maxLengthMm": 200000,
+      "heightMm": 1500,
+      "crossingPermille": { "foot": 250, "horse": 0, "wheeled": 0 }
+    },
+    {
+      "$comment": "Spec S2 13.3: the hedgerow's stone twin. Foot climb over at 300 permille; horse and wheeled closed. Falls to a tremor in M6; fire can't clear it.",
+      "id": "drystone-wall",
+      "kind": "line-blocker",
+      "material": "stone",
+      "minPoints": 2,
+      "maxPoints": 16,
+      "minLengthMm": 10000,
+      "maxLengthMm": 200000,
+      "heightMm": 1200,
+      "crossingPermille": { "foot": 300, "horse": 0, "wheeled": 0 }
     }
   ]
 }

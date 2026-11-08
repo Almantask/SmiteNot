@@ -191,7 +191,10 @@ namespace GodGame.Sim
                     {
                         int slope = _terrain.SlopePermille(x, y);
                         int i = _terrain.Index(x, y);
-                        int codes = _codes == null ? FieldSpeed.AllDry : _codes[i];
+                        int codes = FieldSpeed.Combine(
+                            _codes == null ? FieldSpeed.AllDry : _codes[i],
+                            _terrain.PieceCodes(i)
+                        );
                         if (_terrain.IsBlocked(i))
                         {
                             for (int c = 0; c < _classes.Length; c++)

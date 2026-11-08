@@ -16,9 +16,11 @@ namespace GodGame.Sim
             int soldiers,
             int xMm,
             int yMm,
-            int facingCentiDegrees
+            int facingCentiDegrees,
+            int[]? ditchMm = null
         )
         {
+            DitchMm = ditchMm;
             Id = id;
             Side = side;
             UnitType = unitType;
@@ -44,6 +46,12 @@ namespace GodGame.Sim
 
         /// <summary>0 faces east (+X), counter-clockwise.</summary>
         public int FacingCentiDegrees { get; }
+
+        /// <summary>
+        /// Spademen only (spec S2 14.3, D5): the line the player drew for the ditch, as x, y pairs in mm, first point to
+        /// last; null for every other regiment and for Spademen who dig nothing.
+        /// </summary>
+        public int[]? DitchMm { get; }
     }
 
     /// <summary>
@@ -126,6 +134,107 @@ namespace GodGame.Sim
         /// <summary>Over the canonical plan; replays record it.</summary>
         public ulong Hash { get; }
 
+        /// <summary>
+        /// A Spademen regiment's ditch line (S2 14.3, D5): 2 to maxPoints points, no longer than the regiment's charges
+        /// (mmPer10Soldiers per 10 soldiers), first point within startWithinMm of the regiment, every point within
+        /// withinZoneMm of its own zone (the zone or its buffer: distance to a rectangle is convex, so the points bound
+        /// the whole line).
+        /// </summary>
+        /// <summary>The longest ditch segment (the terrain pieces' bound, which keeps the segment maths in a long).</summary>
+        public const int MaxDitchSegmentMm = 1_000_000;
+
+        private static int[] ReadDitch(
+            JsonValue item,
+            UnitTypeRules type,
+            Ruleset rules,
+            MapData map,
+            Side side,
+            int x,
+            int y,
+            int soldiers
+        )
+        {
+            var dig = rules.Specialists.DigDitch;
+            if (dig == null || !string.Equals(type.Action, "dig-ditch", StringComparison.Ordinal))
+            {
+                throw new DataFormatException(item.Path + ".ditch: only Spademen dig a ditch.");
+            }
+            var points = item.Array("ditch");
+            if (points.Count < 2 || points.Count > dig.MaxPoints)
+            {
+                throw new DataFormatException(
+                    item.Path + ".ditch: 2 to " + dig.MaxPoints + " points."
+                );
+            }
+            var zone = map.ZoneOf(side).Area;
+            var xy = new int[points.Count * 2];
+            long length = 0;
+            for (int k = 0; k < points.Count; k++)
+            {
+                var pair = points[k].Items;
+                if (pair.Count != 2)
+                {
+                    throw new DataFormatException(points[k].Path + ": a point is [xMm, yMm].");
+                }
+                long px = pair[0].AsInteger;
+                long py = pair[1].AsInteger;
+                if (px < 0 || py < 0 || px >= map.WidthMm || py >= map.DepthMm)
+                {
+                    throw new DataFormatException(points[k].Path + ": the point is off the map.");
+                }
+                long gx = System.Math.Max(0, System.Math.Max(zone.MinX - px, px - zone.MaxX));
+                long gy = System.Math.Max(0, System.Math.Max(zone.MinY - py, py - zone.MaxY));
+                if (gx * gx + gy * gy > (long)dig.WithinZoneMm * dig.WithinZoneMm)
+                {
+                    throw new DataFormatException(
+                        points[k].Path + ": outside the regiment's zone and its buffer."
+                    );
+                }
+                xy[2 * k] = (int)px;
+                xy[2 * k + 1] = (int)py;
+                if (k > 0)
+                {
+                    long dx = px - xy[2 * k - 2];
+                    long dy = py - xy[2 * k - 1];
+                    long segment = IntMath.Sqrt((ulong)(dx * dx + dy * dy));
+                    if (segment > MaxDitchSegmentMm)
+                    {
+                        // The geometry's products stay inside a long only for segments up to 1 km (TerrainPieces).
+                        throw new DataFormatException(
+                            points[k].Path + ": a ditch segment is at most 1 km long."
+                        );
+                    }
+                    length += segment;
+                }
+            }
+            long sx = xy[0] - (long)x;
+            long sy = xy[1] - (long)y;
+            if (sx * sx + sy * sy > (long)dig.StartWithinMm * dig.StartWithinMm)
+            {
+                throw new DataFormatException(
+                    item.Path
+                        + ".ditch: the first point is more than "
+                        + dig.StartWithinMm
+                        + " mm from the regiment."
+                );
+            }
+            long charges = (long)soldiers * dig.MmPer10Soldiers / 10;
+            if (length > charges)
+            {
+                throw new DataFormatException(
+                    item.Path
+                        + ".ditch: "
+                        + length
+                        + " mm long, but "
+                        + soldiers
+                        + " Spademen dig "
+                        + charges
+                        + " mm."
+                );
+            }
+            return xy;
+        }
+
         public static BattlePlan Load(string planJson, MapData map, Ruleset rules)
         {
             if (map.IsPlayed)
@@ -162,7 +271,8 @@ namespace GodGame.Sim
                     "soldiers",
                     "xMm",
                     "yMm",
-                    "facingCentiDegrees"
+                    "facingCentiDegrees",
+                    "ditch"
                 );
                 string id = DataIds.Require(item["id"]);
                 if (!ids.Add(id))
@@ -174,6 +284,13 @@ namespace GodGame.Sim
                 var side = SideNames.Parse(item["side"]);
                 var type = rules.UnitType(item.Str("unitType"));
                 string unitType = type.Id;
+                if (side == Side.Attacker ? !type.AttackerMay : !type.DefenderMay)
+                {
+                    // S2 14.2 seat locks: Spademen defend, Fascine Carriers attack.
+                    throw new DataFormatException(
+                        item.Path + ": the " + side + " can't field " + unitType + "."
+                    );
+                }
                 int x = item.Int("xMm", 0, map.WidthMm - 1);
                 int y = item.Int("yMm", 0, map.DepthMm - 1);
                 RectMm zone = map.ZoneOf(side).Area;
@@ -183,19 +300,24 @@ namespace GodGame.Sim
                         item.Path + ": the centre is outside the " + side + " deployment zone."
                     );
                 }
+                int soldierCount = item.Int(
+                    "soldiers",
+                    type.Formation.MinSoldiers,
+                    type.Formation.MaxSoldiers
+                );
+                int[]? ditch = item.Has("ditch")
+                    ? ReadDitch(item, type, rules, map, side, x, y, soldierCount)
+                    : null;
                 army.Add(
                     new PlannedRegiment(
                         id,
                         side,
                         unitType,
-                        item.Int(
-                            "soldiers",
-                            type.Formation.MinSoldiers,
-                            type.Formation.MaxSoldiers
-                        ),
+                        soldierCount,
                         x,
                         y,
-                        item.Int("facingCentiDegrees", 0, 35_999)
+                        item.Int("facingCentiDegrees", 0, 35_999),
+                        ditch
                     )
                 );
             }

@@ -26,11 +26,20 @@ namespace GodGame.Sim
         private readonly Terrain _terrain;
         private readonly RegimentSummary _summary = new RegimentSummary();
 
+        private readonly SpecialistExecutor? _specialists;
+
         public RegimentOrderSystem(Ruleset rules, MapData map, Terrain terrain)
         {
             _rules = rules ?? throw new ArgumentNullException(nameof(rules));
             _map = map ?? throw new ArgumentNullException(nameof(map));
             _terrain = terrain ?? throw new ArgumentNullException(nameof(terrain));
+        }
+
+        /// <summary>With the specialist executor (spec S2 14.1): specialists' actions run here, before the targeting rules.</summary>
+        public RegimentOrderSystem(Ruleset rules, Navigation navigation, BattlePlan plan)
+            : this(rules, navigation.Map, navigation.Terrain)
+        {
+            _specialists = new SpecialistExecutor(rules, navigation, plan, _summary);
         }
 
         public TickStep Step => TickStep.RegimentAi;
@@ -44,11 +53,16 @@ namespace GodGame.Sim
             var combat = _rules.Combat;
             _summary.Gather(world);
             int tick = context.Tick;
+            _specialists?.Washout(context);
             for (int r = 0; r < world.Regiments.HighWater; r++)
             {
                 if (!world.Regiments.IsAlive(r) || world.RegimentAlive[r] == 0)
                 {
                     continue;
+                }
+                if (_specialists != null && _specialists.Run(context, r))
+                {
+                    continue; // working, or paused by a threat
                 }
                 if (army.Order[r] == RegimentOrder.Rout)
                 {

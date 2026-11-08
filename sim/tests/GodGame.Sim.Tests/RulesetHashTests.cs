@@ -156,13 +156,23 @@ public class RulesetHashTests
 public class RulesetLoaderTests
 {
     [Test]
-    public void RepoRules_LoadTheFourBaseTypes()
+    public void RepoRules_LoadTheFourBaseTypesAndTheFirstSpecialists()
     {
         var rules = RepoData.Rules();
 
         Assert.That(
             rules.UnitTypes.Select(t => t.Id),
-            Is.EqualTo(new[] { "infantry", "cavalry", "ranged", "siege" })
+            Is.EqualTo(
+                new[] { "infantry", "cavalry", "ranged", "siege", "spademen", "fascine-carriers" }
+            )
+        );
+        // S2 14.2 seat locks; the base types serve both seats.
+        Assert.That(rules.UnitType("spademen").AttackerMay, Is.False);
+        Assert.That(rules.UnitType("spademen").Action, Is.EqualTo("dig-ditch"));
+        Assert.That(rules.UnitType("fascine-carriers").DefenderMay, Is.False);
+        Assert.That(
+            rules.UnitType("infantry").AttackerMay && rules.UnitType("infantry").DefenderMay,
+            Is.True
         );
         Assert.That(rules.UnitType("cavalry").MovementClass, Is.EqualTo(MovementClass.Horse));
         Assert.That(rules.UnitType("siege").Index, Is.EqualTo(3));

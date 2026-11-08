@@ -90,11 +90,7 @@ namespace GodGame.Sim
                 );
             }
             systems[(int)TickStep.Fields] = new FieldSystem(models);
-            systems[(int)TickStep.RegimentAi] = new RegimentOrderSystem(
-                Rules,
-                PlayedMap,
-                navigation.Terrain
-            );
+            systems[(int)TickStep.RegimentAi] = new RegimentOrderSystem(Rules, navigation, Plan);
             systems[(int)TickStep.Navigation] = new NavigationSystem(navigation);
             systems[(int)TickStep.Movement] = new MovementSystem(navigation);
             systems[(int)TickStep.Combat] = new CombatSystem(Rules, PlayedMap, navigation.Terrain);

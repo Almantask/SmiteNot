@@ -130,6 +130,7 @@ namespace GodGame.Sim
             Costs.UseFieldCodes(stored);
             Lethal.UseFieldCodes(stored);
             Costs.Rebuild(dirty, context.Runner);
+            _routes?.Update(dirty); // the route checker's coarse cells follow the water
             FlowFields.Repair(dirty, context.Runner);
             Lethal.Rebuild(dirty);
         }
@@ -141,6 +142,19 @@ namespace GodGame.Sim
         public void RebuildFromWorld(World world, IParallelRunner runner)
         {
             _builtFromWorld = true;
+            // The ground: the played map plus whatever soldiers dug and filled before this moment.
+            Terrain.ResetHeights(Map.HeightMm);
+            var ground = world.Ground;
+            for (int i = 0; i < ground.Count; i++)
+            {
+                int cell = ground.CellAt(i);
+                Terrain.SetHeight(
+                    cell % Terrain.Columns,
+                    cell / Terrain.Columns,
+                    ground.HeightAt(i)
+                );
+            }
+            _routes = null; // rebuilt from the new costs on the next edit
             var fields = world.Fields;
             int[]? codes =
                 fields != null && fields.Rules.IndexOf(FieldSpeed.FieldId) >= 0
@@ -159,6 +173,113 @@ namespace GodGame.Sim
             if (!_builtFromWorld)
             {
                 RebuildFromWorld(world, runner);
+            }
+        }
+
+        private Reachability? _routes;
+        private int[] _oldHeights = new int[0];
+
+        /// <summary>
+        /// Applies a batch of soldier-made ground edits mid-battle (spec S2 14.1): sets the heights, rebuilds the cost
+        /// fields over what they dirtied and, when <paramref name="checkRoutes"/>, runs the reachability check with the
+        /// batch applied. A batch that would close the last route or break the 2× cap for any class of either army is
+        /// undone and skipped (false), unless the route was already closed without it (a flood, say), which isn't the
+        /// batch's doing. A kept batch is recorded in the world, the flow fields and lethal distances are repaired, and
+        /// the water tiles over it wake. Serial, in the caller's fixed order.
+        /// </summary>
+        public bool ApplyGroundEdit(
+            TickContext context,
+            int[] cells,
+            int[] heightsMm,
+            int count,
+            bool checkRoutes
+        )
+        {
+            if (count == 0)
+            {
+                return true;
+            }
+            if (_oldHeights.Length < count)
+            {
+                _oldHeights = new int[count];
+            }
+            int minX = int.MaxValue;
+            int minY = int.MaxValue;
+            int maxX = -1;
+            int maxY = -1;
+            for (int k = 0; k < count; k++)
+            {
+                int x = cells[k] % Terrain.Columns;
+                int y = cells[k] / Terrain.Columns;
+                _oldHeights[k] = Terrain.HeightMm(x, y);
+                minX = System.Math.Min(minX, x);
+                minY = System.Math.Min(minY, y);
+                maxX = System.Math.Max(maxX, x);
+                maxY = System.Math.Max(maxY, y);
+            }
+            var dirty = Terrain.DirtyAround(minX, minY, maxX, maxY);
+            Set(cells, heightsMm, count);
+            Costs.Rebuild(dirty, context.Runner);
+            if (!checkRoutes)
+            {
+                _routes?.Update(dirty);
+            }
+            if (checkRoutes && Map.DeploymentZones.Count >= 2)
+            {
+                if (_routes == null)
+                {
+                    _routes = new Reachability(Costs, Map, Rules.Routes);
+                }
+                else
+                {
+                    _routes.Update(dirty);
+                }
+                if (!_routes.Check(context.Runner).Ok)
+                {
+                    Set(cells, _oldHeights, count);
+                    Costs.Rebuild(dirty, context.Runner);
+                    _routes.Update(dirty);
+                    if (_routes.Check(context.Runner).Ok)
+                    {
+                        // The batch closes a route that was open: skipped, leaving a gap (S2 14.1).
+                        FlowFields.Repair(dirty, context.Runner);
+                        Lethal.Rebuild(dirty);
+                        return false;
+                    }
+                    Set(cells, heightsMm, count);
+                    Costs.Rebuild(dirty, context.Runner);
+                    _routes.Update(dirty);
+                }
+            }
+            for (int k = 0; k < count; k++)
+            {
+                context.World.Ground.Set(cells[k], heightsMm[k]);
+            }
+            FlowFields.Repair(dirty, context.Runner);
+            Lethal.Rebuild(dirty);
+            var fields = context.World.Fields;
+            if (fields != null && fields.Rules.IndexOf(WaterModel.Depth) >= 0)
+            {
+                var depth = fields.Get(WaterModel.Depth);
+                for (int k = 0; k < count; k++)
+                {
+                    depth.WakeAround(
+                        depth.TileOf(cells[k] % Terrain.Columns, cells[k] / Terrain.Columns)
+                    );
+                }
+            }
+            return true;
+        }
+
+        private void Set(int[] cells, int[] heightsMm, int count)
+        {
+            for (int k = 0; k < count; k++)
+            {
+                Terrain.SetHeight(
+                    cells[k] % Terrain.Columns,
+                    cells[k] / Terrain.Columns,
+                    heightsMm[k]
+                );
             }
         }
 
@@ -386,7 +507,12 @@ namespace GodGame.Sim
             _navigation.AssignRegiments(context.World, context.Runner);
         }
 
-        public void AfterRestore(TickContext context) =>
+        public void AfterRestore(TickContext context)
+        {
             _navigation.RebuildFromWorld(context.World, context.Runner);
+            // The regiment AI step runs before this one and reads which field each regiment follows (the Fascine
+            // Carriers' path), so a restored world gets the assignment a live run would have from its last tick.
+            _navigation.AssignRegiments(context.World, context.Runner);
+        }
     }
 }

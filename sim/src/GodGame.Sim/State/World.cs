@@ -119,6 +119,9 @@ namespace GodGame.Sim
             }
         }
 
+        /// <summary>The bound on ground edits a snapshot of a world without fields may hold (the spatial hash's cell cap).</summary>
+        private const int MaxGroundCells = 16_000_000;
+
         public EntityPool Units { get; }
         public EntityPool Regiments { get; }
 
@@ -157,6 +160,9 @@ namespace GodGame.Sim
         /// crowd pushes it over while <see cref="UnitFlags.Teetering"/>. 0 otherwise.
         /// </summary>
         public int[] HazardTimer { get; }
+
+        /// <summary>The ground as soldiers changed it this battle (dug and filled cells, spec S2 section 14).</summary>
+        public GroundEdits Ground { get; } = new GroundEdits();
 
         /// <summary>Per-regiment orders, volleys and morale bookkeeping (spec S2, sections 5 to 7).</summary>
         public ArmyState Army { get; }
@@ -348,6 +354,7 @@ namespace GodGame.Sim
             }
             Counters.WriteTo(writer);
             Army.WriteTo(writer);
+            Ground.WriteTo(writer);
             writer.WriteByte(Casts == null ? (byte)0 : (byte)1);
             Casts?.WriteTo(writer);
             writer.WriteByte(Causes == null ? (byte)0 : (byte)1);
@@ -547,6 +554,7 @@ namespace GodGame.Sim
             }
             Counters.ReadFrom(reader);
             Army.ReadFrom(reader);
+            Ground.ReadFrom(reader, Fields == null ? MaxGroundCells : Fields.Columns * Fields.Rows);
             if (reader.ReadByte() != (Casts == null ? 0 : 1))
             {
                 throw new FormatException("The snapshot's casts don't match this world's.");
@@ -603,6 +611,7 @@ namespace GodGame.Sim
             }
             Counters.AppendTo(hash);
             Army.AppendTo(hash, Regiments);
+            Ground.AppendTo(hash);
             Casts?.AppendTo(hash);
             Causes?.AppendTo(hash);
         }

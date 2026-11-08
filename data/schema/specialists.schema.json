@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Specialist actions, ruleset v0",
+  "description": "Read by GodGame.Sim.Rules.RulesetLoader, which rejects unknown keys; integers only, units in the file's $comment (spec S2 section 14).",
+  "type": "object",
+  "required": [
+    "version",
+    "common",
+    "actions"
+  ]
+}

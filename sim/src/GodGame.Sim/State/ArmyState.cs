@@ -20,6 +20,25 @@ namespace GodGame.Sim
 
         /// <summary>Run for the side's retreat edge; soldiers who reach it flee the map.</summary>
         Rout = 4,
+
+        /// <summary>A specialist walking to or standing at <see cref="ArmyState.Point"/>, where its action works.</summary>
+        Work = 5,
+    }
+
+    /// <summary>Where a specialist's action stands (spec S2, section 14.1).</summary>
+    public enum SpecialistJob : byte
+    {
+        /// <summary>Not started: waiting for its trigger (or a type with no action).</summary>
+        Idle = 0,
+
+        /// <summary>Working, or paused by a threat (its order says which).</summary>
+        Active = 1,
+
+        /// <summary>Finished, or out of charges.</summary>
+        Done = 2,
+
+        /// <summary>Wiped or routed: its unspent charges are gone (brief 2026-10-10).</summary>
+        Lost = 3,
     }
 
     /// <summary>
@@ -46,6 +65,13 @@ namespace GodGame.Sim
             RalliesLeft = new int[regimentCapacity];
             SafeTicks = new int[regimentCapacity];
             Wiped = new bool[regimentCapacity];
+            Job = new SpecialistJob[regimentCapacity];
+            Spent = new int[regimentCapacity];
+            WorkProgress = new int[regimentCapacity];
+            WorkStep = new int[regimentCapacity];
+            ClearTicks = new int[regimentCapacity];
+            JobCells = new int[]?[regimentCapacity];
+            JobTargets = new int[]?[regimentCapacity];
             for (int r = 0; r < regimentCapacity; r++)
             {
                 Target[r] = -1;
@@ -95,6 +121,26 @@ namespace GodGame.Sim
         /// <summary>Below about 10% of its starting size: the remnant routs for good and no longer counts (S2 7.3).</summary>
         public bool[] Wiped { get; }
 
+        public SpecialistJob[] Job { get; }
+
+        /// <summary>Charges used: fascine bundles laid.</summary>
+        public int[] Spent { get; }
+
+        /// <summary>Work done toward the next step, in ticks × ‰ of the full regiment's rate.</summary>
+        public int[] WorkProgress { get; }
+
+        /// <summary>The next step: a ditch's next section.</summary>
+        public int[] WorkStep { get; }
+
+        /// <summary>Ticks a paused specialist has had no enemy near.</summary>
+        public int[] ClearTicks { get; }
+
+        /// <summary>The cells a fascine crossing fills, in fill order, or null.</summary>
+        public int[]?[] JobCells { get; }
+
+        /// <summary>Each crossing cell's target height, in mm.</summary>
+        public int[]?[] JobTargets { get; }
+
         /// <summary>A new regiment's state: marching, full ammunition, rallies to come.</summary>
         public void Init(int r, int ammo, int rallies)
         {
@@ -120,6 +166,13 @@ namespace GodGame.Sim
             RalliesLeft[r] = 0;
             SafeTicks[r] = 0;
             Wiped[r] = false;
+            Job[r] = SpecialistJob.Idle;
+            Spent[r] = 0;
+            WorkProgress[r] = 0;
+            WorkStep[r] = 0;
+            ClearTicks[r] = 0;
+            JobCells[r] = null;
+            JobTargets[r] = null;
         }
 
         /// <summary>Whether a slot holds exactly what <see cref="Clear"/> leaves (dead regiment slots must).</summary>
@@ -138,7 +191,14 @@ namespace GodGame.Sim
             && LastLoss[r] == 0
             && RalliesLeft[r] == 0
             && SafeTicks[r] == 0
-            && !Wiped[r];
+            && !Wiped[r]
+            && Job[r] == SpecialistJob.Idle
+            && Spent[r] == 0
+            && WorkProgress[r] == 0
+            && WorkStep[r] == 0
+            && ClearTicks[r] == 0
+            && JobCells[r] == null
+            && JobTargets[r] == null;
 
         internal void WriteTo(ByteWriter writer)
         {
@@ -162,6 +222,13 @@ namespace GodGame.Sim
                 writer.WriteInt32(RalliesLeft[r]);
                 writer.WriteInt32(SafeTicks[r]);
                 writer.WriteByte(Wiped[r] ? (byte)1 : (byte)0);
+                writer.WriteByte((byte)Job[r]);
+                writer.WriteInt32(Spent[r]);
+                writer.WriteInt32(WorkProgress[r]);
+                writer.WriteInt32(WorkStep[r]);
+                writer.WriteInt32(ClearTicks[r]);
+                WriteCells(writer, JobCells[r]);
+                WriteCells(writer, JobTargets[r]);
             }
         }
 
@@ -174,7 +241,7 @@ namespace GodGame.Sim
             for (int r = 0; r < Capacity; r++)
             {
                 byte order = reader.ReadByte();
-                if (order > (byte)RegimentOrder.Rout)
+                if (order > (byte)RegimentOrder.Work)
                 {
                     throw new FormatException("Snapshot regiment order is out of range.");
                 }
@@ -204,6 +271,73 @@ namespace GodGame.Sim
                     throw new FormatException("Snapshot wiped flag is invalid.");
                 }
                 Wiped[r] = wiped == 1;
+                byte job = reader.ReadByte();
+                if (job > (byte)SpecialistJob.Lost)
+                {
+                    throw new FormatException("Snapshot specialist job is out of range.");
+                }
+                Job[r] = (SpecialistJob)job;
+                Spent[r] = NonNegative(reader.ReadInt32());
+                WorkProgress[r] = NonNegative(reader.ReadInt32());
+                WorkStep[r] = NonNegative(reader.ReadInt32());
+                ClearTicks[r] = NonNegative(reader.ReadInt32());
+                JobCells[r] = ReadCells(reader);
+                JobTargets[r] = ReadCells(reader);
+                if (
+                    (JobCells[r] == null) != (JobTargets[r] == null)
+                    || (JobCells[r] != null && JobCells[r]!.Length != JobTargets[r]!.Length)
+                )
+                {
+                    throw new FormatException("Snapshot crossing cells and targets don't match.");
+                }
+            }
+        }
+
+        private static void WriteCells(ByteWriter writer, int[]? cells)
+        {
+            writer.WriteInt32(cells == null ? -1 : cells.Length);
+            if (cells != null)
+            {
+                foreach (int c in cells)
+                {
+                    writer.WriteInt32(c);
+                }
+            }
+        }
+
+        private static int[]? ReadCells(ByteReader reader)
+        {
+            int n = reader.ReadInt32();
+            if (n < -1 || n > 100_000)
+            {
+                throw new FormatException("Snapshot crossing is implausibly long.");
+            }
+            if (n < 0)
+            {
+                return null;
+            }
+            var cells = new int[n];
+            for (int i = 0; i < n; i++)
+            {
+                cells[i] = reader.ReadInt32();
+                if (cells[i] < -MapData.MaxHeightMm || cells[i] > 100_000_000)
+                {
+                    // Cells and target heights share this reader: an index on the largest map, or a legal height.
+                    throw new FormatException("Snapshot crossing value is out of range.");
+                }
+            }
+            return cells;
+        }
+
+        private static void AppendCells(SimHash hash, int[]? cells)
+        {
+            hash.AppendInt32(cells == null ? -1 : cells.Length);
+            if (cells != null)
+            {
+                foreach (int c in cells)
+                {
+                    hash.AppendInt32(c);
+                }
             }
         }
 
@@ -248,6 +382,13 @@ namespace GodGame.Sim
                 hash.AppendInt32(RalliesLeft[r]);
                 hash.AppendInt32(SafeTicks[r]);
                 hash.AppendInt32(Wiped[r] ? 1 : 0);
+                hash.AppendInt32((int)Job[r]);
+                hash.AppendInt32(Spent[r]);
+                hash.AppendInt32(WorkProgress[r]);
+                hash.AppendInt32(WorkStep[r]);
+                hash.AppendInt32(ClearTicks[r]);
+                AppendCells(hash, JobCells[r]);
+                AppendCells(hash, JobTargets[r]);
             }
         }
     }

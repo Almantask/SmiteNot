@@ -35,6 +35,8 @@ namespace GodGame.Sim.Rules
 
         public const string MoraleFile = "morale.json";
 
+        public const string SpecialistsFile = "specialists.json";
+
         public const int TerrainVersion = 0;
 
         public const int PowersVersion = 0;
@@ -91,6 +93,7 @@ namespace GodGame.Sim.Rules
             JsonValue? combatJson = null;
             JsonValue? projectilesJson = null;
             JsonValue? moraleJson = null;
+            JsonValue? specialistsJson = null;
             foreach (var file in files)
             {
                 var value = JsonReader.Parse(file.Value, file.Key);
@@ -134,6 +137,10 @@ namespace GodGame.Sim.Rules
                 else if (string.Equals(file.Key, MoraleFile, StringComparison.Ordinal))
                 {
                     moraleJson = value;
+                }
+                else if (string.Equals(file.Key, SpecialistsFile, StringComparison.Ordinal))
+                {
+                    specialistsJson = value;
                 }
                 else
                 {
@@ -196,7 +203,12 @@ namespace GodGame.Sim.Rules
             var terrain = ReadTerrain(terrainJson, hazards, ref placeholders);
             var combat = ReadCombat(combatJson, projectilesJson, ref placeholders);
             var morale = ReadMorale(moraleJson, ref placeholders);
-            ResolveUnitTypes(unitTypesJson, unitTypes, combat);
+            if (specialistsJson == null)
+            {
+                throw new DataFormatException(SpecialistsFile + " is missing.");
+            }
+            var specialists = ReadSpecialists(specialistsJson, ref placeholders);
+            ResolveUnitTypes(unitTypesJson, unitTypes, combat, specialists);
             return new Ruleset(
                 unitTypes,
                 movement,
@@ -214,6 +226,7 @@ namespace GodGame.Sim.Rules
                 Terrain = terrain,
                 Combat = combat,
                 Morale = morale,
+                Specialists = specialists,
             };
         }
 
@@ -353,7 +366,10 @@ namespace GodGame.Sim.Rules
             foreach (var item in root.Array("unitTypes"))
             {
                 item.OnlyKeys(
+                    "$comment",
                     "id",
+                    "seats",
+                    "action",
                     "movementClass",
                     "health",
                     "morale",
@@ -396,7 +412,8 @@ namespace GodGame.Sim.Rules
         private static void ResolveUnitTypes(
             JsonValue root,
             List<UnitTypeRules> types,
-            CombatRules combat
+            CombatRules combat,
+            SpecialistRules specialists
         )
         {
             var items = root.Array("unitTypes");
@@ -422,6 +439,43 @@ namespace GodGame.Sim.Rules
                         melee.Int("intervalTicks", 1, 1_200),
                         melee.Int("reachMm", 0, 10_000)
                     );
+                }
+                if (item.Has("seats"))
+                {
+                    type.AttackerMay = false;
+                    type.DefenderMay = false;
+                    foreach (var seat in item.Array("seats"))
+                    {
+                        string name = seat.AsString;
+                        if (string.Equals(name, "attacker", StringComparison.Ordinal))
+                        {
+                            type.AttackerMay = true;
+                        }
+                        else if (string.Equals(name, "defender", StringComparison.Ordinal))
+                        {
+                            type.DefenderMay = true;
+                        }
+                        else
+                        {
+                            throw new DataFormatException(seat.Path + ": attacker or defender.");
+                        }
+                    }
+                }
+                if (item.Has("action"))
+                {
+                    string action = item.Str("action");
+                    bool known = false;
+                    foreach (var id in specialists.ActionIds)
+                    {
+                        known |= string.Equals(id, action, StringComparison.Ordinal);
+                    }
+                    if (!known)
+                    {
+                        throw new DataFormatException(
+                            item.Path + ": no action \"" + action + "\" in specialists.json."
+                        );
+                    }
+                    type.Action = action;
                 }
                 if (item.Has("projectile"))
                 {
@@ -522,6 +576,115 @@ namespace GodGame.Sim.Rules
                 targeting.Int("rangedFallbackCooldownTicks", 0, 72_000),
                 projectiles.AsReadOnly()
             );
+        }
+
+        private static SpecialistRules ReadSpecialists(JsonValue root, ref bool placeholders)
+        {
+            root.OnlyKeys("$comment", "version", "status", "common", "actions");
+            if (root.Int("version") != 0)
+            {
+                throw new DataFormatException(root.Path + ": version must be 0.");
+            }
+            placeholders |= ReadStatus(root);
+            var common = root["common"];
+            common.OnlyKeys(
+                "$comment",
+                "pauseWhenEnemyWithinMm",
+                "fallBackMm",
+                "resumeAfterClearTicks"
+            );
+            var result = new SpecialistRules
+            {
+                Common = new SpecialistCommonRules
+                {
+                    PauseWhenEnemyWithinMm = common.Int("pauseWhenEnemyWithinMm", 0, 1_000_000),
+                    FallBackMm = common.Int("fallBackMm", 0, 1_000_000),
+                    ResumeAfterClearTicks = common.Int("resumeAfterClearTicks", 0, 72_000),
+                },
+            };
+            var ids = new List<string>();
+            foreach (var action in root.Array("actions"))
+            {
+                string id = DataIds.Require(action["id"]);
+                if (ids.Contains(id))
+                {
+                    throw new DataFormatException(action.Path + ": the action is listed twice.");
+                }
+                ids.Add(id);
+                switch (id)
+                {
+                    case "dig-ditch":
+                        action.OnlyKeys(
+                            "$comment",
+                            "id",
+                            "maxPoints",
+                            "withinZoneMm",
+                            "startWithinMm",
+                            "mmPer10Soldiers",
+                            "ditchDepthMm",
+                            "bermCells",
+                            "bankHeightMm",
+                            "sectionCellsAlong",
+                            "ticksPerSection",
+                            "minRatePermille"
+                        );
+                        result.DigDitch = new DigDitchRules
+                        {
+                            MaxPoints = action.Int("maxPoints", 2, 16),
+                            WithinZoneMm = action.Int("withinZoneMm", 0, 1_000_000),
+                            StartWithinMm = action.Int("startWithinMm", 0, 1_000_000),
+                            MmPer10Soldiers = action.Int("mmPer10Soldiers", 1, 1_000_000),
+                            DitchDepthMm = action.Int("ditchDepthMm", 1, 100_000),
+                            BermCells = action.Int("bermCells", 0, 8),
+                            BankHeightMm = action.Int("bankHeightMm", 0, 100_000),
+                            SectionCellsAlong = action.Int("sectionCellsAlong", 1, 64),
+                            TicksPerSection = action.Int("ticksPerSection", 1, 72_000),
+                            MinRatePermille = action.Int("minRatePermille", 1, 1_000),
+                        };
+                        break;
+                    case "fill-crossing":
+                        action.OnlyKeys(
+                            "$comment",
+                            "id",
+                            "aheadMm",
+                            "belowRimMm",
+                            "mudAtLeast",
+                            "waterMinMm",
+                            "waterMaxMm",
+                            "widthCells",
+                            "maxLengthCells",
+                            "bundleRaiseMm",
+                            "ticksPerBundle",
+                            "washoutDepthSpeed",
+                            "washoutTicks",
+                            "washoutLossMm"
+                        );
+                        int waterMin = action.Int("waterMinMm", 0, 100_000);
+                        result.FillCrossing = new FillCrossingRules
+                        {
+                            AheadMm = action.Int("aheadMm", 0, 1_000_000),
+                            BelowRimMm = action.Int("belowRimMm", 1, 100_000),
+                            MudAtLeast = action.Int("mudAtLeast", 0, 65_535),
+                            WaterMinMm = waterMin,
+                            WaterMaxMm = action.Int("waterMaxMm", waterMin, 100_000),
+                            WidthCells = action.Int("widthCells", 1, 15),
+                            MaxLengthCells = action.Int("maxLengthCells", 1, 256),
+                            BundleRaiseMm = action.Int("bundleRaiseMm", 1, 100_000),
+                            TicksPerBundle = action.Int("ticksPerBundle", 1, 1_200),
+                            WashoutDepthSpeed = action.Int("washoutDepthSpeed", 1, 100_000_000),
+                            WashoutTicks = action.Int("washoutTicks", 1, 72_000),
+                            WashoutLossMm = action.Int("washoutLossMm", 0, 100_000),
+                        };
+                        break;
+                    default:
+                        throw new DataFormatException(
+                            action.Path
+                                + ".id: dig-ditch or fill-crossing; the other S2 actions arrive with bridges and herds."
+                        );
+                }
+            }
+            result.ActionIds = ids.AsReadOnly();
+            return result;
         }
 
         private static MoraleRules ReadMorale(JsonValue root, ref bool placeholders)

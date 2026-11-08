@@ -440,7 +440,10 @@ namespace GodGame.Sim
             for (int r = 0; r < n; r++)
             {
                 _order[r] = world.Regiments.IsAlive(r) ? army.Order[r] : RegimentOrder.March;
-                any |= _order[r] == RegimentOrder.Engage || _order[r] == RegimentOrder.FallBack;
+                any |=
+                    _order[r] == RegimentOrder.Engage
+                    || _order[r] == RegimentOrder.FallBack
+                    || _order[r] == RegimentOrder.Work;
                 _hasPoint[r] = false;
                 _closeIn[r] = false;
             }
@@ -450,7 +453,7 @@ namespace GodGame.Sim
             }
             for (int r = 0; r < n; r++)
             {
-                if (_order[r] == RegimentOrder.FallBack)
+                if (_order[r] == RegimentOrder.FallBack || _order[r] == RegimentOrder.Work)
                 {
                     _hasPoint[r] = true;
                     _point[r] = army.Point[r];

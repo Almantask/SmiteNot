@@ -39,6 +39,15 @@ namespace GodGame.Sim
 
         /// <summary>A regiment fell below about 10% of its starting size. Subject: the regiment.</summary>
         RegimentWiped = 11,
+
+        /// <summary>A specialist's action began (its lane marker). Subject: the regiment; detail: the action (1 dig, 2 fill).</summary>
+        SpecialistStarted = 12,
+
+        /// <summary>A specialist's action finished, ran out of charges or lost them. Subject: the regiment; detail: the action.</summary>
+        SpecialistEnded = 13,
+
+        /// <summary>An edit batch was skipped because it would close the last route (a gap). Subject: the regiment; detail: the action.</summary>
+        SpecialistEditSkipped = 14,
     }
 
     /// <summary>One entry in the cause log: what, when, and the (up to two) earlier events that caused it.</summary>
@@ -231,7 +240,7 @@ namespace GodGame.Sim
                 int cause2 = reader.ReadInt32();
                 if (
                     kind < (byte)CauseKind.CastFired
-                    || kind > (byte)CauseKind.RegimentWiped
+                    || kind > (byte)CauseKind.SpecialistEditSkipped
                     || cause < None
                     || cause >= i
                     || cause2 < None

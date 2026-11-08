@@ -139,6 +139,17 @@ namespace GodGame.Sim
             Version = unchecked(Version + 1);
         }
 
+        /// <summary>Puts every cell back to <paramref name="heightMm"/> (the played map), before re-applying a restored world's edits.</summary>
+        public void ResetHeights(int[] heightMm)
+        {
+            if (heightMm.Length != _heightMm.Length)
+            {
+                throw new ArgumentException("One height per cell.", nameof(heightMm));
+            }
+            Array.Copy(heightMm, _heightMm, heightMm.Length);
+            Version = unchecked(Version + 1);
+        }
+
         /// <summary>The cells whose slope a height change in [minX, maxX] × [minY, maxY] can reach: one cell further each way.</summary>
         public CellRect DirtyAround(int minX, int minY, int maxX, int maxY)
         {

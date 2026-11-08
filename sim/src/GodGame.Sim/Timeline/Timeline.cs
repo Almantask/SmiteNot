@@ -279,6 +279,8 @@ namespace GodGame.Sim
                     || x.XMm != y.XMm
                     || x.YMm != y.YMm
                     || x.FacingCentiDegrees != y.FacingCentiDegrees
+                    || (x.DitchMm == null) != (y.DitchMm == null)
+                    || (x.DitchMm != null && !SamePoints(x.DitchMm, y.DitchMm!))
                 )
                 {
                     return false;

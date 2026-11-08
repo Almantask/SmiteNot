@@ -212,6 +212,15 @@ namespace GodGame.Sim.Rules
 
         /// <summary>What it shoots, or null.</summary>
         public ProjectileRules? Projectile { get; internal set; }
+
+        /// <summary>Whether the attacker may buy it (a seat lock, spec S2 14.2: Fascine Carriers attacker only).</summary>
+        public bool AttackerMay { get; internal set; } = true;
+
+        /// <summary>Whether the defender may buy it (Spademen defender only).</summary>
+        public bool DefenderMay { get; internal set; } = true;
+
+        /// <summary>The specialist action it carries out (<c>specialists.json</c>), or null for a line or engine type.</summary>
+        public string? Action { get; internal set; }
     }
 
     /// <summary>The guaranteed-route check, from <c>data/rules/routes.json</c>.</summary>
@@ -351,6 +360,9 @@ namespace GodGame.Sim.Rules
 
         /// <summary>Melee, volleys and the regiment targeting default (<c>combat.json</c>, <c>projectiles.json</c>).</summary>
         public CombatRules Combat { get; internal set; } = null!;
+
+        /// <summary>The specialist executor's actions (<c>specialists.json</c>).</summary>
+        public SpecialistRules Specialists { get; internal set; } = new SpecialistRules();
 
         /// <summary>Morale, routing and wiping (<c>morale.json</c>).</summary>
         public MoraleRules Morale { get; internal set; } = new MoraleRules();

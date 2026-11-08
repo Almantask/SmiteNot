@@ -22,7 +22,11 @@ namespace GodGame.Sim
                 if (fields.Rules.IndexOf(layer.Key) < 0)
                 {
                     throw new DataFormatException(
-                        "Map " + map.Id + " starts the field \"" + layer.Key + "\", which the rules don't define."
+                        "Map "
+                            + map.Id
+                            + " starts the field \""
+                            + layer.Key
+                            + "\", which the rules don't define."
                     );
                 }
                 var grid = fields.Get(layer.Key);
@@ -33,7 +37,11 @@ namespace GodGame.Sim
                     if (v != grid.Clamp(v))
                     {
                         throw new DataFormatException(
-                            "Map " + map.Id + ": a starting " + layer.Key + " value is out of the field's range."
+                            "Map "
+                                + map.Id
+                                + ": a starting "
+                                + layer.Key
+                                + " value is out of the field's range."
                         );
                     }
                     grid.Values[i] = v;
@@ -84,9 +92,14 @@ namespace GodGame.Sim
                 var regiment = world.AddRegiment(
                     planned.Side,
                     type.Index,
-                    type.Morale,
+                    rules.Morale.Start,
                     files,
                     facing
+                );
+                world.Army.Init(
+                    regiment.Index,
+                    type.Projectile?.Ammo ?? 0,
+                    rules.Morale.RallyTimes
                 );
                 Fix fileSpacing = Fix.FromRatio(formation.FileSpacingMm, 1000);
                 Fix rankSpacing = Fix.FromRatio(formation.RankSpacingMm, 1000);

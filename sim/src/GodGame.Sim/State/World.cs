@@ -112,6 +112,7 @@ namespace GodGame.Sim
             RegimentAnchor = new int[regimentCapacity];
             RegimentFacing = new Angle[regimentCapacity];
             RegimentFiles = new int[regimentCapacity];
+            Army = new ArmyState(regimentCapacity);
             for (int r = 0; r < regimentCapacity; r++)
             {
                 RegimentAnchor[r] = -1;
@@ -156,6 +157,9 @@ namespace GodGame.Sim
         /// crowd pushes it over while <see cref="UnitFlags.Teetering"/>. 0 otherwise.
         /// </summary>
         public int[] HazardTimer { get; }
+
+        /// <summary>Per-regiment orders, volleys and morale bookkeeping (spec S2, sections 5 to 7).</summary>
+        public ArmyState Army { get; }
 
         /// <summary>Hazard events so far in this battle; the cause log (M3 item 9) will say who and why.</summary>
         public BattleCounters Counters { get; } = new BattleCounters();
@@ -207,6 +211,7 @@ namespace GodGame.Sim
             RegimentAnchor[r] = -1;
             RegimentFacing[r] = facing;
             RegimentFiles[r] = files;
+            Army.Clear(r);
             return id;
         }
 
@@ -296,6 +301,7 @@ namespace GodGame.Sim
             RegimentAnchor[r] = -1;
             RegimentFacing[r] = Angle.Zero;
             RegimentFiles[r] = 0;
+            Army.Clear(r);
             if (Causes != null)
             {
                 Causes.RegimentSwept[r] = CauseLog.None;
@@ -341,6 +347,7 @@ namespace GodGame.Sim
                 writer.WriteInt32(RegimentFiles[r]);
             }
             Counters.WriteTo(writer);
+            Army.WriteTo(writer);
             writer.WriteByte(Casts == null ? (byte)0 : (byte)1);
             Casts?.WriteTo(writer);
             writer.WriteByte(Causes == null ? (byte)0 : (byte)1);
@@ -481,6 +488,7 @@ namespace GodGame.Sim
                     || RegimentAnchor[r] != -1
                     || RegimentFacing[r] != Angle.Zero
                     || RegimentFiles[r] != 0
+                    || !Army.IsClear(r)
                 )
                 {
                     throw new FormatException("A dead regiment slot is not zero.");
@@ -538,6 +546,7 @@ namespace GodGame.Sim
                 RegimentFiles[r] = reader.ReadInt32();
             }
             Counters.ReadFrom(reader);
+            Army.ReadFrom(reader);
             if (reader.ReadByte() != (Casts == null ? 0 : 1))
             {
                 throw new FormatException("The snapshot's casts don't match this world's.");
@@ -593,6 +602,7 @@ namespace GodGame.Sim
                 hash.AppendInt32(RegimentFiles[r]);
             }
             Counters.AppendTo(hash);
+            Army.AppendTo(hash, Regiments);
             Casts?.AppendTo(hash);
             Causes?.AppendTo(hash);
         }

@@ -194,6 +194,24 @@ namespace GodGame.Sim.Rules
         public int RadiusMm { get; }
 
         public FormationRules Formation { get; }
+
+        /// <summary>Running speed (a rout), in mm per second.</summary>
+        public int RunSpeedMmPerSecond { get; internal set; }
+
+        /// <summary>Every morale loss is multiplied by this, in ‰ (archers are shakier than line infantry).</summary>
+        public int MoraleShockPermille { get; internal set; } = 1000;
+
+        /// <summary>The swing, or null for a type that doesn't fight hand to hand.</summary>
+        public MeleeRules? Melee { get; internal set; }
+
+        /// <summary>Melee damage taken, in ‰ (shields).</summary>
+        public int MeleeTakenPermille { get; internal set; } = 1000;
+
+        /// <summary>Arrow damage taken, in ‰.</summary>
+        public int ArrowTakenPermille { get; internal set; } = 1000;
+
+        /// <summary>What it shoots, or null.</summary>
+        public ProjectileRules? Projectile { get; internal set; }
     }
 
     /// <summary>The guaranteed-route check, from <c>data/rules/routes.json</c>.</summary>
@@ -330,6 +348,12 @@ namespace GodGame.Sim.Rules
 
         /// <summary>The god powers, in file order; <see cref="PowerRules.Index"/> is the position here.</summary>
         public IReadOnlyList<PowerRules> Powers { get; internal set; } = Array.Empty<PowerRules>();
+
+        /// <summary>Melee, volleys and the regiment targeting default (<c>combat.json</c>, <c>projectiles.json</c>).</summary>
+        public CombatRules Combat { get; internal set; } = null!;
+
+        /// <summary>Morale, routing and wiping (<c>morale.json</c>).</summary>
+        public MoraleRules Morale { get; internal set; } = new MoraleRules();
 
         /// <summary>Terrain pieces (<c>terrain.json</c>).</summary>
         public TerrainRules Terrain { get; internal set; } =

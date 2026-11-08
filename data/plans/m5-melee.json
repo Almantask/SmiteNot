@@ -1,0 +1,117 @@
+{
+  "$comment": "M5 combat plan: six attacking regiments of 200 (infantry, cavalry, archers) against six defending (infantry and archers) on m5-field, 2,400 soldiers. Volleys first, then melee, routs, rallies and flight off the map within three minutes. For the combat golden.",
+  "version": 0,
+  "map": "m5-field",
+  "army": [
+    {
+      "id": "a00",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 120000,
+      "yMm": 40000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d00",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 275000,
+      "yMm": 40000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "a01",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 120000,
+      "yMm": 84000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d01",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 200,
+      "xMm": 275000,
+      "yMm": 84000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "a02",
+      "side": "attacker",
+      "unitType": "cavalry",
+      "soldiers": 200,
+      "xMm": 120000,
+      "yMm": 128000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d02",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 275000,
+      "yMm": 128000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "a03",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 120000,
+      "yMm": 172000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d03",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 275000,
+      "yMm": 172000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "a04",
+      "side": "attacker",
+      "unitType": "ranged",
+      "soldiers": 200,
+      "xMm": 120000,
+      "yMm": 216000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d04",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 200,
+      "xMm": 275000,
+      "yMm": 216000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "a05",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 120000,
+      "yMm": 260000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d05",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 275000,
+      "yMm": 260000,
+      "facingCentiDegrees": 18000
+    }
+  ],
+  "terrain": [],
+  "casts": []
+}

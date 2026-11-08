@@ -29,6 +29,12 @@ namespace GodGame.Sim.Rules
 
         public const string TerrainFile = "terrain.json";
 
+        public const string CombatFile = "combat.json";
+
+        public const string ProjectilesFile = "projectiles.json";
+
+        public const string MoraleFile = "morale.json";
+
         public const int TerrainVersion = 0;
 
         public const int PowersVersion = 0;
@@ -82,6 +88,9 @@ namespace GodGame.Sim.Rules
             JsonValue? fieldsJson = null;
             JsonValue? powersJson = null;
             JsonValue? terrainJson = null;
+            JsonValue? combatJson = null;
+            JsonValue? projectilesJson = null;
+            JsonValue? moraleJson = null;
             foreach (var file in files)
             {
                 var value = JsonReader.Parse(file.Value, file.Key);
@@ -113,6 +122,18 @@ namespace GodGame.Sim.Rules
                 else if (string.Equals(file.Key, TerrainFile, StringComparison.Ordinal))
                 {
                     terrainJson = value;
+                }
+                else if (string.Equals(file.Key, CombatFile, StringComparison.Ordinal))
+                {
+                    combatJson = value;
+                }
+                else if (string.Equals(file.Key, ProjectilesFile, StringComparison.Ordinal))
+                {
+                    projectilesJson = value;
+                }
+                else if (string.Equals(file.Key, MoraleFile, StringComparison.Ordinal))
+                {
+                    moraleJson = value;
                 }
                 else
                 {
@@ -149,6 +170,16 @@ namespace GodGame.Sim.Rules
             {
                 throw new DataFormatException(TerrainFile + " is missing.");
             }
+            if (combatJson == null || projectilesJson == null || moraleJson == null)
+            {
+                throw new DataFormatException(
+                    (
+                        combatJson == null ? CombatFile
+                        : projectilesJson == null ? ProjectilesFile
+                        : MoraleFile
+                    ) + " is missing."
+                );
+            }
 
             bool placeholders = false;
             var unitTypes = ReadUnitTypes(unitTypesJson, ref placeholders);
@@ -163,6 +194,9 @@ namespace GodGame.Sim.Rules
             var fields = ReadFields(fieldsJson, ref placeholders);
             var powers = ReadPowers(powersJson, fields, ref placeholders, out int latestCastTick);
             var terrain = ReadTerrain(terrainJson, hazards, ref placeholders);
+            var combat = ReadCombat(combatJson, projectilesJson, ref placeholders);
+            var morale = ReadMorale(moraleJson, ref placeholders);
+            ResolveUnitTypes(unitTypesJson, unitTypes, combat);
             return new Ruleset(
                 unitTypes,
                 movement,
@@ -178,6 +212,8 @@ namespace GodGame.Sim.Rules
                 Powers = powers,
                 LatestCastTick = latestCastTick,
                 Terrain = terrain,
+                Combat = combat,
+                Morale = morale,
             };
         }
 
@@ -322,7 +358,13 @@ namespace GodGame.Sim.Rules
                     "health",
                     "morale",
                     "speedMmPerS",
+                    "runMmPerS",
                     "radiusMm",
+                    "moraleShockPermille",
+                    "melee",
+                    "meleeTakenPermille",
+                    "arrowTakenPermille",
+                    "projectile",
                     "formation"
                 );
                 string id = DataIds.Require(item["id"]);
@@ -348,6 +390,197 @@ namespace GodGame.Sim.Rules
                 throw new DataFormatException(root.Path + ": unitTypes is empty.");
             }
             return list;
+        }
+
+        /// <summary>The unit types' combat fields, read once the projectile table is known.</summary>
+        private static void ResolveUnitTypes(
+            JsonValue root,
+            List<UnitTypeRules> types,
+            CombatRules combat
+        )
+        {
+            var items = root.Array("unitTypes");
+            for (int i = 0; i < types.Count; i++)
+            {
+                var item = items[i];
+                var type = types[i];
+                type.RunSpeedMmPerSecond = item.Int(
+                    "runMmPerS",
+                    type.SpeedMmPerSecond,
+                    MaxSpeedMmPerSecond
+                );
+                type.MoraleShockPermille = item.Int("moraleShockPermille", 0, 10_000);
+                type.MeleeTakenPermille = item.Int("meleeTakenPermille", 0, 10_000);
+                type.ArrowTakenPermille = item.Int("arrowTakenPermille", 0, 10_000);
+                if (item.Has("melee"))
+                {
+                    var melee = item["melee"];
+                    melee.OnlyKeys("damage", "hitPermille", "intervalTicks", "reachMm");
+                    type.Melee = new MeleeRules(
+                        melee.Int("damage", 0, 1_000_000),
+                        melee.Int("hitPermille", 0, 1_000),
+                        melee.Int("intervalTicks", 1, 1_200),
+                        melee.Int("reachMm", 0, 10_000)
+                    );
+                }
+                if (item.Has("projectile"))
+                {
+                    string id = item.Str("projectile");
+                    type.Projectile =
+                        combat.Projectile(id)
+                        ?? throw new DataFormatException(
+                            item.Path + ": no projectile \"" + id + "\" in projectiles.json."
+                        );
+                }
+            }
+        }
+
+        private static CombatRules ReadCombat(
+            JsonValue root,
+            JsonValue projectilesRoot,
+            ref bool placeholders
+        )
+        {
+            root.OnlyKeys("$comment", "version", "status", "melee", "volley", "regimentTargeting");
+            if (root.Int("version") != 0)
+            {
+                throw new DataFormatException(root.Path + ": version must be 0.");
+            }
+            placeholders |= ReadStatus(root);
+            var melee = root["melee"];
+            melee.OnlyKeys("$comment", "engagedSpeedPermille");
+            var volley = root["volley"];
+            volley.OnlyKeys("$comment", "impactRadiusMm", "closeRangePermille");
+            var targeting = root["regimentTargeting"];
+            targeting.OnlyKeys(
+                "$comment",
+                "attackerEngageMm",
+                "defenderEngageMm",
+                "rangedFallbackTriggerMm",
+                "rangedFallbackMm",
+                "rangedFallbackCooldownTicks"
+            );
+
+            projectilesRoot.OnlyKeys("$comment", "version", "status", "projectiles");
+            if (projectilesRoot.Int("version") != 0)
+            {
+                throw new DataFormatException(projectilesRoot.Path + ": version must be 0.");
+            }
+            placeholders |= ReadStatus(projectilesRoot);
+            var projectiles = new List<ProjectileRules>();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var p in projectilesRoot.Array("projectiles"))
+            {
+                p.OnlyKeys(
+                    "$comment",
+                    "id",
+                    "rangeMm",
+                    "flightTicksAtRange",
+                    "windPermillePerMPerS",
+                    "windClampMinPermille",
+                    "windClampMaxPermille",
+                    "heightGainPerMm",
+                    "heightGainCapMm",
+                    "hitNearPermille",
+                    "hitFarPermille",
+                    "damage",
+                    "reloadTicks",
+                    "ammo"
+                );
+                string id = DataIds.Require(p["id"]);
+                if (!ids.Add(id))
+                {
+                    throw new DataFormatException(p.Path + ": the projectile is listed twice.");
+                }
+                int clampMin = p.Int("windClampMinPermille", 0, 1_000);
+                projectiles.Add(
+                    new ProjectileRules(
+                        id,
+                        p.Int("rangeMm", 1, 2_000_000),
+                        p.Int("flightTicksAtRange", 1, 1_200),
+                        p.Int("windPermillePerMPerS", 0, 1_000),
+                        clampMin,
+                        p.Int("windClampMaxPermille", 1_000, 10_000),
+                        p.Int("heightGainPerMm", 0, 100),
+                        p.Int("heightGainCapMm", 0, 1_000_000),
+                        p.Int("hitNearPermille", 0, 1_000),
+                        p.Int("hitFarPermille", 0, 1_000),
+                        p.Int("damage", 0, 1_000_000),
+                        p.Int("reloadTicks", 1, 12_000),
+                        p.Int("ammo", 0, 10_000)
+                    )
+                );
+            }
+            return new CombatRules(
+                melee.Int("engagedSpeedPermille", 0, 1_000),
+                volley.Int("impactRadiusMm", 0, 1_000_000),
+                volley.Int("closeRangePermille", 0, 1_000),
+                targeting.Int("attackerEngageMm", 0, 1_000_000),
+                targeting.Int("defenderEngageMm", 0, 1_000_000),
+                targeting.Int("rangedFallbackTriggerMm", 0, 1_000_000),
+                targeting.Int("rangedFallbackMm", 0, 1_000_000),
+                targeting.Int("rangedFallbackCooldownTicks", 0, 72_000),
+                projectiles.AsReadOnly()
+            );
+        }
+
+        private static MoraleRules ReadMorale(JsonValue root, ref bool placeholders)
+        {
+            root.OnlyKeys(
+                "$comment",
+                "version",
+                "status",
+                "start",
+                "routBelow",
+                "ownLossFactor",
+                "nearMm",
+                "farMm",
+                "nearbyLossFactor",
+                "nearbyLossCap",
+                "friendRoutingPerS",
+                "friendWipedOnce",
+                "enemyRoutingPerS",
+                "recoveryPerS",
+                "recoveryQuietTicks",
+                "rally",
+                "wipedBelowPermille"
+            );
+            if (root.Int("version") != 0)
+            {
+                throw new DataFormatException(root.Path + ": version must be 0.");
+            }
+            placeholders |= ReadStatus(root);
+            var rally = root["rally"];
+            rally.OnlyKeys(
+                "$comment",
+                "times",
+                "noEnemyWithinMm",
+                "safeTicks",
+                "awayFromLethalMm",
+                "moraleAfter"
+            );
+            int start = root.Int("start", 1, 1_000_000);
+            return new MoraleRules
+            {
+                Start = start,
+                RoutBelow = root.Int("routBelow", 0, start),
+                OwnLossFactor = root.Int("ownLossFactor", 0, 1_000_000),
+                NearMm = root.Int("nearMm", 0, 1_000_000),
+                FarMm = root.Int("farMm", 0, 1_000_000),
+                NearbyLossFactor = root.Int("nearbyLossFactor", 0, 1_000_000),
+                NearbyLossCap = root.Int("nearbyLossCap", 0, start),
+                FriendRoutingPerS = root.Int("friendRoutingPerS", 0, start),
+                FriendWipedOnce = root.Int("friendWipedOnce", 0, start),
+                EnemyRoutingPerS = root.Int("enemyRoutingPerS", 0, start),
+                RecoveryPerS = root.Int("recoveryPerS", 0, start),
+                RecoveryQuietTicks = root.Int("recoveryQuietTicks", 0, 72_000),
+                RallyTimes = rally.Int("times", 0, 100),
+                RallyNoEnemyWithinMm = rally.Int("noEnemyWithinMm", 0, 1_000_000),
+                RallySafeTicks = rally.Int("safeTicks", 0, 72_000),
+                RallyAwayFromLethalMm = rally.Int("awayFromLethalMm", 0, 1_000_000),
+                RallyMorale = rally.Int("moraleAfter", 0, start),
+                WipedBelowPermille = root.Int("wipedBelowPermille", 0, 1_000),
+            };
         }
 
         /// <summary>Field units the data rules allow, with their value ranges.</summary>
@@ -798,7 +1031,11 @@ namespace GodGame.Sim.Rules
                         item.OnlyKeys("$comment", "id", "kind", "sizeMm", "boulderHeightMm");
                         piece = new PieceRules(id, PieceKind.Boulder);
                         piece.SizeMm = item.Int("sizeMm", 1, 100_000);
-                        piece.BoulderHeightMm = item.Int("boulderHeightMm", 1, hazards.LethalDropMm - 1);
+                        piece.BoulderHeightMm = item.Int(
+                            "boulderHeightMm",
+                            1,
+                            hazards.LethalDropMm - 1
+                        );
                         break;
                     default:
                         throw new DataFormatException(
@@ -827,7 +1064,12 @@ namespace GodGame.Sim.Rules
             if (ticks % FieldStepTicks != 0)
             {
                 throw new DataFormatException(
-                    item.Path + "." + key + ": a multiple of " + FieldStepTicks + " ticks (one field step)."
+                    item.Path
+                        + "."
+                        + key
+                        + ": a multiple of "
+                        + FieldStepTicks
+                        + " ticks (one field step)."
                 );
             }
             return ticks;

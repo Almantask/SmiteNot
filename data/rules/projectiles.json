@@ -1,0 +1,22 @@
+{
+  "$comment": "Projectiles (ruleset v0; spec S2 section 6.1, settled 2026-11-07; numbers are proposals). Range on flat ground in calm air; flight time scales with distance; windPermillePerMPerS of range per m/s of wind along the shot, clamped; heightGainPerMm of range per mm the shooter stands above the target, capped; hit chance near (up to the close share of range) falling linearly to far; damage before the target's arrowTakenPermille; reload and ammunition per regiment volley. The crossbow bolt and siege stone join with their users (M5 item 6).",
+  "version": 0,
+  "status": "placeholder",
+  "projectiles": [
+    {
+      "id": "light-arrow",
+      "rangeMm": 160000,
+      "flightTicksAtRange": 40,
+      "windPermillePerMPerS": 30,
+      "windClampMinPermille": 700,
+      "windClampMaxPermille": 1250,
+      "heightGainPerMm": 4,
+      "heightGainCapMm": 40000,
+      "hitNearPermille": 300,
+      "hitFarPermille": 100,
+      "damage": 35,
+      "reloadTicks": 160,
+      "ammo": 20
+    }
+  ]
+}

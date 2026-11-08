@@ -24,6 +24,21 @@ namespace GodGame.Sim
 
         /// <summary>A swept soldier's drowning timer ran out. Subject: his regiment; detail: his unit slot.</summary>
         SoldierDrowned = 6,
+
+        /// <summary>A soldier died in combat (melee or a volley). Subject: his regiment; detail: the regiment that struck him.</summary>
+        SoldierKilled = 7,
+
+        /// <summary>A routing soldier ran off the map. Subject: his regiment; detail: his unit slot.</summary>
+        SoldierFled = 8,
+
+        /// <summary>A regiment's morale broke. Subject: the regiment; detail: 1 for a rout it may rally from, 2 for a final one.</summary>
+        RegimentRouted = 9,
+
+        /// <summary>A routing regiment re-formed. Subject: the regiment.</summary>
+        RegimentRallied = 10,
+
+        /// <summary>A regiment fell below about 10% of its starting size. Subject: the regiment.</summary>
+        RegimentWiped = 11,
     }
 
     /// <summary>One entry in the cause log: what, when, and the (up to two) earlier events that caused it.</summary>
@@ -124,7 +139,9 @@ namespace GodGame.Sim
                 int to = e.Subject < oldToNew.Length ? oldToNew[e.Subject] : 0;
                 if (to == 0)
                 {
-                    throw new InvalidOperationException("A cast event belongs to a cast the edit changed.");
+                    throw new InvalidOperationException(
+                        "A cast event belongs to a cast the edit changed."
+                    );
                 }
                 _events[i] = new CauseEvent(e.Kind, e.Tick, to - 1, e.Detail, e.Cause, e.Cause2);
             }
@@ -214,7 +231,7 @@ namespace GodGame.Sim
                 int cause2 = reader.ReadInt32();
                 if (
                     kind < (byte)CauseKind.CastFired
-                    || kind > (byte)CauseKind.SoldierDrowned
+                    || kind > (byte)CauseKind.RegimentWiped
                     || cause < None
                     || cause >= i
                     || cause2 < None

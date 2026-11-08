@@ -123,7 +123,9 @@ public static class Program
             }
         )
         {
-            layer.Add(new KeyValuePair<string, int[]>(id, (int[])world.Fields!.Get(id).Values.Clone()));
+            layer.Add(
+                new KeyValuePair<string, int[]>(id, (int[])world.Fields!.Get(id).Values.Clone())
+            );
         }
         File.WriteAllBytes(Path.Combine(dir, "water.bin"), MapData.WriteFieldLayer(layer));
         long total = world.Fields!.Get(WaterModel.Depth).Values.Sum(v => (long)v);
@@ -153,6 +155,13 @@ public static class Program
                     + $"{simulation.World.Units.AliveCount} units; {seconds} s ({simulation.Tick} ticks) on "
                     + $"{options.Threads} thread(s) in {clock.Elapsed.TotalSeconds:0.00} s: {realTime:0.0}x real time, "
                     + $"{msPerTick:0.000} ms/tick; final hash {Replay.Hex(simulation.StateHash())}"
+            )
+        );
+        var c = simulation.World.Counters;
+        Console.WriteLine(
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"killed {c.Killed}, fled {c.Fled}, drowned {c.Drowned}, swept {c.Swept}, pushed over {c.PushedOver}"
             )
         );
         if (battle.Rules.HasPlaceholders)

@@ -1,0 +1,24 @@
+{
+  "$comment": "M5 combat map: 400 x 300 m, flat, attacker zone 150 m deep in the west and defender zone 150 m deep in the east, 100 m apart, so the armies meet within about a minute and a half. Calm. For the combat golden (m5-melee) and the determinism checks.",
+  "version": 0,
+  "id": "m5-field",
+  "widthMm": 400000,
+  "depthMm": 300000,
+  "cellSizeMm": 1500,
+  "deployment": [
+    {
+      "side": "attacker",
+      "minXMm": 0,
+      "minYMm": 0,
+      "maxXMm": 150000,
+      "maxYMm": 300000
+    },
+    {
+      "side": "defender",
+      "minXMm": 250000,
+      "minYMm": 0,
+      "maxXMm": 400000,
+      "maxYMm": 300000
+    }
+  ]
+}

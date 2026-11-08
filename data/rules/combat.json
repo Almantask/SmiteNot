@@ -1,0 +1,19 @@
+{
+  "$comment": "Combat (ruleset v0; spec S2 sections 5 and 6, settled 2026-11-07; numbers are proposals). melee.engagedSpeedPermille: a soldier with an enemy in reach moves at this share of its speed. volley: hits land on target soldiers within impactRadiusMm of the aim point; up to closeRangePermille of range a volley hits at its near chance. regimentTargeting is S2's working default until the regiment AI (M7): attackers turn on an enemy regiment within attackerEngageMm, defenders leave their ground for one within defenderEngageMm, ranged regiments shoot when a target is in range and fall back rangedFallbackMm when enemy melee comes within rangedFallbackTriggerMm.",
+  "version": 0,
+  "status": "placeholder",
+  "melee": {
+    "engagedSpeedPermille": 200
+  },
+  "volley": {
+    "impactRadiusMm": 12000,
+    "closeRangePermille": 300
+  },
+  "regimentTargeting": {
+    "attackerEngageMm": 30000,
+    "defenderEngageMm": 40000,
+    "rangedFallbackTriggerMm": 25000,
+    "rangedFallbackMm": 30000,
+    "rangedFallbackCooldownTicks": 400
+  }
+}

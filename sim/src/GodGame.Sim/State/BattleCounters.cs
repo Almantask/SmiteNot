@@ -22,12 +22,20 @@ namespace GodGame.Sim
         /// <summary>Swept soldiers who regained their footing.</summary>
         public int ReachedBank { get; internal set; }
 
+        /// <summary>Soldiers killed in combat (melee and volleys).</summary>
+        public int Killed { get; internal set; }
+
+        /// <summary>Routing soldiers who ran off the map (they count as lost).</summary>
+        public int Fled { get; internal set; }
+
         internal void WriteTo(ByteWriter writer)
         {
             writer.WriteInt32(Swept);
             writer.WriteInt32(Drowned);
             writer.WriteInt32(PushedOver);
             writer.WriteInt32(ReachedBank);
+            writer.WriteInt32(Killed);
+            writer.WriteInt32(Fled);
         }
 
         internal void ReadFrom(ByteReader reader)
@@ -36,7 +44,16 @@ namespace GodGame.Sim
             Drowned = reader.ReadInt32();
             PushedOver = reader.ReadInt32();
             ReachedBank = reader.ReadInt32();
-            if (Swept < 0 || Drowned < 0 || PushedOver < 0 || ReachedBank < 0)
+            Killed = reader.ReadInt32();
+            Fled = reader.ReadInt32();
+            if (
+                Swept < 0
+                || Drowned < 0
+                || PushedOver < 0
+                || ReachedBank < 0
+                || Killed < 0
+                || Fled < 0
+            )
             {
                 throw new FormatException("Snapshot counters are negative.");
             }
@@ -48,6 +65,8 @@ namespace GodGame.Sim
             hash.AppendInt32(Drowned);
             hash.AppendInt32(PushedOver);
             hash.AppendInt32(ReachedBank);
+            hash.AppendInt32(Killed);
+            hash.AppendInt32(Fled);
         }
     }
 }

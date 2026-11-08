@@ -96,6 +96,9 @@ namespace GodGame.Sim
         /// </summary>
         public const int NeighbourGridCellMm = 2_000;
 
+        /// <summary>The strongest prevailing wind a map may set (spec S2, section 12.4).</summary>
+        public const int MaxWindMmPerS = 15_000;
+
         /// <summary>Ground heights within ±10 km.</summary>
         public const int MaxHeightMm = 10_000_000;
 
@@ -127,6 +130,12 @@ namespace GodGame.Sim
         }
 
         public string Id { get; }
+
+        /// <summary>The map's prevailing wind toward +x (east), mm/s; 0 and 0 is calm (spec S2, D9). In the map hash with the rest of map.json.</summary>
+        public int WindXMmPerS { get; private set; }
+
+        /// <summary>The prevailing wind toward +y (north), mm/s.</summary>
+        public int WindYMmPerS { get; private set; }
 
         public int WidthMm { get; }
 
@@ -198,6 +207,8 @@ namespace GodGame.Sim
                 Blocked = blocked,
                 IsPlayed = true,
                 InitialFields = InitialFields,
+                WindXMmPerS = WindXMmPerS,
+                WindYMmPerS = WindYMmPerS,
             };
         }
 
@@ -284,14 +295,19 @@ namespace GodGame.Sim
                 }
                 if (reader.ReadInt32() != cells)
                 {
-                    throw new DataFormatException("water.bin: a field has another number of cells than the map.");
+                    throw new DataFormatException(
+                        "water.bin: a field has another number of cells than the map."
+                    );
                 }
                 var values = new int[cells];
                 for (int i = 0; i < cells; i++)
                 {
                     values[i] = reader.ReadInt32();
                 }
-                fields[f] = new KeyValuePair<string, int[]>(System.Text.Encoding.ASCII.GetString(id), values);
+                fields[f] = new KeyValuePair<string, int[]>(
+                    System.Text.Encoding.ASCII.GetString(id),
+                    values
+                );
             }
             if (!reader.AtEnd)
             {
@@ -300,7 +316,11 @@ namespace GodGame.Sim
             return fields;
         }
 
-        public static MapData Load(string mapJson, byte[]? heightLayer = null, byte[]? fieldLayer = null)
+        public static MapData Load(
+            string mapJson,
+            byte[]? heightLayer = null,
+            byte[]? fieldLayer = null
+        )
         {
             var root = JsonReader.Parse(mapJson, "map.json");
             root.OnlyKeys(
@@ -312,7 +332,8 @@ namespace GodGame.Sim
                 "cellSizeMm",
                 "deployment",
                 "water",
-                "soils"
+                "soils",
+                "wind"
             );
             if (root.Int("version") != FormatVersion)
             {
@@ -462,6 +483,23 @@ namespace GodGame.Sim
                 }
             }
 
+            int windX = 0;
+            int windY = 0;
+            if (root.Has("wind"))
+            {
+                // The prevailing wind (spec S2, D9): calm by default, at most 15 m/s.
+                var wind = root["wind"];
+                wind.OnlyKeys("$comment", "xMmPerS", "yMmPerS");
+                windX = wind.Int("xMmPerS", -MaxWindMmPerS, MaxWindMmPerS);
+                windY = wind.Int("yMmPerS", -MaxWindMmPerS, MaxWindMmPerS);
+                if ((long)windX * windX + (long)windY * windY > (long)MaxWindMmPerS * MaxWindMmPerS)
+                {
+                    throw new DataFormatException(
+                        wind.Path + ": the wind is stronger than 15,000 mm/s."
+                    );
+                }
+            }
+
             return new MapData(
                 id,
                 width,
@@ -476,6 +514,8 @@ namespace GodGame.Sim
             )
             {
                 InitialFields = initialFields,
+                WindXMmPerS = windX,
+                WindYMmPerS = windY,
             };
         }
 

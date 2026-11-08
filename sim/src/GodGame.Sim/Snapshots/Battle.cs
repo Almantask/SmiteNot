@@ -60,9 +60,9 @@ namespace GodGame.Sim
 
         /// <summary>
         /// The tick so far: the plan's casts (range rule, wind-up, Rain's water), the fields step (water, wetness and
-        /// mud), navigation (regiment goals and flow fields),
-        /// movement, hazards (swept, drowning, bank exit) and bookkeeping (water's cause tags); every other step is
-        /// still empty. The navigation's cost fields are built with
+        /// mud), regiment orders (S2's targeting default), navigation (regiment goals and flow fields),
+        /// movement, combat (melee and volleys), hazards (swept, drowning, bank exit), morale (routs, rallies, wiped,
+        /// fleeing) and bookkeeping (water's cause tags); structures and ballistics are still empty. The navigation's cost fields are built with
         /// <paramref name="runner"/>, which never changes the result.
         /// </summary>
         public ISimSystem[] CreateSystems(IParallelRunner runner)
@@ -90,9 +90,16 @@ namespace GodGame.Sim
                 );
             }
             systems[(int)TickStep.Fields] = new FieldSystem(models);
+            systems[(int)TickStep.RegimentAi] = new RegimentOrderSystem(
+                Rules,
+                PlayedMap,
+                navigation.Terrain
+            );
             systems[(int)TickStep.Navigation] = new NavigationSystem(navigation);
             systems[(int)TickStep.Movement] = new MovementSystem(navigation);
+            systems[(int)TickStep.Combat] = new CombatSystem(Rules, PlayedMap, navigation.Terrain);
             systems[(int)TickStep.Hazards] = new HazardSystem(navigation);
+            systems[(int)TickStep.Morale] = new MoraleSystem(Rules, navigation);
             systems[(int)TickStep.Bookkeeping] = new CauseSystem();
             return systems;
         }

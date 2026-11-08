@@ -1,23 +1,23 @@
 {
-  "$comment": "Unit types (ruleset v0). The four base types come from the brief (pillar 3) and the movement classes from the data rules. Health, morale, speed, body radius and formation have no spec yet: spec pass S2 sets the roster, so the file is marked placeholder. Health and morale start at 100; speeds are a march (1.5 m/s), a trot (3.5 m/s) and an ox-drawn engine (0.8 m/s); radii are a soldier's shoulders (0.35 m), a horse (0.7 m) and an engine (1.5 m). Formations: files across, spacing centre to centre; regiments of 50 to 200 follow tech notes section 4 (\"roughly 50 to 200\") for every type until S2.",
+  "$comment": "Unit types (ruleset v0). The four base types come from the brief (pillar 3) and the movement classes from the data rules. Health, morale shock, run speed, melee (damage, hit chance, swing interval, reach beyond contact), damage taken and projectiles are spec S2 section 2.1, 5 and 6 (settled 2026-11-07; the numbers are proposals, so the file is marked placeholder). Regiment morale starts at 1,000 (S2 section 7). Speeds are a march (1.5 m/s), a trot (3.5 m/s) and an ox-drawn engine (0.8 m/s); radii a soldier's shoulders (0.35 m), a horse (0.7 m) and an engine (1.5 m). Engine crews, cavalry regiment sizes and charges arrive with S2's base types (M5 item 6).",
   "version": 0,
   "status": "placeholder",
   "unitTypes": [
     {
-      "id": "infantry", "movementClass": "foot", "health": 100, "morale": 100, "speedMmPerS": 1500, "radiusMm": 350,
-      "formation": { "files": 20, "fileSpacingMm": 1000, "rankSpacingMm": 1200, "minSoldiers": 50, "maxSoldiers": 200 }
+      "id": "infantry", "movementClass": "foot", "health": 100, "morale": 1000, "speedMmPerS": 1500, "radiusMm": 350, "runMmPerS": 3000, "moraleShockPermille": 1000, "melee": {"damage": 25, "hitPermille": 550, "intervalTicks": 30, "reachMm": 600}, "meleeTakenPermille": 900, "arrowTakenPermille": 600,
+      "formation": {"files": 20, "fileSpacingMm": 1000, "rankSpacingMm": 1200, "minSoldiers": 50, "maxSoldiers": 200}
     },
     {
-      "id": "cavalry", "movementClass": "horse", "health": 100, "morale": 100, "speedMmPerS": 3500, "radiusMm": 700,
-      "formation": { "files": 10, "fileSpacingMm": 1800, "rankSpacingMm": 3000, "minSoldiers": 50, "maxSoldiers": 200 }
+      "id": "cavalry", "movementClass": "horse", "health": 150, "morale": 1000, "speedMmPerS": 3500, "radiusMm": 700, "runMmPerS": 5000, "moraleShockPermille": 900, "melee": {"damage": 30, "hitPermille": 600, "intervalTicks": 30, "reachMm": 900}, "meleeTakenPermille": 800, "arrowTakenPermille": 800,
+      "formation": {"files": 10, "fileSpacingMm": 1800, "rankSpacingMm": 3000, "minSoldiers": 50, "maxSoldiers": 200}
     },
     {
-      "id": "ranged", "movementClass": "foot", "health": 100, "morale": 100, "speedMmPerS": 1500, "radiusMm": 350,
-      "formation": { "files": 25, "fileSpacingMm": 1100, "rankSpacingMm": 1400, "minSoldiers": 50, "maxSoldiers": 200 }
+      "id": "ranged", "movementClass": "foot", "health": 70, "morale": 1000, "speedMmPerS": 1500, "radiusMm": 350, "runMmPerS": 3200, "moraleShockPermille": 1200, "melee": {"damage": 12, "hitPermille": 450, "intervalTicks": 30, "reachMm": 400}, "meleeTakenPermille": 1000, "arrowTakenPermille": 1000, "projectile": "light-arrow",
+      "formation": {"files": 25, "fileSpacingMm": 1100, "rankSpacingMm": 1400, "minSoldiers": 50, "maxSoldiers": 200}
     },
     {
-      "id": "siege", "movementClass": "wheeled", "health": 100, "morale": 100, "speedMmPerS": 800, "radiusMm": 1500,
-      "formation": { "files": 5, "fileSpacingMm": 4500, "rankSpacingMm": 6000, "minSoldiers": 50, "maxSoldiers": 200 }
+      "id": "siege", "movementClass": "wheeled", "health": 400, "morale": 1000, "speedMmPerS": 800, "radiusMm": 1500, "runMmPerS": 800, "moraleShockPermille": 1000, "meleeTakenPermille": 250, "arrowTakenPermille": 0,
+      "formation": {"files": 5, "fileSpacingMm": 4500, "rankSpacingMm": 6000, "minSoldiers": 50, "maxSoldiers": 200}
     }
   ]
 }

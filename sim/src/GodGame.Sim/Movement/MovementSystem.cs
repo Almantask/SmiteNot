@@ -79,8 +79,28 @@ namespace GodGame.Sim
         /// <summary>How fast the formation turns toward the officer's heading: 1.5° per tick, 30° per second (placeholder).</summary>
         public const int MaxTurnUnitsPerTick = Angle.UnitsPerTurn * 15 / 3600;
 
+        /// <summary>
+        /// An engaging regiment whose outline is this close to its target breaks formation and every soldier closes on
+        /// the enemy, so the fight wraps around the line instead of touching only where the two blocks meet (placeholder).
+        /// </summary>
+        public const int CloseInMm = 8_000;
+
+        /// <summary>The officer walks straight at his order's point only if the line there is open and at most this long (placeholder).</summary>
+        public const int MaxDirectMm = 80_000;
+
         private readonly Navigation _navigation;
         private readonly Fix[] _typeSpeed; // metres per tick
+        private readonly Fix[] _typeRun; // metres per tick
+        private readonly long[] _typeReachRaw; // melee reach beyond contact, or -1
+        private readonly long _maxReachRaw;
+        private readonly int _engagedPermille;
+        private readonly RegimentSummary _summary = new RegimentSummary();
+        private RegimentOrder[] _order = new RegimentOrder[0];
+        private bool[] _hasPoint = new bool[0];
+        private FixVec2[] _point = new FixVec2[0];
+        private bool[] _closeIn = new bool[0];
+        private bool[] _near = new bool[0]; // an enemy outline within contact range: only these soldiers check for melee
+        private readonly long _contactMm;
         private readonly long[] _typeRadiusRaw;
         private readonly MovementClass[] _typeClass;
         private readonly Fix[] _typeFileSpacing;
@@ -122,6 +142,9 @@ namespace GodGame.Sim
             _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
             var types = navigation.Rules.UnitTypes;
             _typeSpeed = new Fix[types.Count];
+            _typeRun = new Fix[types.Count];
+            _typeReachRaw = new long[types.Count];
+            _engagedPermille = navigation.Rules.Combat.EngagedSpeedPermille;
             _typeRadiusRaw = new long[types.Count];
             _typeClass = new MovementClass[types.Count];
             _typeDeepPermille = new int[types.Count];
@@ -144,6 +167,13 @@ namespace GodGame.Sim
                     types[t].SpeedMmPerSecond,
                     1000L * SimConstants.TicksPerSecond
                 );
+                _typeRun[t] = Fix.FromRatio(
+                    types[t].RunSpeedMmPerSecond,
+                    1000L * SimConstants.TicksPerSecond
+                );
+                _typeReachRaw[t] =
+                    types[t].Melee == null ? -1 : Fix.FromRatio(types[t].Melee!.ReachMm, 1000).Raw;
+                _maxReachRaw = System.Math.Max(_maxReachRaw, _typeReachRaw[t]);
                 _typeRadiusRaw[t] = Fix.FromRatio(types[t].RadiusMm, 1000).Raw;
                 _typeClass[t] = types[t].MovementClass;
                 var water = navigation.Rules.Movement(_typeClass[t]).Water;
@@ -156,6 +186,8 @@ namespace GodGame.Sim
                 ).Raw;
                 _maxRadiusRaw = System.Math.Max(_maxRadiusRaw, _typeRadiusRaw[t]);
             }
+            // Two of the largest bodies plus the longest reach, a metre to spare (as the combat step's contact range).
+            _contactMm = RegimentSummary.Mm(2 * _maxRadiusRaw + _maxReachRaw) + 1_000;
         }
 
         public TickStep Step => TickStep.Movement;
@@ -191,6 +223,7 @@ namespace GodGame.Sim
             }
             _hash.Build(world);
             UpdateRegiments(world);
+            UpdateOrders(world);
             if (_typeCosts.Length != _typeClass.Length)
             {
                 _typeCosts = new ushort[_typeClass.Length][];
@@ -384,6 +417,62 @@ namespace GodGame.Sim
             }
         }
 
+        /// <summary>
+        /// Serial: what each regiment's order asks of movement this tick (spec S2, section 5's targeting default). An
+        /// Engage order's point is its target's centroid, a FallBack order's the point it walks to; an engaging
+        /// regiment within <see cref="CloseInMm"/> of its target closes in soldier by soldier.
+        /// </summary>
+        private void UpdateOrders(World world)
+        {
+            int n = world.Regiments.Capacity;
+            if (_order.Length != n)
+            {
+                _order = new RegimentOrder[n];
+                _hasPoint = new bool[n];
+                _point = new FixVec2[n];
+                _closeIn = new bool[n];
+                _near = new bool[n];
+            }
+            var army = world.Army;
+            _summary.Gather(world);
+            _summary.NearEnemy(world, _contactMm, _near);
+            bool any = false;
+            for (int r = 0; r < n; r++)
+            {
+                _order[r] = world.Regiments.IsAlive(r) ? army.Order[r] : RegimentOrder.March;
+                any |= _order[r] == RegimentOrder.Engage || _order[r] == RegimentOrder.FallBack;
+                _hasPoint[r] = false;
+                _closeIn[r] = false;
+            }
+            if (!any)
+            {
+                return;
+            }
+            for (int r = 0; r < n; r++)
+            {
+                if (_order[r] == RegimentOrder.FallBack)
+                {
+                    _hasPoint[r] = true;
+                    _point[r] = army.Point[r];
+                    continue;
+                }
+                int target = army.Target[r];
+                if (
+                    _order[r] != RegimentOrder.Engage
+                    || target < 0
+                    || !world.Regiments.IsAlive(target)
+                    || _summary.Count[target] == 0
+                    || _summary.Count[r] == 0
+                )
+                {
+                    continue;
+                }
+                _hasPoint[r] = true;
+                _point[r] = _summary.Centroid[target];
+                _closeIn[r] = _summary.Gap(r, target) <= CloseInMm;
+            }
+        }
+
         /// <summary>Swept or stunned: not on its feet, so it neither steers nor leads.</summary>
         private static bool Down(UnitFlags flags) =>
             (flags & (UnitFlags.Swept | UnitFlags.Stunned)) != 0;
@@ -441,6 +530,7 @@ namespace GodGame.Sim
                         continue;
                     }
                     Fix speed = _s._typeSpeed[type];
+                    Fix run = _s._typeRun[type];
                     if (_s._codes != null)
                     {
                         // Wading and mud: the speed the cell's code allows. A soldier caught in water that closed
@@ -453,6 +543,7 @@ namespace GodGame.Sim
                         if (permille < 1000)
                         {
                             speed = Fix.FromRaw(speed.Raw * permille / 1000);
+                            run = Fix.FromRaw(run.Raw * permille / 1000);
                         }
                     }
                     long radius = _s._typeRadiusRaw[type];
@@ -466,9 +557,39 @@ namespace GodGame.Sim
                     long cap; // the most this soldier wants to walk along its heading, raw m/tick
                     bool follower = false;
                     int anchor = _world.RegimentAnchor[regiment];
-                    if (anchor == u || anchor < 0)
+                    var order = _s._order[regiment];
+                    bool routing = order == RegimentOrder.Rout;
+                    if (routing)
                     {
+                        // Routed: every soldier runs down the retreat field for himself (S2 7.2).
                         heading = directions == null ? FixVec2.Zero : Heading(directions, p);
+                        cap = run.Raw;
+                        follower = true;
+                    }
+                    else if (_s._closeIn[regiment])
+                    {
+                        // Close combat: out of the ranks and at the enemy.
+                        heading = Toward(p, _s._point[regiment]);
+                        cap = speed.Raw;
+                    }
+                    else if (anchor == u || anchor < 0)
+                    {
+                        if (_s._hasPoint[regiment])
+                        {
+                            // Engage or fall back: straight for the point while the way there is open, else the field.
+                            var point = _s._point[regiment];
+                            heading =
+                                Clear(cls, p, point) ? Toward(p, point)
+                                : directions == null ? FixVec2.Zero
+                                : Heading(directions, p);
+                        }
+                        else
+                        {
+                            heading =
+                                order == RegimentOrder.Shoot || directions == null
+                                    ? FixVec2.Zero
+                                    : Heading(directions, p);
+                        }
                         cap =
                             speed.Raw * (_s._officerWaits[regiment] ? WaitingPace : OfficerPace).Raw
                             >> Fix.FractionalBits;
@@ -522,7 +643,14 @@ namespace GodGame.Sim
                     }
 
                     // Neighbours: overlaps push apart; anyone in the path ahead makes this soldier brake.
-                    long reach = radius + _s._maxRadiusRaw + BrakeDistance.Raw;
+                    // Only a soldier whose regiment is near an enemy looks out to melee reach.
+                    long swing = routing || !_s._near[regiment] ? -1 : _s._typeReachRaw[type];
+                    long reach =
+                        radius
+                        + _s._maxRadiusRaw
+                        + System.Math.Max(BrakeDistance.Raw, swing < 0 ? 0 : _s._maxReachRaw);
+                    var side = _world.RegimentSide[regiment];
+                    bool engaged = false;
                     int found = _hash.QueryRadius(_world, p, Fix.FromRaw(reach), neighbours);
                     int count = System.Math.Min(found, MaxNeighbours);
                     long pushX = 0;
@@ -540,6 +668,15 @@ namespace GodGame.Sim
                         long dy = position[j].Y.Raw - p.Y.Raw;
                         long contact = radius + _s._typeRadiusRaw[unitType[j]];
                         long distSq = dx * dx + dy * dy; // within the query radius (a few metres), far inside a long
+                        if (
+                            swing >= 0
+                            && !engaged
+                            && distSq <= (contact + swing) * (contact + swing)
+                            && _world.RegimentSide[unitRegiment[j]] != side
+                        )
+                        {
+                            engaged = true; // an enemy within reach: this soldier is fighting
+                        }
                         if (distSq < contact * contact)
                         {
                             long dist = IntMath.Sqrt((ulong)distSq);
@@ -596,6 +733,11 @@ namespace GodGame.Sim
                     {
                         // Only while not already pressed: in a deep crowd the creeps would add up along the chain.
                         limit = System.Math.Max(limit, cap * CreepShare.Raw >> Fix.FractionalBits);
+                    }
+                    if (engaged)
+                    {
+                        // A soldier in melee moves at a fifth of his march speed (S2 5).
+                        limit = System.Math.Min(limit, speed.Raw * _s._engagedPermille / 1000);
                     }
                     FixVec2 desired = heading * Fix.FromRaw(limit);
                     if (follower)
@@ -745,6 +887,48 @@ namespace GodGame.Sim
                     / _terrain.CellSizeMm;
                 long apart = from > to ? from - to : to - from;
                 return apart <= 2 * straight + 2000;
+            }
+
+            /// <summary>A unit vector from <paramref name="p"/> to <paramref name="to"/>, or zero within a few centimetres.</summary>
+            private static FixVec2 Toward(FixVec2 p, FixVec2 to)
+            {
+                var d = to - p;
+                long dx = d.X.Raw;
+                long dy = d.Y.Raw;
+                long near = Fix.OneRaw / 20;
+                return dx < near && dx > -near && dy < near && dy > -near
+                    ? FixVec2.Zero
+                    : d.WithLength(Fix.One);
+            }
+
+            /// <summary>
+            /// Whether the straight line to <paramref name="to"/> is open for this soldier's class, sampled every half
+            /// cell; anything further than <see cref="MaxDirectMm"/> on either axis counts as not open.
+            /// </summary>
+            private bool Clear(ushort[] costs, FixVec2 p, FixVec2 to)
+            {
+                long dx = to.X.Raw - p.X.Raw;
+                long dy = to.Y.Raw - p.Y.Raw;
+                long max = Fix.FromRatio(MaxDirectMm, 1000).Raw;
+                if (dx > max || dx < -max || dy > max || dy < -max)
+                {
+                    return false;
+                }
+                long length = IntMath.Sqrt((ulong)(dx * dx + dy * dy));
+                long step = Fix.FromRatio(_terrain.CellSizeMm, 2000).Raw;
+                long steps = length / step + 1;
+                for (long k = 1; k <= steps; k++)
+                {
+                    var at = new FixVec2(
+                        Fix.FromRaw(p.X.Raw + dx * k / steps),
+                        Fix.FromRaw(p.Y.Raw + dy * k / steps)
+                    );
+                    if (!Passable(costs, at))
+                    {
+                        return false;
+                    }
+                }
+                return true;
             }
 
             /// <summary>Whether the water in the cell at <paramref name="at"/> sweeps this type's class (from the speed codes).</summary>

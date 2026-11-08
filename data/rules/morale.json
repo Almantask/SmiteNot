@@ -1,0 +1,25 @@
+{
+  "$comment": "Morale (ruleset v0; spec S2 section 7, settled 2026-11-07; numbers are proposals). Per regiment, 0 to start, updated at 4 Hz; every loss is multiplied by the unit type's moraleShockPermille. Own losses cost lost x ownLossFactor / starting size; a friendly regiment's losses within nearMm cost count x nearbyLossFactor / own starting size (at most nearbyLossCap; half that out to farMm); a friend routing within nearMm costs friendRoutingPerS, one wiped friendWipedOnce; an enemy routing gives enemyRoutingPerS; after recoveryQuietTicks without a loss morale recovers recoveryPerS up to 1,000 less the losses so far in permille. Routs below routBelow; rallies once (D3) after safeTicks with no enemy within noEnemyWithinMm and awayFromLethalMm from lethal ground, at moraleAfter; a second rout is final. A regiment is wiped below wipedBelowPermille of its starting size (brief 2026-10-09: about 10%). The distance-to-lethal field is capped at 50 m, so the rally's awayFromLethalMm reads as \"at the cap\" until the field reaches further.",
+  "version": 0,
+  "status": "placeholder",
+  "start": 1000,
+  "routBelow": 250,
+  "ownLossFactor": 2000,
+  "nearMm": 60000,
+  "farMm": 120000,
+  "nearbyLossFactor": 300,
+  "nearbyLossCap": 150,
+  "friendRoutingPerS": 30,
+  "friendWipedOnce": 100,
+  "enemyRoutingPerS": 10,
+  "recoveryPerS": 4,
+  "recoveryQuietTicks": 200,
+  "rally": {
+    "times": 1,
+    "noEnemyWithinMm": 80000,
+    "safeTicks": 400,
+    "awayFromLethalMm": 60000,
+    "moraleAfter": 450
+  },
+  "wipedBelowPermille": 100
+}

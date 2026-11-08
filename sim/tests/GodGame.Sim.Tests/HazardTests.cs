@@ -73,7 +73,9 @@ public class HazardTests
         );
         Assert.That(sawStunned, Is.True, "out of the water, stunned first");
         Assert.That(counters.Drowned + counters.ReachedBank, Is.EqualTo(50));
-        Assert.That(world.Units.AliveCount, Is.EqualTo(50 - counters.Drowned));
+        // Half the regiment swept at once breaks it (S2 7.1), and the basin's east rim is the map edge: survivors who get
+        // up there run off the map.
+        Assert.That(world.Units.AliveCount, Is.EqualTo(50 - counters.Drowned - counters.Fled));
         Assert.That(world.RegimentAlive[0], Is.EqualTo(world.Units.AliveCount));
         var terrain = new Terrain(map);
         foreach (int u in TestBattles.LiveUnits(world))

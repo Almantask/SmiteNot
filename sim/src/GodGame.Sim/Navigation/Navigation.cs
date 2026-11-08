@@ -84,7 +84,13 @@ namespace GodGame.Sim
                 for (int x = 0; x < Terrain.Columns; x++)
                 {
                     int code = _codes[row + x];
-                    if (!FieldSpeed.Significant(stored[row + x], code, Rules.FieldCostHysteresisPermille))
+                    if (
+                        !FieldSpeed.Significant(
+                            stored[row + x],
+                            code,
+                            Rules.FieldCostHysteresisPermille
+                        )
+                    )
                     {
                         continue; // S1's cost hysteresis: small speed drifts wait for a real change
                     }
@@ -232,15 +238,24 @@ namespace GodGame.Sim
             var goal = hasTarget ? Terrain.CellsOf(FarQuarter(target)) : default;
             for (int r = 0; r < world.Regiments.HighWater; r++)
             {
-                if (
-                    !world.Regiments.IsAlive(r)
-                    || world.RegimentSide[r] != Side.Attacker
-                    || !hasTarget
-                )
+                if (!world.Regiments.IsAlive(r))
                 {
                     continue;
                 }
                 var movementClass = Rules.UnitTypes[world.RegimentUnitType[r]].MovementClass;
+                if (world.Army.Order[r] == RegimentOrder.Rout)
+                {
+                    // Routed: run for the side's retreat edge, the map edge nearest its zone (S2 7.2).
+                    _regimentField[r] = FlowFields.GetOrAdd(
+                        movementClass,
+                        RetreatEdge(world.RegimentSide[r])
+                    );
+                    continue;
+                }
+                if (world.RegimentSide[r] != Side.Attacker || !hasTarget)
+                {
+                    continue;
+                }
                 // A far quarter this class can't stand in at all (a lake, a cliff) would leave the field without a
                 // goal: march for the whole zone instead, which the reachability check measures too.
                 var classGoal = AnyPassable(movementClass, goal) ? goal : Terrain.CellsOf(target);
@@ -274,6 +289,49 @@ namespace GodGame.Sim
             return dy >= 0
                 ? new RectMm(target.MinX, target.MaxY - quarterY, target.MaxX, target.MaxY)
                 : new RectMm(target.MinX, target.MinY, target.MaxX, target.MinY + quarterY);
+        }
+
+        /// <summary>
+        /// The one-cell band along the map edge nearest the side's deployment zone (west, east, south, north on ties,
+        /// as the reachability check picks it); the west edge for a side without a zone.
+        /// </summary>
+        public CellRect RetreatEdge(Side side)
+        {
+            int edge = 0;
+            if (TryZone(side, out var zone))
+            {
+                long best = zone.MinX;
+                long east = Map.WidthMm - zone.MaxX;
+                long south = zone.MinY;
+                long north = Map.DepthMm - zone.MaxY;
+                if (east < best)
+                {
+                    edge = 1;
+                    best = east;
+                }
+                if (south < best)
+                {
+                    edge = 2;
+                    best = south;
+                }
+                if (north < best)
+                {
+                    edge = 3;
+                }
+            }
+            int maxX = Terrain.Columns - 1;
+            int maxY = Terrain.Rows - 1;
+            switch (edge)
+            {
+                case 0:
+                    return new CellRect(0, 0, 0, maxY);
+                case 1:
+                    return new CellRect(maxX, 0, maxX, maxY);
+                case 2:
+                    return new CellRect(0, 0, maxX, 0);
+                default:
+                    return new CellRect(0, maxY, maxX, maxY);
+            }
         }
 
         private bool AnyPassable(MovementClass movementClass, CellRect cells)

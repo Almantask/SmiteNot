@@ -182,7 +182,10 @@ public class TimelineTests
         // The second edit resumes before the first one's resume point, from a keyframe the first plan wrote: its casts
         // ("c", "d") are laid out differently from the current plan's ("a", "c", "e").
         var timeline = Run(Plan(("c", 200, 180.0), ("d", 1_500, 140.0)), 2_000);
-        Assert.That(timeline.Edit(Plan(("a", 1_500, 140.0), ("c", 200, 180.0)).Plan), Is.EqualTo(1_500));
+        Assert.That(
+            timeline.Edit(Plan(("a", 1_500, 140.0), ("c", 200, 180.0)).Plan),
+            Is.EqualTo(1_500)
+        );
         timeline.AdvanceTo(1_800);
         var last = Plan(("a", 1_500, 140.0), ("c", 200, 180.0), ("e", 1_400, 150.0));
 

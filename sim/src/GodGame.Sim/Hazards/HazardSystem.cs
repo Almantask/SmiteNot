@@ -119,7 +119,13 @@ namespace GodGame.Sim
                         if (log != null)
                         {
                             int r = world.UnitRegiment[u];
-                            pushed = log.Add(CauseKind.SoldierPushedOver, tick, r, u, CauseLog.None);
+                            pushed = log.Add(
+                                CauseKind.SoldierPushedOver,
+                                tick,
+                                r,
+                                u,
+                                CauseLog.None
+                            );
                         }
                     }
                     if (log != null)
@@ -133,7 +139,13 @@ namespace GodGame.Sim
                             || log.Events[log.RegimentSwept[r]].Cause != tag
                         )
                         {
-                            log.RegimentSwept[r] = log.Add(CauseKind.RegimentSwept, tick, r, 0, tag);
+                            log.RegimentSwept[r] = log.Add(
+                                CauseKind.RegimentSwept,
+                                tick,
+                                r,
+                                0,
+                                tag
+                            );
                             log.RegimentSweptTick[r] = tick;
                         }
                         log.UnitSwept[u] = log.RegimentSwept[r];

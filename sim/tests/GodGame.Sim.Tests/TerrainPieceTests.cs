@@ -334,19 +334,35 @@ public class TerrainPieceTests
         // m3-exit starts with its river flowing (water.bin); S1 D5 keeps ridges out of it, and springs need dry ground.
         var map = RepoFiles.LoadRepoMap(RepoData.Root, "m3-exit");
         string Across(string piece, string extra) =>
-            "{\"id\":\"p\",\"piece\":\"" + piece + "\",\"points\":[[220000,450000],[260000,450000]]" + extra + "}";
+            "{\"id\":\"p\",\"piece\":\""
+            + piece
+            + "\",\"points\":[[220000,450000],[260000,450000]]"
+            + extra
+            + "}";
         string Plan(string terrain) =>
-            "{\"version\":0,\"map\":\"m3-exit\",\"army\":[],\"terrain\":[" + terrain + "],\"casts\":[]}";
+            "{\"version\":0,\"map\":\"m3-exit\",\"army\":[],\"terrain\":["
+            + terrain
+            + "],\"casts\":[]}";
 
         var error = Assert.Throws<DataFormatException>(() =>
             BattlePlan.Load(Plan(Across("ridge", ",\"heightMm\":2000")), map, RepoData.Rules())
         );
         Assert.That(error!.Message, Does.Contain("water"));
         Assert.Throws<DataFormatException>(() =>
-            BattlePlan.Load(Plan(Point("s", "spring", 240_000, 450_000, ",\"litresPerSecond\":1000")), map, RepoData.Rules())
+            BattlePlan.Load(
+                Plan(Point("s", "spring", 240_000, 450_000, ",\"litresPerSecond\":1000")),
+                map,
+                RepoData.Rules()
+            )
         );
         Assert.That(
-            BattlePlan.Load(Plan(Across("channel", ",\"widthMm\":3000,\"depthMm\":1000")), map, RepoData.Rules()).Terrain,
+            BattlePlan
+                .Load(
+                    Plan(Across("channel", ",\"widthMm\":3000,\"depthMm\":1000")),
+                    map,
+                    RepoData.Rules()
+                )
+                .Terrain,
             Has.Count.EqualTo(1),
             "cutting into a river is the point of a channel"
         );

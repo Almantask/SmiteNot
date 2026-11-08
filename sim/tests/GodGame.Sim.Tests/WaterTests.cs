@@ -226,7 +226,12 @@ public class WaterSlowTests
         string waterJson =
             "{\"sources\":[{\"minXMm\":15000,\"minYMm\":118500,\"maxXMm\":28500,\"maxYMm\":120000,\"litresPerSecond\":20}],"
             + "\"sinks\":[{\"minXMm\":15000,\"minYMm\":0,\"maxXMm\":28500,\"maxYMm\":1500}]}";
-        var map = WaterTests.Map((x, y) => (x >= 10 && x < 19 ? -1_500 : 0) + y * 15 / 10, 30, 80, waterJson);
+        var map = WaterTests.Map(
+            (x, y) => (x >= 10 && x < 19 ? -1_500 : 0) + y * 15 / 10,
+            30,
+            80,
+            waterJson
+        );
         var simulation = WaterTests.Run(map);
         var water = WaterTests.Water(simulation);
         int sourceTile = water.TileOf(14, 79);

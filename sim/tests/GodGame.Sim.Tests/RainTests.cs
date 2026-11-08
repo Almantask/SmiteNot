@@ -217,9 +217,7 @@ public class RainTests
             .Start(new SerialRunner())
             .RunAndHash(700, 20);
         Assert.That(
-            ValleyBattle(rain: true, castTick: 20)
-                .Start(new ThreadedRunner(4))
-                .RunAndHash(700, 20),
+            ValleyBattle(rain: true, castTick: 20).Start(new ThreadedRunner(4)).RunAndHash(700, 20),
             Is.EqualTo(serial)
         );
         foreach (int at in new[] { 613 }) // mid-rain between field steps (cast at tick 20)

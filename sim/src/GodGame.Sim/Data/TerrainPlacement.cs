@@ -173,7 +173,11 @@ namespace GodGame.Sim
 
         private static int[] Point(JsonValue item, MapData map)
         {
-            return new[] { item.Int("xMm", 0, map.WidthMm - 1), item.Int("yMm", 0, map.DepthMm - 1) };
+            return new[]
+            {
+                item.Int("xMm", 0, map.WidthMm - 1),
+                item.Int("yMm", 0, map.DepthMm - 1),
+            };
         }
 
         /// <summary>A boulder or spring block wider than the map can't be placed on it.</summary>

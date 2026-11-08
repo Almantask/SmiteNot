@@ -57,7 +57,8 @@ internal static class TestBattles
         MapData map,
         IEnumerable<(string Side, string Type, int Soldiers, double X, double Y)> regiments,
         ulong seed = 1,
-        IEnumerable<(string Id, string Power, int Tick, double X, double Y, double Radius)>? casts = null
+        IEnumerable<(string Id, string Power, int Tick, double X, double Y, double Radius)>? casts =
+            null
     )
     {
         var rules = RepoData.Rules();
@@ -74,18 +75,19 @@ internal static class TestBattles
                     (int)(r.Y * 1000)
                 )
         );
-        var castItems = (casts ?? Enumerable.Empty<(string, string, int, double, double, double)>()).Select(
-            c =>
-                string.Format(
-                    CultureInfo.InvariantCulture,
-                    "{{\"id\":\"{0}\",\"power\":\"{1}\",\"tick\":{2},\"xMm\":{3},\"yMm\":{4},\"radiusMm\":{5}}}",
-                    c.Item1,
-                    c.Item2,
-                    c.Item3,
-                    (int)(c.Item4 * 1000),
-                    (int)(c.Item5 * 1000),
-                    (int)(c.Item6 * 1000)
-                )
+        var castItems = (
+            casts ?? Enumerable.Empty<(string, string, int, double, double, double)>()
+        ).Select(c =>
+            string.Format(
+                CultureInfo.InvariantCulture,
+                "{{\"id\":\"{0}\",\"power\":\"{1}\",\"tick\":{2},\"xMm\":{3},\"yMm\":{4},\"radiusMm\":{5}}}",
+                c.Item1,
+                c.Item2,
+                c.Item3,
+                (int)(c.Item4 * 1000),
+                (int)(c.Item5 * 1000),
+                (int)(c.Item6 * 1000)
+            )
         );
         string plan =
             "{\"version\":0,\"map\":\""

@@ -67,7 +67,8 @@ namespace GodGame.Sim
             while (Simulation.Tick < tick)
             {
                 // Step to the next sample tick (every keyframe tick is one, as 100 is a multiple of 4).
-                int next = (Simulation.Tick / PlaybackTrack.SampleTicks + 1) * PlaybackTrack.SampleTicks;
+                int next =
+                    (Simulation.Tick / PlaybackTrack.SampleTicks + 1) * PlaybackTrack.SampleTicks;
                 Simulation.Step(System.Math.Min(tick, next) - Simulation.Tick);
                 Record(Track, Simulation);
                 if (Simulation.Tick % KeyframeTicks == 0)
@@ -136,9 +137,14 @@ namespace GodGame.Sim
         private PlaybackTrack NewTrack(Simulation simulation)
         {
             var fields = simulation.World.Fields;
-            var track = fields == null
-                ? new PlaybackTrack(Battle.PlayedMap.Columns, Battle.PlayedMap.Rows, 16)
-                : new PlaybackTrack(fields.Columns, fields.Rows, fields.Get(WaterModel.Depth).TileCells);
+            var track =
+                fields == null
+                    ? new PlaybackTrack(Battle.PlayedMap.Columns, Battle.PlayedMap.Rows, 16)
+                    : new PlaybackTrack(
+                        fields.Columns,
+                        fields.Rows,
+                        fields.Get(WaterModel.Depth).TileCells
+                    );
             Record(track, simulation);
             return track;
         }
@@ -197,7 +203,9 @@ namespace GodGame.Sim
                     return _sources[i];
                 }
             }
-            throw new InvalidOperationException("No battle is recorded for the keyframe at tick " + tick + ".");
+            throw new InvalidOperationException(
+                "No battle is recorded for the keyframe at tick " + tick + "."
+            );
         }
 
         /// <summary>
@@ -329,7 +337,9 @@ namespace GodGame.Sim
             var (id, tick, seed) = Snapshot.Read(keyframe, world);
             if (id != old.Id || seed != old.Seed || tick != expectedTick)
             {
-                throw new FormatException("The keyframe doesn't belong to this timeline's battle at that tick.");
+                throw new FormatException(
+                    "The keyframe doesn't belong to this timeline's battle at that tick."
+                );
             }
 
             // Casts: carried over by id; a cast that isn't in the old plan unchanged starts pending (it hasn't acted).

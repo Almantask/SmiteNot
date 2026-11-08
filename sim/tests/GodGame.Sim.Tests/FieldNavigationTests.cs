@@ -297,15 +297,40 @@ public class FieldNavigationTests
     [Test]
     public void SpeedCodes_ChangeOnlyOnASwingOrACrossing_TheCostHysteresis()
     {
-        static int Codes(int foot, int horse = 250, int wheeled = 250) => foot | horse << 8 | wheeled << 16;
+        static int Codes(int foot, int horse = 250, int wheeled = 250) =>
+            foot | horse << 8 | wheeled << 16;
 
         Assert.That(FieldSpeed.Significant(Codes(250), Codes(250), 100), Is.False);
-        Assert.That(FieldSpeed.Significant(Codes(250), Codes(226), 100), Is.False, "under 10%: the stored code stays");
+        Assert.That(
+            FieldSpeed.Significant(Codes(250), Codes(226), 100),
+            Is.False,
+            "under 10%: the stored code stays"
+        );
         Assert.That(FieldSpeed.Significant(Codes(250), Codes(225), 100), Is.True, "a 10% swing");
-        Assert.That(FieldSpeed.Significant(Codes(3), Codes(FieldSpeed.Closed), 100), Is.True, "into closed");
-        Assert.That(FieldSpeed.Significant(Codes(FieldSpeed.Closed), Codes(FieldSpeed.Swept), 100), Is.True, "closed to swept");
-        Assert.That(FieldSpeed.Significant(Codes(FieldSpeed.Swept), Codes(2), 100), Is.True, "out of the water");
-        Assert.That(FieldSpeed.Significant(Codes(250, 250), Codes(250, 249), 0), Is.True, "0 makes any change count");
-        Assert.That(FieldSpeed.Significant(Codes(250, 250, 250), Codes(249, 200, 249), 100), Is.True, "one class swinging is enough");
+        Assert.That(
+            FieldSpeed.Significant(Codes(3), Codes(FieldSpeed.Closed), 100),
+            Is.True,
+            "into closed"
+        );
+        Assert.That(
+            FieldSpeed.Significant(Codes(FieldSpeed.Closed), Codes(FieldSpeed.Swept), 100),
+            Is.True,
+            "closed to swept"
+        );
+        Assert.That(
+            FieldSpeed.Significant(Codes(FieldSpeed.Swept), Codes(2), 100),
+            Is.True,
+            "out of the water"
+        );
+        Assert.That(
+            FieldSpeed.Significant(Codes(250, 250), Codes(250, 249), 0),
+            Is.True,
+            "0 makes any change count"
+        );
+        Assert.That(
+            FieldSpeed.Significant(Codes(250, 250, 250), Codes(249, 200, 249), 100),
+            Is.True,
+            "one class swinging is enough"
+        );
     }
 }

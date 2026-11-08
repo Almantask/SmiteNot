@@ -125,7 +125,10 @@ namespace GodGame.Sim
                 NearestDefender[c] = ReadRegiment(reader, regimentCapacity);
                 DefenderDistanceMm[c] = reader.ReadInt32();
                 int e = reader.ReadInt32();
-                if (e < CauseLog.None || (status == (byte)CastStatus.Pending) != (e == CauseLog.None))
+                if (
+                    e < CauseLog.None
+                    || (status == (byte)CastStatus.Pending) != (e == CauseLog.None)
+                )
                 {
                     throw new FormatException("Snapshot cast event is invalid.");
                 }

@@ -66,9 +66,17 @@ public class WaterBench
         var navFields = new FieldStore(rules.Fields, map.Columns, map.Rows);
         navWorld.AttachFields(navFields);
         var navigation = new Navigation(map, rules, _runner);
-        var navModel = new WaterModel(navigation.Terrain, map, rules.Fields.Water!, TickOrder.FieldsRate);
+        var navModel = new WaterModel(
+            navigation.Terrain,
+            map,
+            rules.Fields.Water!,
+            TickOrder.FieldsRate
+        );
         navModel.WakeSources(navFields);
-        navigation.FlowFields.GetOrAdd(GodGame.Sim.Rules.MovementClass.Foot, new CellRect(0, 0, Columns - 1, 0));
+        navigation.FlowFields.GetOrAdd(
+            GodGame.Sim.Rules.MovementClass.Foot,
+            new CellRect(0, 0, Columns - 1, 0)
+        );
         navigation.FlowFields.BuildPending(_runner);
         var navSystems = TickOrder.CreateDefault();
         navSystems[(int)TickStep.Fields] = new FieldSystem(new IFieldModel[] { navModel });

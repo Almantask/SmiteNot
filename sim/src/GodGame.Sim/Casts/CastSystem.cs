@@ -37,7 +37,9 @@ namespace GodGame.Sim
             _writeOffset = WriteOffsets(plan, out _);
             if (TickOrder.FieldsRate.Period != RulesetLoader.FieldStepTicks)
             {
-                throw new InvalidOperationException("Power timings assume the fields' step period.");
+                throw new InvalidOperationException(
+                    "Power timings assume the fields' step period."
+                );
             }
             _coarseMm = navigation.Terrain.CellSizeMm * navigation.Rules.Routes.CoarseCells;
             _coarseColumns = (navigation.Map.WidthMm + _coarseMm - 1) / _coarseMm;
@@ -101,7 +103,14 @@ namespace GodGame.Sim
                 }
                 for (int w = 0; w < cast.Power.Writes.Count; w++)
                 {
-                    Write(world, states, _writeOffset[c] + w, cast, cast.Power.Writes[w], states.Event[c]);
+                    Write(
+                        world,
+                        states,
+                        _writeOffset[c] + w,
+                        cast,
+                        cast.Power.Writes[w],
+                        states.Event[c]
+                    );
                 }
             }
         }

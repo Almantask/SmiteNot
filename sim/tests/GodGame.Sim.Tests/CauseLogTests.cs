@@ -41,7 +41,9 @@ public class CauseLogTests
     public void Casts_LogFiredOrFizzled_AndRainTagsTheWaterItFeeds_DownTheRiver()
     {
         // The valley river (RainTests): a storm at tick 20 on the river about 35 m upstream of the gauge (the test map starts dry, so the river needs a while to reach it).
-        var simulation = RainTests.ValleyBattle(rain: true, castTick: 20).Start(new ThreadedRunner(4));
+        var simulation = RainTests
+            .ValleyBattle(rain: true, castTick: 20)
+            .Start(new ThreadedRunner(4));
         var log = simulation.World.Causes!;
         var casts = simulation.World.Casts!;
         var depth = simulation.World.Fields!.Get(WaterModel.Depth);

@@ -39,6 +39,17 @@ namespace GodGame.Sim
             }
         }
 
+        private readonly List<int> _cleared = new List<int>();
+
+        /// <summary>Boulders Engineers have cleared (indices into the played map's boulders), in the order cleared.</summary>
+        public int ClearedCount => _cleared.Count;
+
+        public int ClearedAt(int i) => _cleared[i];
+
+        public bool IsCleared(int boulder) => _cleared.Contains(boulder);
+
+        public void AddCleared(int boulder) => _cleared.Add(boulder);
+
         public int FillCount => _fillCells.Count;
 
         public int FillCellAt(int i) => _fillCells[i];
@@ -77,6 +88,11 @@ namespace GodGame.Sim
                 writer.WriteInt32(_cells[i]);
                 writer.WriteInt32(_heights[i]);
             }
+            writer.WriteInt32(_cleared.Count);
+            foreach (int b in _cleared)
+            {
+                writer.WriteInt32(b);
+            }
             writer.WriteInt32(_fillCells.Count);
             for (int i = 0; i < _fillCells.Count; i++)
             {
@@ -113,6 +129,21 @@ namespace GodGame.Sim
                 _cells.Add(cell);
                 _heights.Add(height);
             }
+            _cleared.Clear();
+            int cleared = reader.ReadInt32();
+            if (cleared < 0 || cleared > 100_000)
+            {
+                throw new FormatException("Snapshot cleared boulders are implausibly many.");
+            }
+            for (int i = 0; i < cleared; i++)
+            {
+                int b = reader.ReadInt32();
+                if (b < 0 || _cleared.Contains(b))
+                {
+                    throw new FormatException("Snapshot cleared boulder is invalid.");
+                }
+                _cleared.Add(b);
+            }
             int fills = reader.ReadInt32();
             if (fills < 0 || fills > cellCount)
             {
@@ -146,6 +177,11 @@ namespace GodGame.Sim
             {
                 hash.AppendInt32(_cells[i]);
                 hash.AppendInt32(_heights[i]);
+            }
+            hash.AppendInt32(_cleared.Count);
+            foreach (int b in _cleared)
+            {
+                hash.AppendInt32(b);
             }
             hash.AppendInt32(_fillCells.Count);
             for (int i = 0; i < _fillCells.Count; i++)

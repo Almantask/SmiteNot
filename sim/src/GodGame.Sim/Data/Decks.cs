@@ -26,6 +26,24 @@ namespace GodGame.Sim
         public int DeckHeightMm { get; }
     }
 
+    /// <summary>A placed boulder (spec S1 9.1): its cells and the ground under it, for Engineers to clear (S2 14.7).</summary>
+    public sealed class BoulderSpec
+    {
+        internal BoulderSpec(string id, int[] cells, int[] groundHeights)
+        {
+            Id = id;
+            Cells = cells;
+            GroundHeights = groundHeights;
+        }
+
+        public string Id { get; }
+
+        public int[] Cells { get; }
+
+        /// <summary>Each cell's height before the boulder was set on it.</summary>
+        public int[] GroundHeights { get; }
+    }
+
     /// <summary>A map-authored frozen pond (spec S2 13.6): a rectangle of ice of one thickness over the map's water.</summary>
     public readonly struct FrozenPondSpec
     {

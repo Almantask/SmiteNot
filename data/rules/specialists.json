@@ -1,5 +1,5 @@
 {
-  "$comment": "Specialist actions (ruleset v0; spec S2 section 14, settled 2026-11-07; numbers are proposals). Settled in the brief: only specialist types shape the world, each by its own fixed rule (2026-10-10); actions show as markers on the regiment's lane; edits write the shared grids; every result leaves gaps for every class and stays clearable (each edit batch passes the reachability check or is skipped); charges are lost when the regiment is wiped or routs; the 100 m rule binds the god, not soldiers. common: an enemy outline within pauseWhenEnemyWithinMm pauses the action, the specialists fall back fallBackMm and resume after resumeAfterClearTicks clear. dig-ditch (Spademen, D5): a line of up to maxPoints the player draws, within withinZoneMm of the own zone, starting within startWithinMm of the regiment, at most mmPer10Soldiers per 10 soldiers long; profile: a 1-cell ditch ditchDepthMm below the ground, bermCells untouched, a 1-cell bank bankHeightMm high on the regiment's side; sectionCellsAlong cells per ticksPerSection with the whole regiment, scaled by living / starting soldiers but never below minRatePermille. fill-crossing (Fascine Carriers): triggered when the regiment's own foot path, within aheadMm of its officer, enters cells belowRimMm under the rim, mud of mudAtLeast or water waterMinMm to waterMaxMm deep; fills a strip widthCells wide, at most maxLengthCells long, through to the first cells open for wheeled, one bundle (bundleRaiseMm, up to the lower rim) per ticksPerBundle, one bundle per living soldier; filled cells lose their mud. A filled cell where depth x flow speed reaches washoutDepthSpeed (mm*m/s) for washoutTicks loses washoutLossMm. The fascine soil's churn (S2) waits for soils that change in battle. The Pontoon Train, Crossing Marshals, Engineers and Drovers join with bridges (M5 item 4) and herds (item 7).",
+  "$comment": "Specialist actions (ruleset v0; spec S2 section 14, settled 2026-11-07; numbers are proposals). Settled in the brief: only specialist types shape the world, each by its own fixed rule (2026-10-10); actions show as markers on the regiment's lane; edits write the shared grids; every result leaves gaps for every class and stays clearable (each edit batch passes the reachability check or is skipped); charges are lost when the regiment is wiped or routs; the 100 m rule binds the god, not soldiers. common: an enemy outline within pauseWhenEnemyWithinMm pauses the action, the specialists fall back fallBackMm and resume after resumeAfterClearTicks clear. dig-ditch (Spademen, D5): a line of up to maxPoints the player draws, within withinZoneMm of the own zone, starting within startWithinMm of the regiment, at most mmPer10Soldiers per 10 soldiers long; profile: a 1-cell ditch ditchDepthMm below the ground, bermCells untouched, a 1-cell bank bankHeightMm high on the regiment's side; sectionCellsAlong cells per ticksPerSection with the whole regiment, scaled by living / starting soldiers but never below minRatePermille. fill-crossing (Fascine Carriers): triggered when the regiment's own foot path, within aheadMm of its officer, enters cells belowRimMm under the rim, mud of mudAtLeast or water waterMinMm to waterMaxMm deep; fills a strip widthCells wide, at most maxLengthCells long, through to the first cells open for wheeled, one bundle (bundleRaiseMm, up to the lower rim) per ticksPerBundle, one bundle per living soldier; filled cells lose their mud. A filled cell where depth x flow speed reaches washoutDepthSpeed (mm*m/s) for washoutTicks loses washoutLossMm. The fascine soil's churn (S2) waits for soils that change in battle. Engineers' bridgework and clearing follow below; the Pontoon Train and Crossing Marshals join in M5 item 4, the Drovers with herds (item 7).",
   "version": 0,
   "status": "placeholder",
   "common": {
@@ -35,6 +35,28 @@
       "washoutDepthSpeed": 800,
       "washoutTicks": 40,
       "washoutLossMm": 400
+    },
+    {
+      "$comment": "Engineers' bridgework (S2 14.7, brief 2026-10-11): a trestle over a gap closed to wheeled on the army's path, at most maxGapMm along it, looked for up to aheadMm ahead: one segment (load.json trestle: 2 cells along, 2 wide, on the bed, wood) per ticksPerSegment for timberMmPerSegment of timber, the deck at the near bank's height; repairs to a standing wooden segment within repairWithinMm below repairBelowPermille, repairPermillePerS up to repairUpToPermille, timberMmPer250Permille per 250 permille restored (the repair replaces the rotten planks, ending any Rot under way on it). Charges: timberMmPer40Soldiers of timber per 40 soldiers. The trigger reads strength, never load or strain (brief 2026-10-09). Attackers build on their path; a defender's retreat-route trestle waits for the regiment AI's retreat routes (M7).",
+      "id": "bridgework",
+      "maxGapMm": 21000,
+      "aheadMm": 100000,
+      "ticksPerSegment": 160,
+      "timberMmPerSegment": 3000,
+      "repairWithinMm": 100000,
+      "repairBelowPermille": 700,
+      "repairPermillePerS": 25,
+      "repairUpToPermille": 1000,
+      "timberMmPer250Permille": 1000,
+      "timberMmPer40Soldiers": 21000
+    },
+    {
+      "$comment": "Engineers' clearing (S2 14.7): a blocker within withinMm of the officer and within nearPathMm of the army's path ahead is cleared in its time (boulder boulderTicks; felled trees and wrecks join with item 7), drawn from a pool of ticksPer40Soldiers per 40 soldiers; the blocker is unstamped (its cells open and drop to the ground under it).",
+      "id": "clear-blocker",
+      "withinMm": 100000,
+      "nearPathMm": 4500,
+      "boulderTicks": 1200,
+      "ticksPer40Soldiers": 2400
     }
   ]
 }

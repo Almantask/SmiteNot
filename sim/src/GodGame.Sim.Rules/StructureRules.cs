@@ -42,6 +42,20 @@ namespace GodGame.Sim.Rules
 
         public int MaxThicknessMm { get; internal set; }
 
+        /// <summary>Floats on the water (a pontoon deck): never awash; strength falls where the water under it is shallow.</summary>
+        public bool Floats { get; internal set; }
+
+        /// <summary>A battle-made deck's width in cells (trestle 2, pontoon 3).</summary>
+        public int WidthCells { get; internal set; }
+
+        /// <summary>Pontoons: strength × <see cref="GroundedPermille"/> where the water under the deck is below this…</summary>
+        public int GroundedDepthMm { get; internal set; }
+
+        /// <summary>…rising linearly to full strength at this depth.</summary>
+        public int AfloatDepthMm { get; internal set; }
+
+        public int GroundedPermille { get; internal set; } = 1000;
+
         /// <summary>Movement classes it carries, as bits (1 &lt;&lt; class).</summary>
         public int ClassMask { get; internal set; }
     }

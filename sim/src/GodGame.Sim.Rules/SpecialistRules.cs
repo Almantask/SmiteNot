@@ -85,6 +85,52 @@ namespace GodGame.Sim.Rules
         public int WashoutLossMm { get; internal set; }
     }
 
+    /// <summary>Engineers' bridgework (spec S2 14.7): trestles over short gaps and repairs to weakened wooden spans.</summary>
+    public sealed class BridgeworkRules
+    {
+        /// <summary>The longest gap a trestle spans, along the path.</summary>
+        public int MaxGapMm { get; internal set; }
+
+        /// <summary>How far ahead of the officer along the regiment's path the trestle trigger looks.</summary>
+        public int AheadMm { get; internal set; }
+
+        public int TicksPerSegment { get; internal set; }
+
+        public int TimberMmPerSegment { get; internal set; }
+
+        /// <summary>A wooden segment within this distance…</summary>
+        public int RepairWithinMm { get; internal set; }
+
+        /// <summary>…below this share of its maximum strength gets repaired…</summary>
+        public int RepairBelowPermille { get; internal set; }
+
+        /// <summary>…at this many ‰ a second…</summary>
+        public int RepairPermillePerS { get; internal set; }
+
+        /// <summary>…up to this…</summary>
+        public int RepairUpToPermille { get; internal set; }
+
+        /// <summary>…for this much timber per 250‰ restored.</summary>
+        public int TimberMmPer250Permille { get; internal set; }
+
+        /// <summary>Timber a regiment carries per 40 soldiers.</summary>
+        public int TimberMmPer40Soldiers { get; internal set; }
+    }
+
+    /// <summary>Engineers' clearing (spec S2 14.7): blockers on the army's path within reach (M5: placed boulders).</summary>
+    public sealed class ClearBlockerRules
+    {
+        public int WithinMm { get; internal set; }
+
+        /// <summary>A blocker counts as on the path when it lies this close to the path's cells.</summary>
+        public int NearPathMm { get; internal set; }
+
+        public int BoulderTicks { get; internal set; }
+
+        /// <summary>Clearing time a regiment carries per 40 soldiers.</summary>
+        public int TicksPer40Soldiers { get; internal set; }
+    }
+
     /// <summary>
     /// The shared specialist executor's rules (<c>data/rules/specialists.json</c>, spec S2 section 14). Ruleset v0 holds
     /// the actions whose targets exist in M5 so far; the Pontoon Train, Crossing Marshals, Engineers and Drovers join
@@ -97,6 +143,10 @@ namespace GodGame.Sim.Rules
         public DigDitchRules? DigDitch { get; internal set; }
 
         public FillCrossingRules? FillCrossing { get; internal set; }
+
+        public BridgeworkRules? Bridgework { get; internal set; }
+
+        public ClearBlockerRules? ClearBlocker { get; internal set; }
 
         /// <summary>The action ids the file defines, for unit types to name.</summary>
         public IReadOnlyList<string> ActionIds { get; internal set; } = Array.Empty<string>();

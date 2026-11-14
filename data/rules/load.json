@@ -1,5 +1,5 @@
 {
-  "$comment": "Load and decks (ruleset v0; spec S2 section 8, settled 2026-11-07; numbers are proposals). A structure layer marks deck cells: units on an intact deck stand on it at deck height, not in the water below, unless the water surface tops the deck (awash). Segment strength = deck area (m2) x strengthKgPerM2 x its current strength permille / 1000; ice patches (patchCells square, on the map grid) hold iceKgPerM2PerMm per mm of the map's thickness. Load = the masses of units whose centre is on the segment, not swept ones; checked every field step (4 ticks); a segment fails when load >= strength at failChecks checks in a row. Strain stages creak, crack and sag at their thresholds (for the player only: regiments never read them, brief 2026-10-09), falling back stageHysteresisPermille below. A failed bridge segment's neighbours lose neighbourLossPermille of their maximum; a broken ice patch's lose iceNeighbourLossPermille; a broken patch is open water for the rest of the battle. iceSpeedPermille: speeds on intact ice (S2 3.2). coldDrowningTicks: drowning timers in a broken-ice hole (until S3 owns cold). Pontoons and trestles join with their specialists.",
+  "$comment": "Load and decks (ruleset v0; spec S2 section 8, settled 2026-11-07; numbers are proposals). A structure layer marks deck cells: units on an intact deck stand on it at deck height, not in the water below, unless the water surface tops the deck (awash). Segment strength = deck area (m2) x strengthKgPerM2 x its current strength permille / 1000; ice patches (patchCells square, on the map grid) hold iceKgPerM2PerMm per mm of the map's thickness. Load = the masses of units whose centre is on the segment, not swept ones; checked every field step (4 ticks); a segment fails when load >= strength at failChecks checks in a row. Strain stages creak, crack and sag at their thresholds (for the player only: regiments never read them, brief 2026-10-09), falling back stageHysteresisPermille below. A failed bridge segment's neighbours lose neighbourLossPermille of their maximum; a broken ice patch's lose iceNeighbourLossPermille; a broken patch is open water for the rest of the battle. iceSpeedPermille: speeds on intact ice (S2 3.2). coldDrowningTicks: drowning timers in a broken-ice hole (until S3 owns cold). Trestles (Engineers, S2 14.7; 400 kg/m2 by the user's decision of 2026-11-08, up from S2's 220, so one 3,000 kg engine takes a segment to 83% and two break it, as S2's exit scenario needs) stand on the bed at the near bank's height, 2 cells wide, wood; pontoons join with the Pontoon Train.",
   "version": 0,
   "status": "placeholder",
   "failChecks": 2,
@@ -64,6 +64,18 @@
       "iceKgPerM2PerMm": 1,
       "minThicknessMm": 60,
       "maxThicknessMm": 250,
+      "classes": [
+        "foot",
+        "horse",
+        "wheeled"
+      ]
+    },
+    {
+      "id": "trestle",
+      "material": "wood",
+      "segmentCellsAlong": 2,
+      "widthCells": 2,
+      "strengthKgPerM2": 400,
       "classes": [
         "foot",
         "horse",

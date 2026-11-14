@@ -204,9 +204,13 @@ public class LoadTests
         simulation.Step(300);
         Assert.That(states.Strength[0], Is.InRange(740, 760), "halfway through the 30 s");
         simulation.Step(400);
-        Assert.That(states.Strength, Is.All.EqualTo(500));
+        Assert.That(states.Strength.Take(states.Count), Is.All.EqualTo(500));
         simulation.Step(1400);
-        Assert.That(states.Strength, Is.All.EqualTo(300), "500 less 200, the stack");
+        Assert.That(
+            states.Strength.Take(states.Count),
+            Is.All.EqualTo(300),
+            "500 less 200, the stack"
+        );
     }
 
     [TestCase(

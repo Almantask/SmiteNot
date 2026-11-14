@@ -72,10 +72,14 @@ namespace GodGame.Sim
             ClearTicks = new int[regimentCapacity];
             JobCells = new int[]?[regimentCapacity];
             JobTargets = new int[]?[regimentCapacity];
+            JobKind = new int[regimentCapacity];
+            JobRef = new int[regimentCapacity];
+            Spent2 = new int[regimentCapacity];
             for (int r = 0; r < regimentCapacity; r++)
             {
                 Target[r] = -1;
                 VolleyTarget[r] = -1;
+                JobRef[r] = -1;
             }
         }
 
@@ -141,6 +145,15 @@ namespace GodGame.Sim
         /// <summary>Each crossing cell's target height, in mm.</summary>
         public int[]?[] JobTargets { get; }
 
+        /// <summary>Which of a specialist's jobs is under way (the executor's action codes; 0 none).</summary>
+        public int[] JobKind { get; }
+
+        /// <summary>What the job works on: a deck segment (repair; the last trestle segment built) or a boulder; -1 none.</summary>
+        public int[] JobRef { get; }
+
+        /// <summary>A second charge used: Engineers' clearing time, in ticks.</summary>
+        public int[] Spent2 { get; }
+
         /// <summary>A new regiment's state: marching, full ammunition, rallies to come.</summary>
         public void Init(int r, int ammo, int rallies)
         {
@@ -173,6 +186,9 @@ namespace GodGame.Sim
             ClearTicks[r] = 0;
             JobCells[r] = null;
             JobTargets[r] = null;
+            JobKind[r] = 0;
+            JobRef[r] = -1;
+            Spent2[r] = 0;
         }
 
         /// <summary>Whether a slot holds exactly what <see cref="Clear"/> leaves (dead regiment slots must).</summary>
@@ -198,7 +214,10 @@ namespace GodGame.Sim
             && WorkStep[r] == 0
             && ClearTicks[r] == 0
             && JobCells[r] == null
-            && JobTargets[r] == null;
+            && JobTargets[r] == null
+            && JobKind[r] == 0
+            && JobRef[r] == -1
+            && Spent2[r] == 0;
 
         internal void WriteTo(ByteWriter writer)
         {
@@ -229,6 +248,9 @@ namespace GodGame.Sim
                 writer.WriteInt32(ClearTicks[r]);
                 WriteCells(writer, JobCells[r]);
                 WriteCells(writer, JobTargets[r]);
+                writer.WriteInt32(JobKind[r]);
+                writer.WriteInt32(JobRef[r]);
+                writer.WriteInt32(Spent2[r]);
             }
         }
 
@@ -283,12 +305,20 @@ namespace GodGame.Sim
                 ClearTicks[r] = NonNegative(reader.ReadInt32());
                 JobCells[r] = ReadCells(reader);
                 JobTargets[r] = ReadCells(reader);
+                JobKind[r] = NonNegative(reader.ReadInt32());
+                JobRef[r] = reader.ReadInt32();
+                if (JobRef[r] < -1)
+                {
+                    throw new FormatException("Snapshot job reference is invalid.");
+                }
+                Spent2[r] = NonNegative(reader.ReadInt32());
                 if (
                     (JobCells[r] == null) != (JobTargets[r] == null)
-                    || (JobCells[r] != null && JobCells[r]!.Length != JobTargets[r]!.Length)
+                    // A fill has a target per cell; a trestle one more (its near bank).
+                    || (JobCells[r] != null && JobTargets[r]!.Length < JobCells[r]!.Length)
                 )
                 {
-                    throw new FormatException("Snapshot crossing cells and targets don't match.");
+                    throw new FormatException("Snapshot job cells and targets don't match.");
                 }
             }
         }
@@ -389,6 +419,9 @@ namespace GodGame.Sim
                 hash.AppendInt32(ClearTicks[r]);
                 AppendCells(hash, JobCells[r]);
                 AppendCells(hash, JobTargets[r]);
+                hash.AppendInt32(JobKind[r]);
+                hash.AppendInt32(JobRef[r]);
+                hash.AppendInt32(Spent2[r]);
             }
         }
     }

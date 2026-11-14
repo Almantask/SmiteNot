@@ -224,6 +224,21 @@ namespace GodGame.Sim.Rules
 
         /// <summary>The specialist action it carries out (<c>specialists.json</c>), or null for a line or engine type.</summary>
         public string? Action { get; internal set; }
+
+        /// <summary>Every action it carries out, at most two (brief 2026-10-10): Engineers do bridgework and clearing.</summary>
+        public IReadOnlyList<string> Actions { get; internal set; } = Array.Empty<string>();
+
+        public bool Does(string action)
+        {
+            foreach (var a in Actions)
+            {
+                if (string.Equals(a, action, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     /// <summary>The guaranteed-route check, from <c>data/rules/routes.json</c>.</summary>

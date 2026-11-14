@@ -26,6 +26,10 @@
     {
       "id": "fascine-carriers", "seats": ["attacker"], "action": "fill-crossing", "movementClass": "foot", "massKg": 130, "health": 80, "morale": 1000, "speedMmPerS": 1300, "radiusMm": 450, "runMmPerS": 2600, "moraleShockPermille": 1300, "melee": {"damage": 10, "hitPermille": 400, "intervalTicks": 30, "reachMm": 400}, "meleeTakenPermille": 1000, "arrowTakenPermille": 1000,
       "formation": {"files": 20, "fileSpacingMm": 1100, "rankSpacingMm": 1300, "minSoldiers": 50, "maxSoldiers": 100}
+    },
+    {
+      "id": "engineers", "seats": ["attacker", "defender"], "actions": ["bridgework", "clear-blocker"], "movementClass": "foot", "massKg": 95, "health": 80, "morale": 1000, "speedMmPerS": 1500, "radiusMm": 350, "runMmPerS": 3000, "moraleShockPermille": 1300, "melee": {"damage": 10, "hitPermille": 400, "intervalTicks": 30, "reachMm": 400}, "meleeTakenPermille": 1000, "arrowTakenPermille": 1000,
+      "formation": {"files": 10, "fileSpacingMm": 1100, "rankSpacingMm": 1300, "minSoldiers": 20, "maxSoldiers": 40}
     }
   ]
 }

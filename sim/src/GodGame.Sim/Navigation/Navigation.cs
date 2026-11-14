@@ -144,12 +144,25 @@ namespace GodGame.Sim
             _builtFromWorld = true;
             // The ground: the played map plus whatever soldiers dug and filled before this moment.
             Terrain.ResetHeights(Map.HeightMm);
+            // Decks: the map's, the battle-made ones rebuilt from the world, and which have failed; cleared boulders open.
+            Terrain.ResetDecks();
             var structures = world.Structures;
-            if (Terrain.Decks != null)
+            if (structures != null)
             {
-                for (int s = 0; s < Terrain.Decks.Segments.Count; s++)
+                for (int s = structures.StaticCount; s < structures.Count; s++)
                 {
-                    Terrain.SetBroken(s, structures != null && structures.Broken[s]);
+                    AddDeck(structures, s);
+                }
+                for (int s = 0; s < structures.Count; s++)
+                {
+                    Terrain.SetBroken(s, structures.Broken[s]);
+                }
+            }
+            for (int b = 0; b < world.Ground.ClearedCount; b++)
+            {
+                foreach (int cell in Map.Boulders[world.Ground.ClearedAt(b)].Cells)
+                {
+                    Terrain.Unblock(cell);
                 }
             }
             var ground = world.Ground;
@@ -287,7 +300,96 @@ namespace GodGame.Sim
         public void SegmentFailed(TickContext context, int segment)
         {
             Terrain.SetBroken(segment, true);
-            var cells = Terrain.Decks!.Segments[segment].Cells;
+            RefreshCells(context, Terrain.Segment(segment).Cells);
+        }
+
+        /// <summary>
+        /// A battle-made deck segment (a trestle, a pontoon deck): recorded in the world, laid on the terrain, and its cells
+        /// refreshed like a failed one's. Its index, or -1 when the battle has built as many decks as it may.
+        /// </summary>
+        public int BuildDeck(
+            TickContext context,
+            StructureKindRules kind,
+            int[] cells,
+            int deckHeightMm,
+            int previous
+        )
+        {
+            var structures = context.World.Structures!;
+            long strength =
+                (long)cells.Length
+                * Terrain.CellSizeMm
+                * Terrain.CellSizeMm
+                * kind.StrengthKgPerM2
+                / 1_000_000;
+            int s = structures.AddBattleSegment(
+                kind.Index,
+                cells,
+                deckHeightMm,
+                strength,
+                previous
+            );
+            if (s < 0)
+            {
+                return -1;
+            }
+            AddDeck(structures, s);
+            RefreshCells(context, cells);
+            return s;
+        }
+
+        /// <summary>Lays a battle-made segment on the terrain from its recorded definition, with its neighbour link.</summary>
+        private void AddDeck(StructureStates structures, int s)
+        {
+            var segment = new DeckSegment(
+                Rules.Structures.Kinds[structures.BattleKind[s]],
+                structures.BattleCells[s]!,
+                structures.BattleMaxStrength[s],
+                structures.BattleDeckHeight[s]
+            );
+            int previous = structures.BattlePrevious[s];
+            // Only battle-made decks link both ways: the map's segments are shared with every simulation of this map
+            // (live and preview), so they are never changed.
+            if (previous >= structures.StaticCount)
+            {
+                segment.Neighbours = new[] { previous };
+                var before = Terrain.Segment(previous);
+                var links = new int[before.Neighbours.Length + 1];
+                Array.Copy(before.Neighbours, links, before.Neighbours.Length);
+                links[links.Length - 1] = s;
+                before.Neighbours = links;
+            }
+            int added = Terrain.AddSegment(segment);
+            if (added != s)
+            {
+                throw new InvalidOperationException("Battle-made decks were laid out of order.");
+            }
+        }
+
+        /// <summary>A cleared boulder (Engineers, S2 14.7): its cells open and drop to the ground under it.</summary>
+        public void ClearBoulder(TickContext context, int boulder)
+        {
+            var spec = Map.Boulders[boulder];
+            foreach (int cell in spec.Cells)
+            {
+                Terrain.Unblock(cell);
+            }
+            ApplyGroundEdit(
+                context,
+                spec.Cells,
+                spec.GroundHeights,
+                spec.Cells.Length,
+                checkRoutes: false
+            );
+            RefreshCells(context, spec.Cells);
+        }
+
+        /// <summary>
+        /// Recomputes the speed codes of cells whose deck changed (no hysteresis: a deck is never a small drift), then
+        /// rebuilds costs, the route checker's cells, flow fields and lethal distances around them.
+        /// </summary>
+        private void RefreshCells(TickContext context, int[] cells)
+        {
             if (cells.Length == 0)
             {
                 return;

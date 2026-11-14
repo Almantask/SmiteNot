@@ -188,6 +188,10 @@ namespace GodGame.Sim
         /// </summary>
         public DeckLayout? Decks { get; private set; }
 
+        /// <summary>The plan's boulders in plan order, with the ground under each (on a played map only).</summary>
+        public IReadOnlyList<BoulderSpec> Boulders { get; private set; } =
+            Array.Empty<BoulderSpec>();
+
         /// <summary>Stone bridges the map authors (spec S2 13.6): ends, width and deck height.</summary>
         public IReadOnlyList<StoneBridgeSpec> StoneBridges { get; private set; } =
             Array.Empty<StoneBridgeSpec>();
@@ -211,7 +215,8 @@ namespace GodGame.Sim
             bool[] blocked,
             WaterSource[] sources,
             int[]? pieceSpeed = null,
-            DeckLayout? decks = null
+            DeckLayout? decks = null,
+            BoulderSpec[]? boulders = null
         )
         {
             if (pieceSpeed != null && pieceSpeed.Length != HeightMm.Length)
@@ -238,6 +243,7 @@ namespace GodGame.Sim
                 Blocked = blocked,
                 PieceSpeed = pieceSpeed,
                 Decks = decks,
+                Boulders = boulders ?? Array.Empty<BoulderSpec>(),
                 IsPlayed = true,
                 InitialFields = InitialFields,
                 WindXMmPerS = WindXMmPerS,

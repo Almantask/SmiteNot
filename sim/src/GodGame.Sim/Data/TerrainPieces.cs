@@ -76,6 +76,7 @@ namespace GodGame.Sim
             int[] heights = (int[])original.Clone();
             var blocked = new bool[heights.Length];
             var sources = new List<WaterSource>(map.WaterSources);
+            var boulders = new List<BoulderSpec>();
             foreach (var kind in new[] { PieceKind.Channel, PieceKind.Hollow })
             {
                 foreach (var piece in pieces)
@@ -100,6 +101,18 @@ namespace GodGame.Sim
                     var cells = BoulderCells(map, piece);
                     int top = int.MinValue;
                     ForEach(map, cells, i => top = System.Math.Max(top, heights[i]));
+                    var under = new List<int>();
+                    var ground = new List<int>();
+                    ForEach(
+                        map,
+                        cells,
+                        i =>
+                        {
+                            under.Add(i);
+                            ground.Add(heights[i]);
+                        }
+                    );
+                    boulders.Add(new BoulderSpec(piece.Id, under.ToArray(), ground.ToArray()));
                     ForEach(
                         map,
                         cells,
@@ -156,7 +169,14 @@ namespace GodGame.Sim
                         rules.Structures,
                         rules.Fields.Water?.DryDepthUm ?? 1
                     );
-            return map.WithTerrain(heights, blocked, sources.ToArray(), speed, decks);
+            return map.WithTerrain(
+                heights,
+                blocked,
+                sources.ToArray(),
+                speed,
+                decks,
+                boulders.ToArray()
+            );
         }
 
         /// <summary>

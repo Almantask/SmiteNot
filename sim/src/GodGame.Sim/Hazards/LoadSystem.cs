@@ -45,20 +45,19 @@ namespace GodGame.Sim
         {
             var world = context.World;
             var states = world.Structures;
-            var decks = _navigation.Terrain.Decks;
-            if (states == null || decks == null)
+            var terrain = _navigation.Terrain;
+            if (states == null || states.Count == 0)
             {
                 return;
             }
-            int segments = decks.Segments.Count;
+            int segments = states.Count;
             Rot(states, context.Tick);
-            if (_load.Length != segments)
+            if (_load.Length < states.Capacity)
             {
-                _load = new long[segments];
-                _failed = new int[segments];
+                _load = new long[states.Capacity];
+                _failed = new int[states.Capacity];
             }
             Array.Clear(_load, 0, segments);
-            var terrain = _navigation.Terrain;
             for (int u = 0; u < world.Units.HighWater; u++)
             {
                 if (
@@ -83,7 +82,12 @@ namespace GodGame.Sim
                 {
                     continue;
                 }
-                long strength = decks.Segments[s].MaxStrengthKg * states.Strength[s] / 1000;
+                long strength =
+                    terrain.Segment(s).MaxStrengthKg
+                    * states.Strength[s]
+                    / 1000
+                    * Afloat(terrain, s, world)
+                    / 1000;
                 long ratio =
                     strength <= 0
                         ? 1_000_000
@@ -103,6 +107,40 @@ namespace GodGame.Sim
             {
                 Fail(context, _failed[k]);
             }
+        }
+
+        /// <summary>
+        /// A floating deck's share of its strength (S2 8.1): full afloat, the grounded share where the water under it is
+        /// shallow (its shallowest cell), linear between. 1,000 for every other deck.
+        /// </summary>
+        private int Afloat(Terrain terrain, int s, World world)
+        {
+            var kind = terrain.Segment(s).Kind;
+            var fields = world.Fields;
+            if (!kind.Floats || fields == null || fields.Rules.IndexOf(WaterModel.Depth) < 0)
+            {
+                return 1000;
+            }
+            var depth = fields.Get(WaterModel.Depth).Values;
+            long shallowest = long.MaxValue;
+            foreach (int cell in terrain.Segment(s).Cells)
+            {
+                shallowest = System.Math.Min(shallowest, depth[cell] / 1000);
+            }
+            if (shallowest >= kind.AfloatDepthMm)
+            {
+                return 1000;
+            }
+            if (shallowest <= kind.GroundedDepthMm || kind.AfloatDepthMm == kind.GroundedDepthMm)
+            {
+                return kind.GroundedPermille;
+            }
+            return (int)(
+                kind.GroundedPermille
+                + (1000L - kind.GroundedPermille)
+                    * (shallowest - kind.GroundedDepthMm)
+                    / (kind.AfloatDepthMm - kind.GroundedDepthMm)
+            );
         }
 
         /// <summary>The strain stage (S2 8.3): up at a threshold, back down only 50‰ below it, so nothing flickers.</summary>
@@ -152,7 +190,7 @@ namespace GodGame.Sim
         {
             var world = context.World;
             var states = world.Structures!;
-            var segment = _navigation.Terrain.Decks!.Segments[s];
+            var segment = _navigation.Terrain.Segment(s);
             bool ice = segment.Kind.IsIce;
             states.Broken[s] = true;
             states.Stage[s] = StrainStage.Quiet;
@@ -192,7 +230,7 @@ namespace GodGame.Sim
                 }
                 terrain.CellOf(world.Position[u], out int x, out int y);
                 int cell = terrain.Index(x, y);
-                if (terrain.Decks!.SegmentOfCell[cell] != s)
+                if (terrain.SegmentAt(cell) != s)
                 {
                     continue;
                 }

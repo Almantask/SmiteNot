@@ -131,17 +131,17 @@ namespace GodGame.Sim
         private void StartRot(World world, PlannedCast cast, int castEvent, int tick)
         {
             var states = world.Structures;
-            var decks = _navigation.Terrain.Decks;
+            var terrain = _navigation.Terrain;
             var rot = cast.Power.Rot!;
-            if (states == null || decks == null)
+            if (states == null)
             {
                 return;
             }
             int cellMm = _navigation.Terrain.CellSizeMm;
             long r = cast.RadiusMm;
-            for (int s = 0; s < decks.Segments.Count; s++)
+            for (int s = 0; s < states.Count; s++)
             {
-                var segment = decks.Segments[s];
+                var segment = terrain.Segment(s);
                 if (!segment.Kind.IsWood || states.Broken[s])
                 {
                     continue;

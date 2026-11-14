@@ -19,3 +19,6 @@
 - [Combat and morale](pattern_combat_morale.md) — goldens have no combat, 1-chunk thread test, empty-outline Gap overflow, melee probe recipe
 - [Specialists and ground edits](pattern_specialists_ground_edits.md) — FieldOf empty after restore, stale _routes cache, SameArmy misses DitchMm, probe recipe
 - [Decks and load](pattern_decks_load.md) — 0-cell segments fail unloaded, lethal/footing ignore decks, broken-flag restore shape, collapse probe recipe
+- [Snapshot validators vs live state](pattern_snapshot_validators_vs_live_state.md) — check first: duplicate-target specialists break restore; missing upper bounds half-restore
+- [Shared map objects](pattern_shared_map_objects.md) — PlayedMap decks, boulders and blocked arrays are shared by live and preview sims; ResetDecks wipes runtime blockers
+- [Analyzer script runs in place](feedback_analyzer_script_in_place.md) — check_sim_analyzers.py writes a probe into sim/src; run it from a scratch copy

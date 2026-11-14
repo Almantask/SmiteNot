@@ -383,6 +383,7 @@ namespace GodGame.Sim.Rules
                     "id",
                     "seats",
                     "action",
+                    "actions",
                     "massKg",
                     "movementClass",
                     "health",
@@ -476,9 +477,27 @@ namespace GodGame.Sim.Rules
                         }
                     }
                 }
+                var actions = new List<string>();
                 if (item.Has("action"))
                 {
-                    string action = item.Str("action");
+                    actions.Add(item.Str("action"));
+                }
+                if (item.Has("actions"))
+                {
+                    foreach (var a in item.Array("actions"))
+                    {
+                        actions.Add(a.AsString);
+                    }
+                }
+                if (actions.Count > 2)
+                {
+                    // Brief 2026-10-10: one signature action, two at most.
+                    throw new DataFormatException(
+                        item.Path + ": a specialist has at most two actions."
+                    );
+                }
+                foreach (var action in actions)
+                {
                     bool known = false;
                     foreach (var id in specialists.ActionIds)
                     {
@@ -490,7 +509,11 @@ namespace GodGame.Sim.Rules
                             item.Path + ": no action \"" + action + "\" in specialists.json."
                         );
                     }
-                    type.Action = action;
+                }
+                if (actions.Count > 0)
+                {
+                    type.Action = actions[0];
+                    type.Actions = actions.AsReadOnly();
                 }
                 if (item.Has("projectile"))
                 {
@@ -663,7 +686,12 @@ namespace GodGame.Sim.Rules
                     "iceKgPerM2PerMm",
                     "minThicknessMm",
                     "maxThicknessMm",
-                    "classes"
+                    "classes",
+                    "widthCells",
+                    "floats",
+                    "groundedDepthMm",
+                    "afloatDepthMm",
+                    "groundedPermille"
                 );
                 string id = DataIds.Require(item["id"]);
                 if (result.Kind(id) != null || kinds.Exists(k => k.Id == id))
@@ -685,6 +713,21 @@ namespace GodGame.Sim.Rules
                 {
                     kind.SegmentCellsAlong = item.Int("segmentCellsAlong", 1, 64);
                     kind.StrengthKgPerM2 = item.Int("strengthKgPerM2", 1, 100_000);
+                    if (item.Has("widthCells"))
+                    {
+                        kind.WidthCells = item.Int("widthCells", 1, 15);
+                    }
+                    if (item.Has("floats"))
+                    {
+                        kind.Floats = item["floats"].AsBool;
+                        kind.GroundedDepthMm = item.Int("groundedDepthMm", 0, 100_000);
+                        kind.AfloatDepthMm = item.Int(
+                            "afloatDepthMm",
+                            kind.GroundedDepthMm,
+                            100_000
+                        );
+                        kind.GroundedPermille = item.Int("groundedPermille", 0, 1_000);
+                    }
                     if (item.Has("minWidthMm"))
                     {
                         kind.MinWidthMm = item.Int("minWidthMm", 1, 100_000);
@@ -802,6 +845,60 @@ namespace GodGame.Sim.Rules
                             WashoutDepthSpeed = action.Int("washoutDepthSpeed", 1, 100_000_000),
                             WashoutTicks = action.Int("washoutTicks", 1, 72_000),
                             WashoutLossMm = action.Int("washoutLossMm", 0, 100_000),
+                        };
+                        break;
+                    case "bridgework":
+                        action.OnlyKeys(
+                            "$comment",
+                            "id",
+                            "maxGapMm",
+                            "aheadMm",
+                            "ticksPerSegment",
+                            "timberMmPerSegment",
+                            "repairWithinMm",
+                            "repairBelowPermille",
+                            "repairPermillePerS",
+                            "repairUpToPermille",
+                            "timberMmPer250Permille",
+                            "timberMmPer40Soldiers"
+                        );
+                        result.Bridgework = new BridgeworkRules
+                        {
+                            MaxGapMm = action.Int("maxGapMm", 1, 1_000_000),
+                            AheadMm = action.Int("aheadMm", 0, 1_000_000),
+                            TicksPerSegment = action.Int("ticksPerSegment", 1, 72_000),
+                            TimberMmPerSegment = action.Int("timberMmPerSegment", 1, 1_000_000),
+                            RepairWithinMm = action.Int("repairWithinMm", 0, 1_000_000),
+                            RepairBelowPermille = action.Int("repairBelowPermille", 0, 1_000),
+                            RepairPermillePerS = action.Int("repairPermillePerS", 1, 1_000),
+                            RepairUpToPermille = action.Int("repairUpToPermille", 0, 1_000),
+                            TimberMmPer250Permille = action.Int(
+                                "timberMmPer250Permille",
+                                0,
+                                1_000_000
+                            ),
+                            TimberMmPer40Soldiers = action.Int(
+                                "timberMmPer40Soldiers",
+                                0,
+                                10_000_000
+                            ),
+                        };
+                        break;
+                    case "clear-blocker":
+                        action.OnlyKeys(
+                            "$comment",
+                            "id",
+                            "withinMm",
+                            "nearPathMm",
+                            "boulderTicks",
+                            "ticksPer40Soldiers"
+                        );
+                        result.ClearBlocker = new ClearBlockerRules
+                        {
+                            WithinMm = action.Int("withinMm", 0, 1_000_000),
+                            NearPathMm = action.Int("nearPathMm", 0, 100_000),
+                            BoulderTicks = action.Int("boulderTicks", 1, 72_000),
+                            TicksPer40Soldiers = action.Int("ticksPer40Soldiers", 0, 1_000_000),
                         };
                         break;
                     default:

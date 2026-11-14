@@ -163,7 +163,16 @@ public class RulesetLoaderTests
         Assert.That(
             rules.UnitTypes.Select(t => t.Id),
             Is.EqualTo(
-                new[] { "infantry", "cavalry", "ranged", "siege", "spademen", "fascine-carriers" }
+                new[]
+                {
+                    "infantry",
+                    "cavalry",
+                    "ranged",
+                    "siege",
+                    "spademen",
+                    "fascine-carriers",
+                    "engineers",
+                }
             )
         );
         // S2 14.2 seat locks; the base types serve both seats.

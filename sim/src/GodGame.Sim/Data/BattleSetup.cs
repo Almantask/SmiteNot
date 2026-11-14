@@ -72,10 +72,8 @@ namespace GodGame.Sim
             world.AttachFields(new FieldStore(rules.Fields, map.Columns, map.Rows));
             ApplyInitialFields(world.Fields!, map);
             world.AttachCasts(CastSystem.StatesFor(plan));
-            if (map.Decks != null)
-            {
-                world.AttachStructures(new StructureStates(map.Decks.Segments.Count));
-            }
+            // Every battle can hold decks: the map's, and those its specialists build (trestles, pontoons).
+            world.AttachStructures(new StructureStates(map.Decks?.Segments.Count ?? 0));
             world.AttachCauses(
                 new CauseLog(
                     world.Fields!.Get(WaterModel.Depth).TileCount,

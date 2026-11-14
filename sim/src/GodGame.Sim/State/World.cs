@@ -95,7 +95,7 @@ namespace GodGame.Sim
             }
             if (Structures != null)
             {
-                blank.AttachStructures(new StructureStates(Structures.Count));
+                blank.AttachStructures(Structures.CreateBlank());
             }
             if (Causes != null)
             {
@@ -578,7 +578,10 @@ namespace GodGame.Sim
             {
                 throw new FormatException("The snapshot's structures don't match this world's.");
             }
-            Structures?.ReadFrom(reader);
+            Structures?.ReadFrom(
+                reader,
+                Fields == null ? MaxGroundCells : Fields.Columns * Fields.Rows
+            );
             if (reader.ReadByte() != (Casts == null ? 0 : 1))
             {
                 throw new FormatException("The snapshot's casts don't match this world's.");

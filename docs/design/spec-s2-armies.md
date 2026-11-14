@@ -319,7 +319,7 @@ A **structure layer** marks deck cells: segment id, deck height and material. Un
 | Wooden bridge | player (13.4) | 2 cells along | 3,000–6,000 mm | 300 | yes | [Proposal] A packed jam (2.0–3.0/m², 180–270 kg/m²) takes it to 60–90%: it creaks and sags but holds an infantry jam; a jam with cavalry or an engine on it fails. A rotted one (150) fails under any jam. |
 | Stone bridge | map | 2 cells along | map-set | 1,200 | no | [Proposal] Doesn't fail in M5: only a tremor or scour can (S3, M6) [Docs: palette] |
 | Pontoon deck | Pontoon Train (14.5) | 2 cells along, 3 cells wide | 4,500 mm | 250 afloat; × 400‰ grounded (water under it < 300 mm), linear between 300 and 600 mm | yes | [Docs: brainstorm #33, "a drain grounds the boats, cutting its load limit"]; numbers [Proposal] |
-| Trestle | Engineers (14.7) | 2 cells along, 2 cells wide | 3,000 mm | 220 | yes | [Brief, 2026-10-11: "carry a set load like any bridge segment", wood]; number [Proposal] |
+| Trestle | Engineers (14.7) | 2 cells along, 2 cells wide | 3,000 mm | 400 | yes | [Brief, 2026-10-11: "carry a set load like any bridge segment", wood]; 400 decided 2026-11-08 (was 220, which a single 3,000 kg engine broke, against the exit scenario): one engine 83%, two break it |
 | Ice patch (fixed) | map: frozen pond | 4 × 4 cells (6 × 6 m), on a grid aligned to the map | the pond | 1 kg/m² per mm of thickness; map thickness 60–250 mm | no | [Docs: tech notes 5, "patches of 4 by 4 cells, strength from thickness"]; numbers [Proposal]. 120 mm ice: marching infantry 62%, marching cavalry 93% (sag), any jam breaks it, a thin file 10–20% |
 
 Strength of a segment = deck area (m²) × kg/m² × its current strength ‰ (1,000 when sound) / 1,000.
@@ -740,7 +740,7 @@ Two actions, the most a specialist may have [Brief, 2026-10-10; 2026-10-11].
 | Item | Value | Label and reason |
 |---|---|---|
 | **Bridgework, trestle.** Trigger | attacker: its army's path meets water, a channel or a ditch closed to wheeled whose width along the path is ≤ 21 m, and no Pontoon Train has taken it; defender: the same on its own retreat route | [Brief, 2026-10-11]; [Proposal] |
-| Trestle | segments 2 cells along, 2 cells wide (3 m), one every 160 ticks (8 s): 21 m in 56 s, slow next to the pontoon as the brief asks; stands on the bed, so water flows under it; 220 kg/m², wood (rots) | [Brief, 2026-10-11: "short (up to about 20 m) and slow ... stand on the bed ... carry a set load ... wood"] |
+| Trestle | segments 2 cells along, 2 cells wide (3 m), one every 160 ticks (8 s): 21 m in 56 s, slow next to the pontoon as the brief asks; stands on the bed, so water flows under it; 400 kg/m² (decided 2026-11-08), wood (rots) | [Brief, 2026-10-11: "short (up to about 20 m) and slow ... stand on the bed ... carry a set load ... wood"] |
 | **Bridgework, repair.** Trigger | a wooden segment on the path (attacker) or the retreat route (defender), within 100 m, whose strength is below 700‰ of its maximum | [Brief, 2026-10-11: "restore strength to a damaged bridge span"; "repairs answer Rot"] |
 | Repair | +25‰ of maximum per second, one segment at a time, up to 1,000‰; 1 m of timber per 250‰ restored | [Proposal] A segment rotted to 500‰ is sound again in 20 s for 2 m of timber |
 | **Clearing.** Trigger | a battle-made blocker (felled tree, wreck) or a placed boulder on the path within 100 m | [Brief, 2026-10-11: "remove a fallen tree, debris, a wreck or a small boulder"; S1: "Engineers clear small boulders (M5)"] |

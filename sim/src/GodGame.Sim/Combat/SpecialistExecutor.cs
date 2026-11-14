@@ -71,8 +71,10 @@ namespace GodGame.Sim
             {
                 return false;
             }
-            int code = string.Equals(type.Action, "dig-ditch", StringComparison.Ordinal)
-                ? DigDitchAction
+            bool engineers = type.Does("bridgework") || type.Does("clear-blocker");
+            int code =
+                engineers ? army.JobKind[r]
+                : string.Equals(type.Action, "dig-ditch", StringComparison.Ordinal) ? DigDitchAction
                 : FillCrossingAction;
             if (army.Wiped[r] || army.Order[r] == RegimentOrder.Rout)
             {
@@ -96,11 +98,464 @@ namespace GodGame.Sim
             {
                 return true;
             }
+            if (engineers)
+            {
+                return Engineer(context, r, type);
+            }
             if (code == DigDitchAction)
             {
                 return Dig(context, r);
             }
             return Fill(context, r);
+        }
+
+        // ---- Engineers: bridgework and clearing (S2 14.7) ----
+
+        public const int TrestleAction = 3;
+        public const int RepairAction = 4;
+        public const int ClearAction = 5;
+
+        private readonly List<int> _path = new List<int>();
+
+        /// <summary>
+        /// Engineers take one job at a time, in this order: clear a boulder on the path ahead, span a short gap on it with a
+        /// trestle, repair a weakened wooden span nearby. Between jobs they march with their army; they are done when
+        /// both their timber and their clearing time are spent.
+        /// </summary>
+        private bool Engineer(TickContext context, int r, UnitTypeRules type)
+        {
+            var world = context.World;
+            var army = world.Army;
+            var bridgework = type.Does("bridgework") ? _rules.Specialists.Bridgework : null;
+            var clearing = type.Does("clear-blocker") ? _rules.Specialists.ClearBlocker : null;
+            int start = world.RegimentStartingSize[r];
+            int timber =
+                bridgework == null
+                    ? 0
+                    : (int)((long)start * bridgework.TimberMmPer40Soldiers / 40) - army.Spent[r];
+            int pool =
+                clearing == null
+                    ? 0
+                    : (int)((long)start * clearing.TicksPer40Soldiers / 40) - army.Spent2[r];
+            if (army.Job[r] == SpecialistJob.Idle)
+            {
+                if (
+                    (bridgework == null || timber <= 0)
+                    && (clearing == null || pool < clearing.BoulderTicks)
+                )
+                {
+                    army.Job[r] = SpecialistJob.Done;
+                    return false;
+                }
+                int kind =
+                    clearing != null
+                    && pool >= clearing.BoulderTicks
+                    && FindBoulder(world, r, clearing)
+                        ? ClearAction
+                    : bridgework != null && FindGap(world, r, bridgework, timber) ? TrestleAction
+                    : bridgework != null && timber > 0 && FindWeakSpan(world, r, bridgework)
+                        ? RepairAction
+                    : 0;
+                if (kind == 0)
+                {
+                    return false; // marching with the army until a job turns up
+                }
+                army.Job[r] = SpecialistJob.Active;
+                army.JobKind[r] = kind;
+                army.WorkProgress[r] = 0;
+                world.Causes?.Add(
+                    CauseKind.SpecialistStarted,
+                    context.Tick,
+                    r,
+                    kind,
+                    CauseLog.None
+                );
+            }
+            army.Order[r] = RegimentOrder.Work;
+            army.Target[r] = -1;
+            WorkPoint(world, r);
+            if (!AtWork(world, r))
+            {
+                return true;
+            }
+            bool finished;
+            switch (army.JobKind[r])
+            {
+                case ClearAction:
+                    if (world.Ground.IsCleared(army.JobRef[r]))
+                    {
+                        finished = true; // another regiment finished it first: nothing to clear, nothing spent
+                        break;
+                    }
+                    army.WorkProgress[r] += TickOrder.RegimentAiRate.Period;
+                    finished = army.WorkProgress[r] >= clearing!.BoulderTicks;
+                    if (finished)
+                    {
+                        int boulder = army.JobRef[r];
+                        _navigation.ClearBoulder(context, boulder);
+                        world.Ground.AddCleared(boulder);
+                        army.Spent2[r] += clearing.BoulderTicks;
+                    }
+                    break;
+                case TrestleAction:
+                    finished = BuildTrestle(context, r, bridgework!);
+                    break;
+                default:
+                    finished = Repair(world, r, bridgework!, timber);
+                    break;
+            }
+            if (!finished)
+            {
+                return true;
+            }
+            world.Causes?.Add(
+                CauseKind.SpecialistEnded,
+                context.Tick,
+                r,
+                army.JobKind[r],
+                CauseLog.None
+            );
+            army.Job[r] = SpecialistJob.Idle;
+            army.JobKind[r] = 0;
+            army.JobRef[r] = -1;
+            army.JobCells[r] = null;
+            army.JobTargets[r] = null;
+            army.WorkStep[r] = 0;
+            army.Order[r] = RegimentOrder.March;
+            return false;
+        }
+
+        /// <summary>Where the engineers stand for their job: by the boulder, at the near bank, on the weak span.</summary>
+        private void WorkPoint(World world, int r)
+        {
+            var army = world.Army;
+            var terrain = _navigation.Terrain;
+            int cell = army.JobKind[r] switch
+            {
+                ClearAction => army.WorkStep[r],
+                TrestleAction => army.WorkStep[r] < 0
+                    ? 0
+                    : army.JobTargets[r]![army.JobTargets[r]!.Length - 1],
+                _ => terrain.Segment(army.JobRef[r]).Cells[0],
+            };
+            army.Point[r] = terrain.CellCentre(cell % terrain.Columns, cell / terrain.Columns);
+        }
+
+        /// <summary>The cells of the regiment's path ahead of its officer, along its flow field, up to a distance.</summary>
+        private List<int> PathAhead(World world, int r, int aheadMm)
+        {
+            _path.Clear();
+            var field = _navigation.FieldOf(r);
+            int officer = world.RegimentAnchor[r];
+            if (field == null || officer < 0)
+            {
+                return _path;
+            }
+            var directions = field.FreshDirections();
+            var terrain = _navigation.Terrain;
+            terrain.CellOf(world.Position[officer], out int x, out int y);
+            int steps = aheadMm / terrain.CellSizeMm;
+            _path.Add(terrain.Index(x, y));
+            for (int k = 0; k < steps; k++)
+            {
+                byte d = directions[terrain.Index(x, y)];
+                if (d >= FlowField.AtGoal)
+                {
+                    break;
+                }
+                var (dx, dy) = FlowField.Offset(d);
+                if (!terrain.InBounds(x + dx, y + dy))
+                {
+                    break;
+                }
+                x += dx;
+                y += dy;
+                _path.Add(terrain.Index(x, y));
+            }
+            return _path;
+        }
+
+        /// <summary>Whether another regiment (any slot) is already clearing this boulder.</summary>
+        private static bool HeldByAnother(World world, int r, int boulder)
+        {
+            var army = world.Army;
+            for (int o = 0; o < world.Regiments.HighWater; o++)
+            {
+                if (
+                    o != r
+                    && world.Regiments.IsAlive(o)
+                    && army.Job[o] == SpecialistJob.Active
+                    && army.JobKind[o] == ClearAction
+                    && army.JobRef[o] == boulder
+                )
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>A placed, uncleared boulder within reach and close to the path ahead (path order, then boulder order).</summary>
+        private bool FindBoulder(World world, int r, ClearBlockerRules clearing)
+        {
+            var boulders = _navigation.Map.Boulders;
+            if (boulders.Count == 0)
+            {
+                return false;
+            }
+            var terrain = _navigation.Terrain;
+            int near = System.Math.Max(1, clearing.NearPathMm / terrain.CellSizeMm);
+            var path = PathAhead(world, r, clearing.WithinMm);
+            foreach (int p in path)
+            {
+                int px = p % terrain.Columns;
+                int py = p / terrain.Columns;
+                for (int b = 0; b < boulders.Count; b++)
+                {
+                    if (world.Ground.IsCleared(b) || HeldByAnother(world, r, b))
+                    {
+                        continue;
+                    }
+                    foreach (int cell in boulders[b].Cells)
+                    {
+                        if (
+                            System.Math.Abs(cell % terrain.Columns - px) <= near
+                            && System.Math.Abs(cell / terrain.Columns - py) <= near
+                        )
+                        {
+                            world.Army.JobRef[r] = b;
+                            world.Army.WorkStep[r] = p; // where to stand: the path beside it
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// A gap on the path ahead (S2 14.7): a run of path cells closed to wheeled over water, a channel or a ditch, ending
+        /// at a cell open to wheeled, no longer than the trestle's reach and within the timber left. The run's cells go to
+        /// the job; the last target entry is the near bank, where the engineers stand; every other target is the deck height.
+        /// </summary>
+        private bool FindGap(World world, int r, BridgeworkRules bridgework, int timber)
+        {
+            var terrain = _navigation.Terrain;
+            var costs = _navigation.Costs;
+            var path = PathAhead(world, r, bridgework.AheadMm);
+            var fields = world.Fields;
+            int[]? depth =
+                fields != null && fields.Rules.IndexOf(WaterModel.Depth) >= 0
+                    ? fields.Get(WaterModel.Depth).Values
+                    : null;
+            int dry = _rules.Fields.Water?.DryDepthUm ?? int.MaxValue;
+            for (int k = 1; k < path.Count; k++)
+            {
+                int cell = path[k];
+                int x = cell % terrain.Columns;
+                int y = cell / terrain.Columns;
+                int bank = path[k - 1];
+                int rim = terrain.HeightMm(bank % terrain.Columns, bank / terrain.Columns);
+                bool closed = costs.Cost(MovementClass.Wheeled, x, y) == CostFields.Impassable;
+                bool gap =
+                    closed
+                    && !terrain.IsBlocked(cell)
+                    && terrain.StandingSegment(cell) < 0
+                    && (
+                        terrain.HeightMm(x, y) <= rim - 300 || (depth != null && depth[cell] >= dry)
+                    );
+                if (!gap)
+                {
+                    continue;
+                }
+                var run = new List<int>();
+                long lengthMm = 0;
+                int j = k;
+                for (; j < path.Count; j++)
+                {
+                    int c = path[j];
+                    if (terrain.SegmentAt(c) >= 0)
+                    {
+                        return false; // under another deck (a failed span): not a trestle's gap
+                    }
+                    bool open =
+                        costs.Cost(MovementClass.Wheeled, c % terrain.Columns, c / terrain.Columns)
+                        != CostFields.Impassable;
+                    bool low =
+                        terrain.HeightMm(c % terrain.Columns, c / terrain.Columns) <= rim - 300
+                        || (depth != null && depth[c] >= dry);
+                    if (open && !low)
+                    {
+                        break; // the far bank: back at the rim's level, open to wheeled
+                    }
+                    int prev = path[j - 1];
+                    bool diagonal =
+                        c % terrain.Columns != prev % terrain.Columns
+                        && c / terrain.Columns != prev / terrain.Columns;
+                    lengthMm += diagonal ? terrain.CellSizeMm * 1414L / 1000 : terrain.CellSizeMm;
+                    run.Add(c);
+                }
+                var trestle = _rules.Structures.Kind("trestle");
+                if (j >= path.Count || trestle == null || lengthMm > bridgework.MaxGapMm)
+                {
+                    return false; // no far bank in sight, or too wide: not a trestle's job
+                }
+                // The deck rests on both banks, so it starts and ends on ground at the rim's level: the bank cells beside a
+                // channel are steep (a cell's slope is its steepest step), and only a deck makes them flat for wheeled.
+                run.Insert(0, bank);
+                run.Add(path[j]);
+                int segments =
+                    (run.Count + trestle.SegmentCellsAlong - 1) / trestle.SegmentCellsAlong;
+                if ((long)segments * bridgework.TimberMmPerSegment > timber)
+                {
+                    return false;
+                }
+                // Targets: the deck height for each run cell, then the near bank cell (where the engineers stand).
+                var targets = new int[run.Count + 1];
+                for (int t = 0; t < run.Count; t++)
+                {
+                    targets[t] = rim;
+                }
+                targets[run.Count] = k >= 2 ? path[k - 2] : bank; // stand just short of the near end
+                world.Army.JobCells[r] = run.ToArray();
+                world.Army.JobTargets[r] = targets;
+                world.Army.WorkStep[r] = 0;
+                world.Army.JobRef[r] = -1;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>One trestle segment per its ticks, from the near bank (S2 14.7). True once the whole gap is spanned.</summary>
+        private bool BuildTrestle(TickContext context, int r, BridgeworkRules bridgework)
+        {
+            var world = context.World;
+            var army = world.Army;
+            var trestle = _rules.Structures.Kind("trestle")!;
+            army.WorkProgress[r] += TickOrder.RegimentAiRate.Period;
+            if (army.WorkProgress[r] < bridgework.TicksPerSegment)
+            {
+                return false;
+            }
+            army.WorkProgress[r] -= bridgework.TicksPerSegment;
+            var run = army.JobCells[r]!;
+            var terrain = _navigation.Terrain;
+            int along = trestle.SegmentCellsAlong;
+            int from = army.WorkStep[r] * along;
+            var cells = new List<int>();
+            for (int k = from; k < System.Math.Min(run.Length, from + along); k++)
+            {
+                int c = run[k];
+                int prev = k == 0 ? army.JobTargets[r]![run.Length] : run[k - 1];
+                int dx = c % terrain.Columns - prev % terrain.Columns;
+                int dy = c / terrain.Columns - prev / terrain.Columns;
+                // The deck's width: the path cell and its neighbours across the path, widthCells in all.
+                for (int w = 0; w < System.Math.Max(1, trestle.WidthCells); w++)
+                {
+                    int qx = c % terrain.Columns - w * dy;
+                    int qy = c / terrain.Columns + w * dx;
+                    if (!terrain.InBounds(qx, qy))
+                    {
+                        continue;
+                    }
+                    int q = terrain.Index(qx, qy);
+                    if (terrain.SegmentAt(q) < 0 && !cells.Contains(q))
+                    {
+                        cells.Add(q);
+                    }
+                }
+            }
+            if (cells.Count > 0)
+            {
+                int built = _navigation.BuildDeck(
+                    context,
+                    trestle,
+                    cells.ToArray(),
+                    army.JobTargets[r]![0],
+                    army.JobRef[r]
+                );
+                if (built >= 0)
+                {
+                    army.JobRef[r] = built;
+                    army.Spent[r] += bridgework.TimberMmPerSegment; // timber only for a segment actually laid
+                }
+            }
+            army.WorkStep[r]++;
+            return army.WorkStep[r] * along >= run.Length;
+        }
+
+        /// <summary>The lowest-numbered standing wooden segment within reach below the repair line (S2 14.7: strength, never load).</summary>
+        private bool FindWeakSpan(World world, int r, BridgeworkRules bridgework)
+        {
+            var states = world.Structures;
+            int officer = world.RegimentAnchor[r];
+            if (states == null || officer < 0)
+            {
+                return false;
+            }
+            var terrain = _navigation.Terrain;
+            var at = world.Position[officer];
+            long reach = bridgework.RepairWithinMm;
+            for (int s = 0; s < states.Count; s++)
+            {
+                var segment = terrain.Segment(s);
+                if (
+                    !segment.Kind.IsWood
+                    || states.Broken[s]
+                    || states.Strength[s] >= bridgework.RepairBelowPermille
+                    || segment.Cells.Length == 0
+                )
+                {
+                    continue;
+                }
+                var centre = terrain.CellCentre(
+                    segment.Cells[0] % terrain.Columns,
+                    segment.Cells[0] / terrain.Columns
+                );
+                long dx = RegimentSummary.Mm(centre.X.Raw - at.X.Raw);
+                long dy = RegimentSummary.Mm(centre.Y.Raw - at.Y.Raw);
+                if (dx * dx + dy * dy <= reach * reach)
+                {
+                    world.Army.JobRef[r] = s;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Repairs the span (S2 14.7): ‰ per second up to the repair ceiling, a set length of timber per 250‰; the new planks
+        /// end any Rot under way. True when sound again, out of timber, or the span has failed.
+        /// </summary>
+        private bool Repair(World world, int r, BridgeworkRules bridgework, int timber)
+        {
+            var army = world.Army;
+            var states = world.Structures!;
+            int s = army.JobRef[r];
+            if (
+                states.Broken[s]
+                || states.Strength[s] >= bridgework.RepairUpToPermille
+                || timber <= 0
+            )
+            {
+                return true;
+            }
+            states.RotStart[s] = 0;
+            army.WorkProgress[r] += bridgework.RepairPermillePerS * TickOrder.RegimentAiRate.Period;
+            int gained = army.WorkProgress[r] / SimConstants.TicksPerSecond;
+            army.WorkProgress[r] -= gained * SimConstants.TicksPerSecond;
+            int timberPerPermille = System.Math.Max(1, bridgework.TimberMmPer250Permille / 250);
+            gained = System.Math.Min(
+                gained,
+                System.Math.Min(
+                    bridgework.RepairUpToPermille - states.Strength[s],
+                    timber / timberPerPermille
+                )
+            );
+            states.Strength[s] += gained;
+            army.Spent[r] += gained * timberPerPermille;
+            return states.Strength[s] >= bridgework.RepairUpToPermille
+                || timber - gained * timberPerPermille < timberPerPermille;
         }
 
         /// <summary>

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using GodGame.Sim.Math;
 
 namespace GodGame.Sim
@@ -26,47 +27,114 @@ namespace GodGame.Sim
             _heightMm = (int[])map.HeightMm.Clone();
             _blocked = map.Blocked == null ? null : (bool[])map.Blocked.Clone();
             _pieceSpeed = map.PieceSpeed == null ? null : (int[])map.PieceSpeed.Clone();
-            Decks = map.Decks;
-            _broken = Decks == null ? new bool[0] : new bool[Decks.Segments.Count];
+            _map = map;
+            ResetDecks();
         }
 
-        private readonly bool[] _broken;
+        private readonly MapData _map;
+        private readonly List<DeckSegment> _segments = new List<DeckSegment>();
+        private readonly List<bool> _broken = new List<bool>();
+        private int[]? _segmentOf;
+        private byte[]? _approach;
+        private int _staticSegments;
 
-        /// <summary>The decks (bridges and ice, spec S2 8.1), or null when the map has none.</summary>
-        public DeckLayout? Decks { get; }
+        /// <summary>Segments: the played map's (bridges and ice, spec S2 8.1), then those built during the battle.</summary>
+        public int SegmentCount => _segments.Count;
+
+        public DeckSegment Segment(int s) => _segments[s];
+
+        /// <summary>The map's own segments; battle-made ones (trestles, pontoons) come after.</summary>
+        public int StaticSegments => _staticSegments;
+
+        /// <summary>The segment whose deck covers the cell, standing or not, or -1.</summary>
+        public int SegmentAt(int index) => _segmentOf == null ? -1 : _segmentOf[index];
+
+        /// <summary>
+        /// Back to the played map's decks: no battle-made segment, every segment standing, every placed boulder in place
+        /// (before a restore re-applies the world's state).
+        /// </summary>
+        public void ResetDecks()
+        {
+            _segments.Clear();
+            _broken.Clear();
+            var decks = _map.Decks;
+            _segmentOf = decks == null ? null : (int[])decks.SegmentOfCell.Clone();
+            _approach = decks == null ? null : (byte[])decks.ApproachMask.Clone();
+            if (decks != null)
+            {
+                foreach (var segment in decks.Segments)
+                {
+                    _segments.Add(segment);
+                    _broken.Add(false);
+                }
+            }
+            _staticSegments = _segments.Count;
+            // Only clearing writes blocked cells at runtime today; battle-made blockers (felled trees, wrecks: M5 item 7)
+            // must be re-applied from world state after this reset, or a restore would lose them.
+            if (_blocked != null && _map.Blocked != null)
+            {
+                Array.Copy(_map.Blocked, _blocked, _blocked.Length);
+            }
+        }
+
+        /// <summary>A battle-made deck segment (a trestle, a pontoon): it covers its cells not already under a deck.</summary>
+        public int AddSegment(DeckSegment segment)
+        {
+            int cells = Columns * Rows;
+            if (_segmentOf == null)
+            {
+                _segmentOf = new int[cells];
+                for (int i = 0; i < cells; i++)
+                {
+                    _segmentOf[i] = -1;
+                }
+                _approach = new byte[cells];
+            }
+            int s = _segments.Count;
+            _segments.Add(segment);
+            _broken.Add(false);
+            foreach (int cell in segment.Cells)
+            {
+                if (_segmentOf[cell] < 0)
+                {
+                    _segmentOf[cell] = s;
+                }
+            }
+            return s;
+        }
 
         /// <summary>The standing segment whose deck covers the cell, or -1 (none, or it failed).</summary>
         public int StandingSegment(int index)
         {
-            if (Decks == null)
+            if (_segmentOf == null)
             {
                 return -1;
             }
-            int s = Decks.SegmentOfCell[index];
+            int s = _segmentOf[index];
             return s >= 0 && !_broken[s] ? s : -1;
         }
 
         /// <summary>The class bits a cell's deck carries (a standing segment or a bridge's approach), or 0.</summary>
         public int DeckClasses(int index)
         {
-            if (Decks == null)
+            if (_segmentOf == null)
             {
                 return 0;
             }
             int s = StandingSegment(index);
-            return s >= 0 ? Decks.Segments[s].Kind.ClassMask : Decks.ApproachMask[index];
+            return s >= 0 ? _segments[s].Kind.ClassMask : _approach![index];
         }
 
         /// <summary>Whether a cell is standing ice (units on it stand on the ice, at ice speed).</summary>
         public bool IsIce(int index)
         {
             int s = StandingSegment(index);
-            return s >= 0 && Decks!.Segments[s].Kind.IsIce;
+            return s >= 0 && _segments[s].Kind.IsIce;
         }
 
         /// <summary>
-        /// The water a unit standing in the cell is in, µm (spec S2 8.1, 8.4): on standing ice none; on a standing bridge
-        /// deck only what tops the deck (awash); anywhere else the water itself.
+        /// The water a unit standing in the cell is in, µm (spec S2 8.1, 8.4): on standing ice or a floating deck none; on
+        /// a standing bridge or trestle only what tops the deck (awash); anywhere else the water itself.
         /// </summary>
         public long EffectiveDepthUm(int index, long depthUm)
         {
@@ -75,8 +143,8 @@ namespace GodGame.Sim
             {
                 return depthUm;
             }
-            var segment = Decks!.Segments[s];
-            if (segment.Kind.IsIce)
+            var segment = _segments[s];
+            if (segment.Kind.IsIce || segment.Kind.Floats)
             {
                 return 0;
             }
@@ -91,11 +159,14 @@ namespace GodGame.Sim
         public long FootingDepthUm(int index, long depthUm) => IsIce(index) ? 0 : depthUm;
 
         /// <summary>Marks a segment failed (or standing again after a restore).</summary>
-        public void SetBroken(int segment, bool broken)
+        public void SetBroken(int segment, bool broken) => _broken[segment] = broken;
+
+        /// <summary>Opens a cell a placed boulder closed (Engineers cleared it, S2 14.7).</summary>
+        public void Unblock(int index)
         {
-            if (_broken[segment] != broken)
+            if (_blocked != null)
             {
-                _broken[segment] = broken;
+                _blocked[index] = false;
             }
         }
 

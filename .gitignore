@@ -66,3 +66,4 @@ CLAUDE.local.md
 # Antigravity local files
 .agents/plugins/smitenot-local/
 .agents/hooks/.pending_lint.json
+.agents/hooks/.stop_guard.json

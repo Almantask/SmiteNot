@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -12,35 +13,47 @@ from urllib.parse import urlparse
 from urllib.request import url2pathname
 
 PENDING_LINT_FILE = Path(__file__).resolve().parent / ".pending_lint.json"
+STOP_GUARD_FILE = Path(__file__).resolve().parent / ".stop_guard.json"
+
+
+def _to_path(candidate: object) -> Path | None:
+    if not candidate or not isinstance(candidate, str):
+        return None
+    if candidate.startswith("file://"):
+        parsed = urlparse(candidate)
+        local = url2pathname(parsed.path)
+        if parsed.netloc:
+            local = f"//{parsed.netloc}{local}"
+        return Path(local)
+    return Path(candidate)
 
 
 def _resolve_root(payload: dict) -> Path:
     """Resolve the repository root from workspacePaths, cwd, or script location."""
     for candidate in (payload.get("workspacePaths") or []) + [payload.get("cwd")]:
-        if not candidate:
-            continue
-        if isinstance(candidate, str) and candidate.startswith("file://"):
-            parsed = urlparse(candidate)
-            local = url2pathname(parsed.path)
-            if parsed.netloc:
-                local = f"//{parsed.netloc}{local}"
-            p = Path(local)
-        else:
-            p = Path(candidate)
-        if p.exists():
+        p = _to_path(candidate)
+        if p and p.exists():
             return p
     return Path(__file__).resolve().parents[2]
 
 
-def _extract_tool_path(payload: dict) -> str:
-    """Extract the target file path from an Antigravity edit/write toolCall payload."""
-    args = (payload.get("toolCall") or {}).get("args") or {}
+def _tool_path_from_args(args: object) -> str:
+    if isinstance(args, str):
+        args = _load_json(args)
+    if not isinstance(args, dict):
+        return ""
     return str(
         args.get("Path")
         or args.get("TargetFile")
         or args.get("file_path")
+        or args.get("path")
         or ""
     )
+
+
+def _extract_tool_path(payload: dict) -> str:
+    """Extract the target file path from an Antigravity edit/write toolCall payload."""
+    return _tool_path_from_args((payload.get("toolCall") or {}).get("args"))
 
 
 def _run_claude_hook(
@@ -149,17 +162,153 @@ def cmd_post_invocation(_payload: dict, _root: Path) -> dict:
     return out
 
 
+def _git(root: Path, *args: str) -> str:
+    proc = subprocess.run(["git", *args], cwd=str(root), capture_output=True, text=True)
+    return proc.stdout if proc.returncode == 0 else ""
+
+
+def _sim_data_state(root: Path) -> str:
+    """Return a SHA-1 fingerprint of uncommitted changes under sim/ or data/, or '' if clean."""
+    lines = _git(root, "status", "--porcelain", "--", "sim", "data").splitlines()
+    if not lines:
+        return ""
+    h = hashlib.sha1()
+    h.update(_git(root, "diff", "HEAD", "--", "sim", "data").encode("utf-8"))
+    for line in sorted(lines):
+        h.update(line.encode("utf-8"))
+        rel = line[3:].strip().strip('"').split(" -> ")[-1]
+        p = root / rel
+        if p.is_file():
+            try:
+                st = p.stat()
+                h.update(f":{st.st_mtime_ns}:{st.st_size}".encode("utf-8"))
+            except OSError:
+                pass
+    return h.hexdigest()
+
+
+_EDIT_TOOLS = frozenset({
+    "edit_file",
+    "write_file",
+    "replace_file_content",
+    "multi_replace_file_content",
+    "write_to_file",
+    "apply_patch",
+})
+
+
+def _load_stop_guard() -> dict[str, list[str]]:
+    if not STOP_GUARD_FILE.exists():
+        return {}
+    try:
+        data = json.loads(STOP_GUARD_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            out: dict[str, list[str]] = {}
+            for k, v in data.items():
+                if isinstance(v, list):
+                    out[str(k)] = [str(x) for x in v]
+                elif isinstance(v, str):
+                    out[str(k)] = [v]
+            return out
+    except (OSError, json.JSONDecodeError):
+        pass
+    return {}
+
+
+def _save_stop_guard(guard: dict[str, list[str]]) -> None:
+    trimmed = dict(list(guard.items())[-32:])
+    try:
+        STOP_GUARD_FILE.write_text(json.dumps(trimmed), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _is_sim_or_data_path(target: str, root: Path) -> bool:
+    if not target:
+        return False
+    p = Path(target)
+    try:
+        resolved_root = root.resolve()
+        resolved = p.resolve() if p.is_absolute() else (resolved_root / p).resolve()
+        rel = resolved.relative_to(resolved_root)
+    except (OSError, ValueError):
+        return False
+    return bool(rel.parts) and rel.parts[0].lower() in ("sim", "data")
+
+
+def _blocked_this_turn_without_sim_edit(payload: dict, root: Path) -> bool:
+    """Return True if a Stop block already fired this turn with no sim/data edit after it."""
+    tp = _to_path(payload.get("transcriptPath"))
+    if not tp or not tp.is_file():
+        return False
+    try:
+        size = tp.stat().st_size
+        with tp.open("rb") as f:
+            if size > 524288:
+                f.seek(size - 524288)
+                f.readline()  # discard partial first line
+            lines = f.read().decode("utf-8", errors="replace").splitlines()
+    except OSError:
+        return False
+
+    for raw in reversed(lines):
+        if not raw.strip():
+            continue
+        obj = _load_json(raw)
+        step_type = obj.get("type")
+        if step_type in ("USER_INPUT", "CHECKPOINT"):
+            return False
+        if step_type == "PLANNER_RESPONSE":
+            for tc in obj.get("tool_calls") or []:
+                name = str(tc.get("name") or "")
+                if name == "run_command":
+                    return False
+                if name in _EDIT_TOOLS:
+                    if _is_sim_or_data_path(
+                        _tool_path_from_args(tc.get("arguments") or tc.get("args")), root
+                    ):
+                        return False
+        if step_type == "SYSTEM_MESSAGE" and "Stop hook blocked termination:" in str(
+            obj.get("content") or ""
+        ):
+            return True
+    return False
+
+
 def cmd_stop(payload: dict, root: Path) -> dict:
     if payload.get("continuationActive"):
         return {}
+    if int(payload.get("executionNum") or 0) > 0:
+        return {}
+    if str(payload.get("lastUserInput") or "").startswith("Stop hook blocked termination:"):
+        return {}
     term = payload.get("terminationReason", "")
     if term and term != "NO_TOOL_CALL":
+        return {}
+    if _blocked_this_turn_without_sim_edit(payload, root):
+        return {}
+    state = _sim_data_state(root)
+    if not state:
+        return {}
+    conv_id = str(payload.get("conversationId") or "default")
+    guard = _load_stop_guard()
+    if state in guard.get(conv_id, ()):
         return {}
     proc = _run_claude_hook(root, "stop_checks.py", {"stop_hook_active": False})
     if proc.returncode == 2:
         reason = (proc.stderr or proc.stdout or "").strip()
         if reason:
+            post_state = _sim_data_state(root)
+            seen = list(guard.pop(conv_id, []))
+            for s in (state, post_state):
+                if s and s not in seen:
+                    seen.append(s)
+            guard[conv_id] = seen[-4:]
+            _save_stop_guard(guard)
             return {"decision": "continue", "reason": reason}
+    elif conv_id in guard:
+        del guard[conv_id]
+        _save_stop_guard(guard)
     return {}
 
 

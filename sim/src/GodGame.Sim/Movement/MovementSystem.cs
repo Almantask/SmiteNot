@@ -105,6 +105,8 @@ namespace GodGame.Sim
         private readonly MovementClass[] _typeClass;
         private readonly Fix[] _typeFileSpacing;
         private readonly Fix[] _typeRankSpacing;
+        private readonly Fix[] _openFileSpacing; // open order (S2 2.2): the type's spacing × the order's factor
+        private readonly Fix[] _openRankSpacing;
         private readonly long _maxRadiusRaw;
         private readonly long _quarterCellRaw;
         private readonly long _mapDiagonalRaw;
@@ -159,10 +161,21 @@ namespace GodGame.Sim
             _mapDiagonalRaw = IntMath.Sqrt((ulong)(w * w + d * d)) + 1; // sides at most 30 km: the square fits
             _typeFileSpacing = new Fix[types.Count];
             _typeRankSpacing = new Fix[types.Count];
+            _openFileSpacing = new Fix[types.Count];
+            _openRankSpacing = new Fix[types.Count];
+            int open = navigation.Rules.Combat.OpenSpacingPermille;
             for (int t = 0; t < types.Count; t++)
             {
                 _typeFileSpacing[t] = Fix.FromRatio(types[t].Formation.FileSpacingMm, 1000);
                 _typeRankSpacing[t] = Fix.FromRatio(types[t].Formation.RankSpacingMm, 1000);
+                _openFileSpacing[t] = Fix.FromRatio(
+                    (long)types[t].Formation.FileSpacingMm * open,
+                    1_000_000
+                );
+                _openRankSpacing[t] = Fix.FromRatio(
+                    (long)types[t].Formation.RankSpacingMm * open,
+                    1_000_000
+                );
                 _typeSpeed[t] = Fix.FromRatio(
                     types[t].SpeedMmPerSecond,
                     1000L * SimConstants.TicksPerSecond
@@ -368,8 +381,8 @@ namespace GodGame.Sim
                     - Formation.SlotOffset(
                         world.FormationSlot[anchor],
                         world.RegimentFiles[r],
-                        _typeFileSpacing[type],
-                        _typeRankSpacing[type],
+                        world.Army.Open[r] ? _openFileSpacing[type] : _typeFileSpacing[type],
+                        world.Army.Open[r] ? _openRankSpacing[type] : _typeRankSpacing[type],
                         world.RegimentFacing[r]
                     );
             }
@@ -395,7 +408,9 @@ namespace GodGame.Sim
                 // Clamped to the map's diagonal, so even a crafted snapshot's formation can't overflow the square.
                 long reach = System.Math.Min(
                     _mapDiagonalRaw,
-                    ReformDistance.Raw + _typeRankSpacing[type].Raw * ranks
+                    ReformDistance.Raw
+                        + (world.Army.Open[r] ? _openRankSpacing[type] : _typeRankSpacing[type]).Raw
+                            * ranks
                 );
                 long dx = world.Position[u].X.Raw - world.Position[anchor].X.Raw;
                 long dy = world.Position[u].Y.Raw - world.Position[anchor].Y.Raw;
@@ -443,7 +458,8 @@ namespace GodGame.Sim
                 any |=
                     _order[r] == RegimentOrder.Engage
                     || _order[r] == RegimentOrder.FallBack
-                    || _order[r] == RegimentOrder.Work;
+                    || _order[r] == RegimentOrder.Work
+                    || _order[r] == RegimentOrder.Hold;
                 _hasPoint[r] = false;
                 _closeIn[r] = false;
             }
@@ -453,7 +469,11 @@ namespace GodGame.Sim
             }
             for (int r = 0; r < n; r++)
             {
-                if (_order[r] == RegimentOrder.FallBack || _order[r] == RegimentOrder.Work)
+                if (
+                    _order[r] == RegimentOrder.FallBack
+                    || _order[r] == RegimentOrder.Work
+                    || _order[r] == RegimentOrder.Hold
+                )
                 {
                     _hasPoint[r] = true;
                     _point[r] = army.Point[r];
@@ -609,8 +629,12 @@ namespace GodGame.Sim
                             + Formation.SlotOffset(
                                 _world.FormationSlot[u],
                                 _world.RegimentFiles[regiment],
-                                _s._typeFileSpacing[type],
-                                _s._typeRankSpacing[type],
+                                _world.Army.Open[regiment]
+                                    ? _s._openFileSpacing[type]
+                                    : _s._typeFileSpacing[type],
+                                _world.Army.Open[regiment]
+                                    ? _s._openRankSpacing[type]
+                                    : _s._typeRankSpacing[type],
                                 _world.RegimentFacing[regiment]
                             );
                         long ox = slot.X.Raw - p.X.Raw;

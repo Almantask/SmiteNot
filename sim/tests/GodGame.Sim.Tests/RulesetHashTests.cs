@@ -173,6 +173,7 @@ public class RulesetLoaderTests
                     "fascine-carriers",
                     "engineers",
                     "pontoon-train",
+                    "crossing-marshals",
                 }
             )
         );

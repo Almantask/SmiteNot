@@ -17,7 +17,8 @@ namespace GodGame.Sim
     /// </list>
     /// A regiment's outline is the coarse cells (the reachability grid's, 4.5 m) holding at least
     /// <see cref="PowerRules.MinSoldiersPerCoarseCell"/> of its soldiers, so a lone straggler never blocks a cast; swept,
-    /// stunned and teetering soldiers count like any other (S1 D9). Serial: casts are few, and their writes are summed
+    /// stunned and teetering soldiers count like any other (S1 D9). Regiments that deployed under the small-regiment
+    /// size don't block casts unless the rules say so (S2 D15). Serial: casts are few, and their writes are summed
     /// in plan order.
     /// </summary>
     public sealed class CastSystem : ISimSystem
@@ -206,14 +207,22 @@ namespace GodGame.Sim
             int attacker = CastStates.NoRegiment;
             int defender = CastStates.NoRegiment;
             int min = cast.Power.MinSoldiersPerCoarseCell;
+            var combat = _navigation.Rules.Combat;
             for (int u = 0; u < world.Units.HighWater; u++)
             {
                 if (!world.Units.IsAlive(u) || counts[OutlineKey(world, u)] < min)
                 {
                     continue;
                 }
-                long d = DistanceSquared(world.Position[u], cast);
                 int r = world.UnitRegiment[u];
+                if (
+                    !combat.SmallRegimentsBlockCasts
+                    && world.RegimentStartingSize[r] < combat.SmallRegimentSoldiers
+                )
+                {
+                    continue; // D15: a small regiment (marshals, drovers) is no shield against casts
+                }
+                long d = DistanceSquared(world.Position[u], cast);
                 if (world.RegimentSide[r] == Side.Attacker)
                 {
                     if (d < bestAttacker)

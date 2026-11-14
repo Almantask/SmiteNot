@@ -355,8 +355,12 @@ namespace GodGame.Sim
                     ? p.HitNearPermille
                     : p.HitNearPermille
                         - (p.HitNearPermille - p.HitFarPermille) * (gap - near) / (range - near);
-            // × the target's order factor: close order 1,000‰ (open order arrives with M5 item 6).
-            long product = shooters * chance;
+            // × the target's order factor (S2 2.2): close order 1,000‰, open order fewer bodies under each arrow.
+            long product =
+                shooters
+                * chance
+                * (army.Open[target] ? _rules.Combat.OpenArrowHitsPermille : 1000)
+                / 1000;
             int hits = (int)(product / 1000);
             var rng = SimRandom.Stream(context.Seed, VolleySystemId, r, context.Tick);
             if (rng.NextUInt(1000) < (uint)(product % 1000))

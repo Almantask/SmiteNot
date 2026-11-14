@@ -23,6 +23,9 @@ namespace GodGame.Sim
 
         /// <summary>A specialist walking to or standing at <see cref="ArmyState.Point"/>, where its action works.</summary>
         Work = 5,
+
+        /// <summary>Held short of a span by Crossing Marshals (S2 14.6): stand at <see cref="ArmyState.Point"/>.</summary>
+        Hold = 6,
     }
 
     /// <summary>Where a specialist's action stands (spec S2, section 14.1).</summary>
@@ -75,6 +78,7 @@ namespace GodGame.Sim
             JobKind = new int[regimentCapacity];
             JobRef = new int[regimentCapacity];
             Spent2 = new int[regimentCapacity];
+            Open = new bool[regimentCapacity];
             for (int r = 0; r < regimentCapacity; r++)
             {
                 Target[r] = -1;
@@ -154,6 +158,9 @@ namespace GodGame.Sim
         /// <summary>A second charge used: Engineers' clearing time, in ticks.</summary>
         public int[] Spent2 { get; }
 
+        /// <summary>In open order (S2 2.2): file and rank spacing doubled; only on a span Crossing Marshals meter, for now.</summary>
+        public bool[] Open { get; }
+
         /// <summary>A new regiment's state: marching, full ammunition, rallies to come.</summary>
         public void Init(int r, int ammo, int rallies)
         {
@@ -189,6 +196,7 @@ namespace GodGame.Sim
             JobKind[r] = 0;
             JobRef[r] = -1;
             Spent2[r] = 0;
+            Open[r] = false;
         }
 
         /// <summary>Whether a slot holds exactly what <see cref="Clear"/> leaves (dead regiment slots must).</summary>
@@ -217,7 +225,8 @@ namespace GodGame.Sim
             && JobTargets[r] == null
             && JobKind[r] == 0
             && JobRef[r] == -1
-            && Spent2[r] == 0;
+            && Spent2[r] == 0
+            && !Open[r];
 
         internal void WriteTo(ByteWriter writer)
         {
@@ -251,6 +260,7 @@ namespace GodGame.Sim
                 writer.WriteInt32(JobKind[r]);
                 writer.WriteInt32(JobRef[r]);
                 writer.WriteInt32(Spent2[r]);
+                writer.WriteByte(Open[r] ? (byte)1 : (byte)0);
             }
         }
 
@@ -263,7 +273,7 @@ namespace GodGame.Sim
             for (int r = 0; r < Capacity; r++)
             {
                 byte order = reader.ReadByte();
-                if (order > (byte)RegimentOrder.Work)
+                if (order > (byte)RegimentOrder.Hold)
                 {
                     throw new FormatException("Snapshot regiment order is out of range.");
                 }
@@ -312,10 +322,31 @@ namespace GodGame.Sim
                     throw new FormatException("Snapshot job reference is invalid.");
                 }
                 Spent2[r] = NonNegative(reader.ReadInt32());
+                byte open = reader.ReadByte();
+                if (open > 1)
+                {
+                    throw new FormatException("Snapshot open-order flag is invalid.");
+                }
+                Open[r] = open == 1;
                 if (
                     (JobCells[r] == null) != (JobTargets[r] == null)
-                    // A fill has a target per cell; a trestle one more (its near bank).
-                    || (JobCells[r] != null && JobTargets[r]!.Length < JobCells[r]!.Length)
+                    // A fill has a target per cell; a trestle one more (its near bank). A metered span lists its
+                    // segments, with its entry and width as the targets.
+                    || (
+                        JobCells[r] != null
+                        && JobKind[r] != SpecialistExecutor.MeterAction
+                        && JobTargets[r]!.Length < JobCells[r]!.Length
+                    )
+                    || (
+                        JobCells[r] != null
+                        && JobKind[r] == SpecialistExecutor.MeterAction
+                        && JobTargets[r]!.Length != SpecialistExecutor.MeterTargets
+                    )
+                    || (
+                        Job[r] == SpecialistJob.Active
+                        && JobKind[r] == SpecialistExecutor.MeterAction
+                        && JobCells[r] == null
+                    )
                 )
                 {
                     throw new FormatException("Snapshot job cells and targets don't match.");
@@ -422,6 +453,7 @@ namespace GodGame.Sim
                 hash.AppendInt32(JobKind[r]);
                 hash.AppendInt32(JobRef[r]);
                 hash.AppendInt32(Spent2[r]);
+                hash.AppendInt32(Open[r] ? 1 : 0);
             }
         }
     }

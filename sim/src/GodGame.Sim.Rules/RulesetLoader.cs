@@ -533,7 +533,17 @@ namespace GodGame.Sim.Rules
             ref bool placeholders
         )
         {
-            root.OnlyKeys("$comment", "version", "status", "melee", "volley", "regimentTargeting");
+            root.OnlyKeys(
+                "$comment",
+                "version",
+                "status",
+                "melee",
+                "volley",
+                "regimentTargeting",
+                "order",
+                "smallRegimentsBlockCasts",
+                "smallRegimentSoldiers"
+            );
             if (root.Int("version") != 0)
             {
                 throw new DataFormatException(root.Path + ": version must be 0.");
@@ -603,7 +613,7 @@ namespace GodGame.Sim.Rules
                     )
                 );
             }
-            return new CombatRules(
+            var combat = new CombatRules(
                 melee.Int("engagedSpeedPermille", 0, 1_000),
                 volley.Int("impactRadiusMm", 0, 1_000_000),
                 volley.Int("closeRangePermille", 0, 1_000),
@@ -614,6 +624,25 @@ namespace GodGame.Sim.Rules
                 targeting.Int("rangedFallbackCooldownTicks", 0, 72_000),
                 projectiles.AsReadOnly()
             );
+            if (root.Has("order"))
+            {
+                var order = root["order"];
+                order.OnlyKeys("$comment", "openSpacingPermille", "openArrowHitsPermille");
+                combat.OpenSpacingPermille = order.Int("openSpacingPermille", 1_000, 10_000);
+                combat.OpenArrowHitsPermille = order.Int("openArrowHitsPermille", 0, 1_000);
+            }
+            if (root.Has("smallRegimentsBlockCasts") != root.Has("smallRegimentSoldiers"))
+            {
+                throw new DataFormatException(
+                    root.Path + ": smallRegimentsBlockCasts and smallRegimentSoldiers go together."
+                );
+            }
+            if (root.Has("smallRegimentsBlockCasts"))
+            {
+                combat.SmallRegimentsBlockCasts = root["smallRegimentsBlockCasts"].AsBool;
+                combat.SmallRegimentSoldiers = root.Int("smallRegimentSoldiers", 0, 100_000);
+            }
+            return combat;
         }
 
         private static StructureRules ReadStructures(JsonValue root, ref bool placeholders)
@@ -903,6 +932,23 @@ namespace GodGame.Sim.Rules
                             ClosedDepthMm = action.Int("closedDepthMm", 1, 100_000),
                             TicksPerSegment = action.Int("ticksPerSegment", 1, 72_000),
                             SegmentsPerBoat = action.Int("segmentsPerBoat", 1, 64),
+                        };
+                        break;
+                    case "meter-crossing":
+                        action.OnlyKeys(
+                            "$comment",
+                            "id",
+                            "aheadMm",
+                            "holdingLineMm",
+                            "crossingEndsTicks",
+                            "crossings"
+                        );
+                        result.MeterCrossing = new MeterCrossingRules
+                        {
+                            AheadMm = action.Int("aheadMm", 0, 1_000_000),
+                            HoldingLineMm = action.Int("holdingLineMm", 0, 1_000_000),
+                            CrossingEndsTicks = action.Int("crossingEndsTicks", 1, 1_000_000),
+                            Crossings = action.Int("crossings", 1, 64),
                         };
                         break;
                     case "clear-blocker":

@@ -146,6 +146,22 @@ namespace GodGame.Sim.Rules
         public int SegmentsPerBoat { get; internal set; }
     }
 
+    /// <summary>Crossing Marshals (spec S2 14.6): one regiment at a time on a span, the rest held short of it.</summary>
+    public sealed class MeterCrossingRules
+    {
+        /// <summary>How far ahead of the army's regiments, along their foot path, the trigger looks for a span.</summary>
+        public int AheadMm { get; internal set; }
+
+        /// <summary>Waiting regiments stop this far (along their route) short of the span.</summary>
+        public int HoldingLineMm { get; internal set; }
+
+        /// <summary>A crossing ends after this long even if regiments still wait.</summary>
+        public int CrossingEndsTicks { get; internal set; }
+
+        /// <summary>Crossings metered per regiment (its charges).</summary>
+        public int Crossings { get; internal set; }
+    }
+
     /// <summary>
     /// The shared specialist executor's rules (<c>data/rules/specialists.json</c>, spec S2 section 14). Ruleset v0 holds
     /// the actions whose targets exist in M5 so far; the Pontoon Train, Crossing Marshals, Engineers and Drovers join
@@ -162,6 +178,8 @@ namespace GodGame.Sim.Rules
         public BridgeworkRules? Bridgework { get; internal set; }
 
         public LayPontoonRules? LayPontoon { get; internal set; }
+
+        public MeterCrossingRules? MeterCrossing { get; internal set; }
 
         public ClearBlockerRules? ClearBlocker { get; internal set; }
 

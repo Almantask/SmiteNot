@@ -144,6 +144,18 @@ namespace GodGame.Sim.Rules
 
         public int RangedFallbackCooldownTicks { get; }
 
+        /// <summary>Open order (spec S2 2.2, D1): file and rank spacing × this; 1,000 (no change) without an order block.</summary>
+        public int OpenSpacingPermille { get; internal set; } = 1000;
+
+        /// <summary>The share of a volley's hits an open-order regiment takes (S2 2.2).</summary>
+        public int OpenArrowHitsPermille { get; internal set; } = 1000;
+
+        /// <summary>D15: whether regiments under <see cref="SmallRegimentSoldiers"/> block casts (the range rule).</summary>
+        public bool SmallRegimentsBlockCasts { get; internal set; } = true;
+
+        /// <summary>D15: a regiment that deployed with fewer soldiers than this is small.</summary>
+        public int SmallRegimentSoldiers { get; internal set; }
+
         public IReadOnlyList<ProjectileRules> Projectiles { get; }
 
         public ProjectileRules? Projectile(string id)

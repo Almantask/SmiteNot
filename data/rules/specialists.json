@@ -65,6 +65,14 @@
       "closedDepthMm": 500,
       "ticksPerSegment": 40,
       "segmentsPerBoat": 3
+    },
+    {
+      "$comment": "Crossing Marshals (S2 14.6, attacker; brainstorm #45): when the army's foot path, within aheadMm ahead of any of its regiments, reaches a standing span (bridge segments, a pontoon, a trestle or ice patches, with every segment joined to them), the marshals meter it: one regiment at a time on the span, the one nearest it along its route first (ties: the lower slot), in open order with files = max(1, span width / (2 x file spacing)), no more than its usual files; every other regiment whose route crosses the span stops holdingLineMm short of it, each further back by the depth of the regiments queued ahead. The next goes once the last soldier of the one before has stepped off. A fixed rule, never strain (brief 2026-10-09). The crossing ends when no regiment's route uses the span any more, or after crossingEndsTicks; crossings is the charges. Lapses at once when the marshals are wiped or rout. Working defaults (no spec sets them): a held regiment still turns on an enemy within its engage distance, and the marshals stand beside the span's near end, a span width plus their own frontage off the path.",
+      "id": "meter-crossing",
+      "aheadMm": 150000,
+      "holdingLineMm": 20000,
+      "crossingEndsTicks": 6000,
+      "crossings": 2
     }
   ]
 }

@@ -19,7 +19,7 @@ namespace GodGame.Sim
     /// <see cref="GroundEdits"/>.
     /// </para>
     /// </summary>
-    public sealed class SpecialistExecutor
+    public sealed partial class SpecialistExecutor
     {
         /// <summary>Cause event detail: the action.</summary>
         public const int DigDitchAction = 1;
@@ -72,8 +72,10 @@ namespace GodGame.Sim
                 return false;
             }
             bool engineers = type.Does("bridgework") || type.Does("clear-blocker");
+            bool marshals = type.Does("meter-crossing");
             int code =
                 engineers ? army.JobKind[r]
+                : marshals ? MeterAction
                 : string.Equals(type.Action, "dig-ditch", StringComparison.Ordinal) ? DigDitchAction
                 : FillCrossingAction;
             if (army.Wiped[r] || army.Order[r] == RegimentOrder.Rout)
@@ -89,6 +91,10 @@ namespace GodGame.Sim
                         CauseLog.None
                     );
                 }
+                if (marshals)
+                {
+                    Lapse(world, r); // the queue surges on at once (S2 14.6)
+                }
                 army.Job[r] = SpecialistJob.Lost;
                 army.JobCells[r] = null;
                 army.JobTargets[r] = null;
@@ -97,6 +103,10 @@ namespace GodGame.Sim
             if (army.Job[r] == SpecialistJob.Active && Threatened(world, r, context.Tick))
             {
                 return true;
+            }
+            if (marshals)
+            {
+                return Meter(context, r);
             }
             if (type.Does("lay-pontoon"))
             {
@@ -119,6 +129,9 @@ namespace GodGame.Sim
         public const int RepairAction = 4;
         public const int ClearAction = 5;
         public const int PontoonAction = 6;
+
+        // MeterAction = 7 (Crossing Marshals, SpecialistExecutor.Marshals.cs). Action codes are unique across specialist
+        // types: snapshot validation reads job targets by the code.
 
         // ---- The Pontoon Train (S2 14.5) ----
 

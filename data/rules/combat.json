@@ -15,5 +15,11 @@
     "rangedFallbackTriggerMm": 25000,
     "rangedFallbackMm": 30000,
     "rangedFallbackCooldownTicks": 400
-  }
+  },
+  "order": {
+    "openSpacingPermille": 2000,
+    "openArrowHitsPermille": 500
+  },
+  "smallRegimentsBlockCasts": false,
+  "smallRegimentSoldiers": 25
 }

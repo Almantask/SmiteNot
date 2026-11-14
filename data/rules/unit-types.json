@@ -34,6 +34,10 @@
     {
       "id": "pontoon-train", "seats": ["attacker", "defender"], "action": "lay-pontoon", "movementClass": "wheeled", "massKg": 1500, "health": 200, "morale": 1000, "speedMmPerS": 900, "radiusMm": 1200, "runMmPerS": 900, "moraleShockPermille": 0, "meleeTakenPermille": 250, "arrowTakenPermille": 0,
       "formation": {"files": 2, "fileSpacingMm": 5000, "rankSpacingMm": 7000, "minSoldiers": 4, "maxSoldiers": 8}
+    },
+    {
+      "id": "crossing-marshals", "seats": ["attacker"], "action": "meter-crossing", "movementClass": "foot", "massKg": 80, "health": 80, "morale": 1000, "speedMmPerS": 1800, "radiusMm": 350, "runMmPerS": 3200, "moraleShockPermille": 1300, "melee": {"damage": 10, "hitPermille": 400, "intervalTicks": 30, "reachMm": 400}, "meleeTakenPermille": 1000, "arrowTakenPermille": 1000,
+      "formation": {"files": 6, "fileSpacingMm": 1500, "rankSpacingMm": 1500, "minSoldiers": 12, "maxSoldiers": 24}
     }
   ]
 }

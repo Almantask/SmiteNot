@@ -27,6 +27,7 @@ namespace GodGame.Sim
         private readonly RegimentSummary _summary = new RegimentSummary();
 
         private readonly SpecialistExecutor? _specialists;
+        private bool[] _wasHold = new bool[0];
 
         public RegimentOrderSystem(Ruleset rules, MapData map, Terrain terrain)
         {
@@ -54,6 +55,17 @@ namespace GodGame.Sim
             _summary.Gather(world);
             int tick = context.Tick;
             _specialists?.Washout(context);
+            // Crossing Marshals' gates first (S2 14.6), so every regiment decides against the same gate state.
+            _specialists?.Gates(context);
+            if (_wasHold.Length < world.Regiments.Capacity)
+            {
+                _wasHold = new bool[world.Regiments.Capacity];
+            }
+            for (int r = 0; r < world.Regiments.HighWater; r++)
+            {
+                // Read before the loop rewrites every order: a regiment still held keeps the point it stopped at.
+                _wasHold[r] = army.Order[r] == RegimentOrder.Hold;
+            }
             for (int r = 0; r < world.Regiments.HighWater; r++)
             {
                 if (!world.Regiments.IsAlive(r) || world.RegimentAlive[r] == 0)
@@ -95,6 +107,38 @@ namespace GodGame.Sim
                 int nearest = Nearest(world, r, engage, meleeOnly: false);
                 army.Order[r] = nearest >= 0 ? RegimentOrder.Engage : RegimentOrder.March;
                 army.Target[r] = nearest;
+            }
+            if (_specialists != null)
+            {
+                Hold(world);
+            }
+        }
+
+        /// <summary>
+        /// A regiment a gate holds short of its span and that would march stands where it stopped instead (S2 14.6). One
+        /// that turned on an enemy fights as any regiment does (a working default: the gate meters marching only).
+        /// </summary>
+        private void Hold(World world)
+        {
+            var army = world.Army;
+            for (int r = 0; r < world.Regiments.HighWater; r++)
+            {
+                if (
+                    !world.Regiments.IsAlive(r)
+                    || world.RegimentAlive[r] == 0
+                    || army.Order[r] != RegimentOrder.March
+                    || !_specialists!.Holds(r)
+                )
+                {
+                    continue;
+                }
+                if (!_wasHold[r])
+                {
+                    int anchor = world.RegimentAnchor[r];
+                    army.Point[r] = anchor >= 0 ? world.Position[anchor] : _summary.Centroid[r];
+                }
+                army.Order[r] = RegimentOrder.Hold;
+                army.Target[r] = -1;
             }
         }
 

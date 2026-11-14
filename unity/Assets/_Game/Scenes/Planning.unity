@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &336653510
+--- !u!1 &351930830
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,82 +127,62 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 336653513}
-  - component: {fileID: 336653512}
-  - component: {fileID: 336653511}
+  - component: {fileID: 351930832}
+  - component: {fileID: 351930831}
   m_Layer: 0
-  m_Name: Strategic Camera
+  m_Name: Planning View
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &336653511
+--- !u!114 &351930831
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 336653510}
+  m_GameObject: {fileID: 351930830}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bd6ffc822d6fa0c4ea89ac92f001c27a, type: 3}
+  m_Script: {fileID: 11500000, guid: 8a0db11848b5744459d1be0670ef7856, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GodGame.Rendering::GodGame.Rendering.StrategicCamera
-  _focus: {x: 600, y: 0, z: 400}
-  _distance: 900
-  _yaw: 0
-  _bounds: {x: 1200, y: 800}
---- !u!114 &336653512
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 336653510}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f9dfa5b682dcd46bda6128250e975f58, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineCamera
-  Priority:
-    Enabled: 0
-    m_Value: 0
-  OutputChannel: 1
-  StandbyUpdate: 2
-  m_StreamingVersion: 0
-  m_LegacyPriority: 0
-  Target:
-    TrackingTarget: {fileID: 0}
-    LookAtTarget: {fileID: 0}
-    CustomLookAtTarget: 0
-  Lens:
-    FieldOfView: 45
-    OrthographicSize: 0
-    NearClipPlane: 0.5
-    FarClipPlane: 5000
-    Dutch: 0
-    ModeOverride: 0
-    PhysicalProperties:
-      GateFit: 0
-      SensorSize: {x: 0, y: 0}
-      LensShift: {x: 0, y: 0}
-      FocusDistance: 0
-      Iso: 0
-      ShutterSpeed: 0
-      Aperture: 0
-      BladeCount: 0
-      Curvature: {x: 0, y: 0}
-      BarrelClipping: 0
-      Anamorphism: 0
-  BlendHint: 0
---- !u!4 &336653513
+  m_EditorClassIdentifier: GodGame.Rendering::GodGame.Rendering.PlanningView
+  _mapId: m3-river
+  _planFile: m3-river-two-thousand.json
+  _unitShader: {fileID: 4800000, guid: 91358dde8778a7445a0b8aaa68b3cf9f, type: 3}
+  _groundShader: {fileID: 4800000, guid: 2f340d28c09e40440a62d9cd4a1c0597, type: 3}
+  _waterShader: {fileID: 4800000, guid: 62464893c07d22941bea1e0f6982dc0e, type: 3}
+  _lineShader: {fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}
+  _panelSettings: {fileID: 11400000, guid: bee2a0583c46aa54d97ab7a464c100ad, type: 2}
+  _camera: {fileID: 665592968}
+  _unitMeshes:
+  - {fileID: 3279896066942988318, guid: 6beed795a9480b743abbcc261ddafcc5, type: 3}
+  - {fileID: 7758251455446486490, guid: fea58e6fa5a449d4fab88785e315f8fb, type: 3}
+  - {fileID: -2264919261974314924, guid: ddba01f92ca752849832b9d0b91937c3, type: 3}
+  - {fileID: 7679829111721877003, guid: 78323dd8a30c0c54190c4a4f5713df8d, type: 3}
+  - {fileID: -8237343123385323944, guid: e45cae50b32ba844b8dbdbe65c740aa3, type: 3}
+  - {fileID: -4709055388709097576, guid: 4023f2c2d5ecf734d8c4144eb98f332d, type: 3}
+  - {fileID: 2966796413061605064, guid: b25744f7b4cca3d4bbbfff0e6cc651cd, type: 3}
+  - {fileID: 3455109277708741849, guid: f9dd8868b5cc47d43a1e7d0e76bfd81b, type: 3}
+  - {fileID: 4169849746196185443, guid: 631e221887fbc66409fbb0926071a980, type: 3}
+  _unitVats:
+  - {fileID: 11400000, guid: dfd9e841da4a9ff42a2d39ee4b43aeea, type: 2}
+  - {fileID: 11400000, guid: 0cd9dfe4a4ab5e3458ae19a0124e22bb, type: 2}
+  - {fileID: 11400000, guid: 4037e66b079d4174d917ec3f7724e974, type: 2}
+  - {fileID: 11400000, guid: dba069986af5321428e6116f9d32c881, type: 2}
+  - {fileID: 11400000, guid: 5e191279a7b91dd4f90963ecbd5471f4, type: 2}
+  - {fileID: 11400000, guid: bc38eba0e4e8e724c8cd18dd10794649, type: 2}
+  - {fileID: 11400000, guid: 2820fb4bdff83fe49b3b2fa97d2a1cd6, type: 2}
+  - {fileID: 11400000, guid: 99a8d72715cc00e4c926bec93b1b345a, type: 2}
+  - {fileID: 11400000, guid: bf05e08dbf9838a4e8d82d129db3b0af, type: 2}
+--- !u!4 &351930832
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 336653510}
+  m_GameObject: {fileID: 351930830}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -211,7 +191,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1181405666
+--- !u!1 &634992400
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -219,8 +199,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1181405668}
-  - component: {fileID: 1181405667}
+  - component: {fileID: 634992402}
+  - component: {fileID: 634992401}
   m_Layer: 0
   m_Name: Sun
   m_TagString: Untagged
@@ -228,13 +208,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &1181405667
+--- !u!108 &634992401
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1181405666}
+  m_GameObject: {fileID: 634992400}
   m_Enabled: 1
   serializedVersion: 13
   m_Type: 1
@@ -293,13 +273,13 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &1181405668
+--- !u!4 &634992402
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1181405666}
+  m_GameObject: {fileID: 634992400}
   serializedVersion: 2
   m_LocalRotation: {x: 0.40821794, y: -0.23456973, z: 0.10938166, w: 0.8754261}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -308,7 +288,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1237343308
+--- !u!1 &665592967
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -316,42 +296,82 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1237343310}
-  - component: {fileID: 1237343309}
+  - component: {fileID: 665592970}
+  - component: {fileID: 665592969}
+  - component: {fileID: 665592968}
   m_Layer: 0
-  m_Name: Planning View
+  m_Name: Strategic Camera
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1237343309
+--- !u!114 &665592968
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1237343308}
+  m_GameObject: {fileID: 665592967}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8a0db11848b5744459d1be0670ef7856, type: 3}
+  m_Script: {fileID: 11500000, guid: bd6ffc822d6fa0c4ea89ac92f001c27a, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GodGame.Rendering::GodGame.Rendering.PlanningView
-  _mapId: m3-river
-  _planFile: m3-river-two-thousand.json
-  _unitShader: {fileID: 4800000, guid: 91358dde8778a7445a0b8aaa68b3cf9f, type: 3}
-  _groundShader: {fileID: 4800000, guid: 2f340d28c09e40440a62d9cd4a1c0597, type: 3}
-  _waterShader: {fileID: 4800000, guid: 62464893c07d22941bea1e0f6982dc0e, type: 3}
-  _lineShader: {fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}
-  _panelSettings: {fileID: 11400000, guid: bee2a0583c46aa54d97ab7a464c100ad, type: 2}
-  _camera: {fileID: 336653511}
---- !u!4 &1237343310
+  m_EditorClassIdentifier: GodGame.Rendering::GodGame.Rendering.StrategicCamera
+  _focus: {x: 600, y: 0, z: 400}
+  _distance: 900
+  _yaw: 0
+  _bounds: {x: 1200, y: 800}
+--- !u!114 &665592969
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 665592967}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9dfa5b682dcd46bda6128250e975f58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineCamera
+  Priority:
+    Enabled: 0
+    m_Value: 0
+  OutputChannel: 1
+  StandbyUpdate: 2
+  m_StreamingVersion: 0
+  m_LegacyPriority: 0
+  Target:
+    TrackingTarget: {fileID: 0}
+    LookAtTarget: {fileID: 0}
+    CustomLookAtTarget: 0
+  Lens:
+    FieldOfView: 45
+    OrthographicSize: 0
+    NearClipPlane: 0.5
+    FarClipPlane: 5000
+    Dutch: 0
+    ModeOverride: 0
+    PhysicalProperties:
+      GateFit: 0
+      SensorSize: {x: 0, y: 0}
+      LensShift: {x: 0, y: 0}
+      FocusDistance: 0
+      Iso: 0
+      ShutterSpeed: 0
+      Aperture: 0
+      BladeCount: 0
+      Curvature: {x: 0, y: 0}
+      BarrelClipping: 0
+      Anamorphism: 0
+  BlendHint: 0
+--- !u!4 &665592970
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1237343308}
+  m_GameObject: {fileID: 665592967}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -360,7 +380,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1339842311
+--- !u!1 &1484263195
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -368,9 +388,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1339842314}
-  - component: {fileID: 1339842313}
-  - component: {fileID: 1339842312}
+  - component: {fileID: 1484263198}
+  - component: {fileID: 1484263197}
+  - component: {fileID: 1484263196}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -378,13 +398,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1339842312
+--- !u!114 &1484263196
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1339842311}
+  m_GameObject: {fileID: 1484263195}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72ece51f2901e7445ab60da3685d6b5f, type: 3}
@@ -410,13 +430,13 @@ MonoBehaviour:
       m_PostInfinity: 2
       m_RotationOrder: 4
   CustomBlends: {fileID: 0}
---- !u!20 &1339842313
+--- !u!20 &1484263197
 Camera:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1339842311}
+  m_GameObject: {fileID: 1484263195}
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
@@ -461,13 +481,13 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!4 &1339842314
+--- !u!4 &1484263198
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1339842311}
+  m_GameObject: {fileID: 1484263195}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -480,7 +500,7 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 1339842314}
-  - {fileID: 336653513}
-  - {fileID: 1181405668}
-  - {fileID: 1237343310}
+  - {fileID: 1484263198}
+  - {fileID: 665592970}
+  - {fileID: 634992402}
+  - {fileID: 351930832}

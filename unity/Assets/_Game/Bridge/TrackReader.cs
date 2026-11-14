@@ -108,10 +108,6 @@ namespace GodGame.Bridge
             {
                 bool alive = (sample.State[u] & UnitSample.Alive) != 0;
                 into.Alive[u] = alive;
-                if (!alive)
-                {
-                    continue;
-                }
                 var p = new GodGame.Sim.Math.FixVec2(
                     GodGame.Sim.Math.Fix.FromRatio(sample.XCm[u], 100),
                     GodGame.Sim.Math.Fix.FromRatio(sample.YCm[u], 100)

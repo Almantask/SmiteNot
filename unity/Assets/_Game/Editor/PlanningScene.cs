@@ -67,6 +67,7 @@ namespace GodGame.Editor
             serialized.FindProperty("_panelSettings").objectReferenceValue =
                 BattleDebugScene.PanelSettingsAsset();
             serialized.FindProperty("_camera").objectReferenceValue = strategic;
+            BattleDebugScene.AssignUnitMeshes(serialized, "Planning scene");
             serialized.ApplyModifiedPropertiesWithoutUndo();
             foreach (
                 string name in new[]
@@ -93,10 +94,7 @@ namespace GodGame.Editor
         [MenuItem("GodGame/Build/Planning Player")]
         public static void BuildPlayer()
         {
-            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath) == null)
-            {
-                Create();
-            }
+            Create();
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { ScenePath },
@@ -113,6 +111,8 @@ namespace GodGame.Editor
             }
             Debug.Log("GodGame: planning player built at " + Path.GetFullPath(PlayerPath));
         }
+
+        public static void CreateFromCommandLine() => BattleDebugScene.RunAndExit(Create);
 
         public static void BuildPlayerFromCommandLine() =>
             BattleDebugScene.RunAndExit(() =>

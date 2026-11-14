@@ -59,6 +59,12 @@ namespace GodGame.Rendering
         [SerializeField]
         private StrategicCamera _camera;
 
+        [SerializeField]
+        private Mesh[] _unitMeshes;
+
+        [SerializeField]
+        private UnitVatData[] _unitVats;
+
         private BattleHost _host;
         private UnitCapsuleRenderer _units;
         private Navigation _navigation;
@@ -141,7 +147,7 @@ namespace GodGame.Rendering
             var plan = RepoLoader.LoadPlan(repo, _planFile, map, rules);
             var battle = new Battle(rules, map, plan, _seed);
             _host = new BattleHost(battle) { Speed = _speed };
-            _units = new UnitCapsuleRenderer(_unitShader, _host);
+            _units = new UnitCapsuleRenderer(_unitShader, _host, _unitMeshes, _unitVats);
             _fields = new FieldUpload(map.Columns, map.Rows);
 
             BuildNavigationViews(battle);
@@ -150,6 +156,13 @@ namespace GodGame.Rendering
             if (_camera != null)
             {
                 _camera.Frame(map.WidthMm / 1000f, map.DepthMm / 1000f);
+                if (
+                    TryParseVec3(CommandLineValue("-cam-pos"), out Vector3 camPos)
+                    && TryParseVec3(CommandLineValue("-cam-look"), out Vector3 camLook)
+                )
+                {
+                    _camera.SetCustomPose(camPos, camLook);
+                }
             }
             _host.Start();
         }
@@ -502,6 +515,45 @@ namespace GodGame.Rendering
             string[] args = Environment.GetCommandLineArgs();
             int i = Array.IndexOf(args, name);
             return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+        }
+
+        private static bool TryParseVec3(string raw, out Vector3 value)
+        {
+            value = Vector3.zero;
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return false;
+            }
+            string[] parts = raw.Split(',');
+            if (parts.Length != 3)
+            {
+                return false;
+            }
+            if (
+                float.TryParse(
+                    parts[0],
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float x
+                )
+                && float.TryParse(
+                    parts[1],
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float y
+                )
+                && float.TryParse(
+                    parts[2],
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float z
+                )
+            )
+            {
+                value = new Vector3(x, y, z);
+                return true;
+            }
+            return false;
         }
     }
 }

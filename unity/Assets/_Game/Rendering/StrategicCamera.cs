@@ -26,11 +26,14 @@ namespace GodGame.Rendering
         [SerializeField]
         private Vector2 _bounds = new Vector2(1200, 800);
 
+        private bool _customPose;
+
         public float Distance => _distance;
 
         /// <summary>Looks at the middle of a map of this size from far enough to see it all.</summary>
         public void Frame(float widthMetres, float depthMetres)
         {
+            _customPose = false;
             _bounds = new Vector2(widthMetres, depthMetres);
             _focus = new Vector3(widthMetres / 2, 0, depthMetres / 2);
             _distance = Mathf.Clamp(
@@ -40,6 +43,18 @@ namespace GodGame.Rendering
             );
             _yaw = 0;
             Apply();
+        }
+
+        /// <summary>Locks the camera to a fixed world position and target (used by automated screenshot runs).</summary>
+        public void SetCustomPose(Vector3 position, Vector3 lookAt)
+        {
+            _customPose = true;
+            Vector3 dir = lookAt - position;
+            Quaternion rot =
+                dir.sqrMagnitude > 1e-6f
+                    ? Quaternion.LookRotation(dir, Vector3.up)
+                    : Quaternion.identity;
+            transform.SetPositionAndRotation(position, rot);
         }
 
         /// <summary>Pitch for a distance: 35° close in, 80° at strategic zoom.</summary>
@@ -55,6 +70,10 @@ namespace GodGame.Rendering
 
         private void Update()
         {
+            if (_customPose)
+            {
+                return;
+            }
             var keyboard = Keyboard.current;
             var mouse = Mouse.current;
             float dt = Time.unscaledDeltaTime;

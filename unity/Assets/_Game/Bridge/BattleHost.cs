@@ -250,10 +250,6 @@ namespace GodGame.Bridge
             {
                 bool alive = world.Units.IsAlive(u);
                 s.Alive[u] = alive;
-                if (!alive)
-                {
-                    continue;
-                }
                 FixVec2 p = world.Position[u];
                 s.X[u] = p.X.Raw / (float)Fix.OneRaw;
                 s.Z[u] = p.Y.Raw / (float)Fix.OneRaw;

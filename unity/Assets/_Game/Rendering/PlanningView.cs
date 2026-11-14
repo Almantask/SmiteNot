@@ -52,6 +52,12 @@ namespace GodGame.Rendering
         [SerializeField]
         private StrategicCamera _camera;
 
+        [SerializeField]
+        private Mesh[] _unitMeshes;
+
+        [SerializeField]
+        private UnitVatData[] _unitVats;
+
         private enum Tool
         {
             Move,
@@ -126,7 +132,14 @@ namespace GodGame.Rendering
             _measureFile = CommandLineValue("-measure-preview");
             _screenshotFile = CommandLineValue("-screenshot");
             _forceRings = Array.IndexOf(Environment.GetCommandLineArgs(), "-rings") >= 0;
-            if (float.TryParse(CommandLineValue("-scrub"), NumberStyles.Float, CultureInfo.InvariantCulture, out float scrub))
+            if (
+                float.TryParse(
+                    CommandLineValue("-scrub"),
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float scrub
+                )
+            )
             {
                 _screenshotScrub = scrub;
             }
@@ -232,7 +245,9 @@ namespace GodGame.Rendering
                 _rules,
                 reader.RegimentSides,
                 _map,
-                null
+                null,
+                _unitMeshes,
+                _unitVats
             );
             _reader = reader;
         }
@@ -370,7 +385,9 @@ namespace GodGame.Rendering
                             _rules,
                             _reader.RegimentSides,
                             _map,
-                            new Color(0.6f, 0.6f, 0.6f)
+                            new Color(0.6f, 0.6f, 0.6f),
+                            _unitMeshes,
+                            _unitVats
                         );
                     }
                     ResetReaders(new Battle(_rules, _map, plan, 1));
@@ -441,7 +458,8 @@ namespace GodGame.Rendering
 
         private void DrawRings(PlaybackTrack track)
         {
-            bool show = _forceRings || (Keyboard.current != null && Keyboard.current.nKey.isPressed);
+            bool show =
+                _forceRings || (Keyboard.current != null && Keyboard.current.nKey.isPressed);
             var sample = track?.SampleAtOrBefore(
                 (int)(_scrubSeconds * SimConstants.TicksPerSecond)
             );
@@ -965,7 +983,10 @@ namespace GodGame.Rendering
                     int worst = -1;
                     foreach (var e in events)
                     {
-                        if (e.Kind == CauseKind.SoldierDrowned && e.Tick <= _scrubSeconds * SimConstants.TicksPerSecond)
+                        if (
+                            e.Kind == CauseKind.SoldierDrowned
+                            && e.Tick <= _scrubSeconds * SimConstants.TicksPerSecond
+                        )
                         {
                             losses.TryGetValue(e.Subject, out int n);
                             losses[e.Subject] = n + 1;

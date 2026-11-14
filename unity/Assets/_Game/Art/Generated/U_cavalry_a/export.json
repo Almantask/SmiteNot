@@ -1,0 +1,42 @@
+{
+  "animations": {
+    "clips": [
+      "A_quadruped_charge",
+      "A_quadruped_collapse",
+      "A_quadruped_death",
+      "A_quadruped_rear",
+      "A_quadruped_slash",
+      "A_quadruped_trot"
+    ],
+    "file": "U_cavalry_a_Anims.fbx"
+  },
+  "asset": "U_cavalry_a",
+  "blender": "5.2.3 LTS",
+  "lods": [
+    {
+      "file": "U_cavalry_a_LOD0.fbx",
+      "lod": "LOD0",
+      "objects": [
+        "RIG_quadruped",
+        "U_cavalry_a_LOD0"
+      ]
+    },
+    {
+      "file": "U_cavalry_a_LOD1.fbx",
+      "lod": "LOD1",
+      "objects": [
+        "RIG_quadruped",
+        "U_cavalry_a_LOD1"
+      ]
+    },
+    {
+      "file": "U_cavalry_a_LOD2.fbx",
+      "lod": "LOD2",
+      "objects": [
+        "RIG_quadruped",
+        "U_cavalry_a_LOD2"
+      ]
+    }
+  ],
+  "source": "art/source/U_cavalry_a.blend"
+}

@@ -1,5 +1,5 @@
 {
-  "$comment": "The shared palette texture is a grid of flat colour cells; every face's UVs sit inside one cell. Colours are placeholders until the art direction is chosen (plan section 7.2); the PNG arrives with the look-development spike.",
+  "$comment": "The shared palette texture is a grid of flat colour cells; every face's UVs sit inside one cell. Colours are placeholders until the art direction is chosen (plan section 7.2); the PNG is generated alongside the unit models.",
   "texture": "art/palettes/palette.png",
   "grid": 16,
   "cells": {
@@ -8,6 +8,26 @@
     "metal": [2, 0],
     "wood": [3, 0],
     "leather": [4, 0],
+    "horse_bay": [5, 0],
+    "horse_mane": [6, 0],
+    "straw": [7, 0],
+    "brass": [8, 0],
+    "cloth_cream": [9, 0],
+    "stone": [10, 0],
     "team_tabard": [0, 15]
+  },
+  "colors": {
+    "skin": "#E8B48A",
+    "cloth_brown": "#6E4E37",
+    "metal": "#8C96A0",
+    "wood": "#9C6B3B",
+    "leather": "#4A3222",
+    "horse_bay": "#7A3E24",
+    "horse_mane": "#26201D",
+    "straw": "#D9B45B",
+    "brass": "#D4A038",
+    "cloth_cream": "#E6DEC8",
+    "stone": "#787B80",
+    "team_tabard": "#D94B2B"
   }
 }

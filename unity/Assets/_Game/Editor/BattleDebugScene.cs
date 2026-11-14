@@ -70,6 +70,7 @@ namespace GodGame.Editor
             );
             serialized.FindProperty("_panelSettings").objectReferenceValue = PanelSettingsAsset();
             serialized.FindProperty("_camera").objectReferenceValue = strategic;
+            AssignUnitMeshes(serialized, "Battle debug scene");
             serialized.ApplyModifiedPropertiesWithoutUndo();
             foreach (
                 string name in new[]
@@ -95,13 +96,42 @@ namespace GodGame.Editor
             Debug.Log("GodGame: battle debug scene written to " + ScenePath);
         }
 
+        public static void AssignUnitMeshes(SerializedObject serialized, string context)
+        {
+            var rules = GodGame.Bridge.RepoLoader.LoadRules(
+                GodGame.Bridge.RepoLoader.EditorRepoRoot
+            );
+            SerializedProperty meshesProp = serialized.FindProperty("_unitMeshes");
+            SerializedProperty vatsProp = serialized.FindProperty("_unitVats");
+            meshesProp.arraySize = rules.UnitTypes.Count;
+            if (vatsProp != null)
+            {
+                vatsProp.arraySize = rules.UnitTypes.Count;
+            }
+            for (int i = 0; i < rules.UnitTypes.Count; i++)
+            {
+                string cleanId = rules.UnitTypes[i].Id.Replace("-", string.Empty);
+                string path = $"Assets/_Game/Art/Generated/U_{cleanId}_a/U_{cleanId}_a_LOD0.fbx";
+                Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+                if (mesh == null)
+                {
+                    throw new InvalidOperationException(
+                        $"{context}: unit mesh not found at {path}."
+                    );
+                }
+                meshesProp.GetArrayElementAtIndex(i).objectReferenceValue = mesh;
+                if (vatsProp != null)
+                {
+                    vatsProp.GetArrayElementAtIndex(i).objectReferenceValue =
+                        VatBaker.BakeOrLoadUnit(cleanId, forceBake: true);
+                }
+            }
+        }
+
         [MenuItem("GodGame/Build/Debug View Player")]
         public static void BuildPlayer()
         {
-            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath) == null)
-            {
-                Create();
-            }
+            Create();
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { ScenePath },

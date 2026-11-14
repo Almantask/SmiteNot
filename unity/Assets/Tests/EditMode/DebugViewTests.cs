@@ -198,5 +198,262 @@ namespace GodGame.Tests.EditMode
                 }
             }
         }
+
+        [Test]
+        public void UnitMeshes_AllNineUnitTypes_ImportWithPaletteUvsAndTeamMask()
+        {
+            var rules = RepoLoader.LoadRules(RepoLoader.EditorRepoRoot);
+            Assert.That(rules.UnitTypes.Count, Is.EqualTo(9));
+
+            foreach (var unitType in rules.UnitTypes)
+            {
+                string cleanId = unitType.Id.Replace("-", string.Empty);
+                string assetPath =
+                    $"Assets/_Game/Art/Generated/U_{cleanId}_a/U_{cleanId}_a_LOD0.fbx";
+                Mesh mesh = UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(assetPath);
+                Assert.That(mesh, Is.Not.Null, "Missing imported unit mesh at " + assetPath);
+                Assert.That(mesh.vertexCount, Is.GreaterThan(0), unitType.Id);
+                Assert.That(
+                    mesh.uv.Length,
+                    Is.EqualTo(mesh.vertexCount),
+                    unitType.Id + " missing UVs"
+                );
+                Assert.That(
+                    mesh.colors32.Length,
+                    Is.EqualTo(mesh.vertexCount),
+                    unitType.Id + " missing vertex colors (TeamMask)"
+                );
+
+                bool hasMasked = false;
+                bool hasUnmasked = false;
+                foreach (Color32 c in mesh.colors32)
+                {
+                    if (c.r > 200)
+                    {
+                        hasMasked = true;
+                    }
+                    else if (c.r < 50)
+                    {
+                        hasUnmasked = true;
+                    }
+                }
+                Assert.That(hasMasked, Is.True, unitType.Id + " has no TeamMask == 1 vertices");
+                Assert.That(hasUnmasked, Is.True, unitType.Id + " has no TeamMask == 0 vertices");
+
+                GameObject prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                    assetPath
+                );
+                Renderer rend = prefab != null ? prefab.GetComponentInChildren<Renderer>() : null;
+                Assert.That(rend, Is.Not.Null, unitType.Id + " missing prefab renderer");
+                Matrix4x4 relMat =
+                    prefab.transform.worldToLocalMatrix * rend.transform.localToWorldMatrix;
+                Assert.That(relMat.m00, Is.EqualTo(1f).Within(0.01f), unitType.Id + " relMat m00");
+                Assert.That(relMat.m12, Is.EqualTo(-1f).Within(0.01f), unitType.Id + " relMat m12");
+                Assert.That(relMat.m21, Is.EqualTo(1f).Within(0.01f), unitType.Id + " relMat m21");
+                Assert.That(mesh.bounds.max.z, Is.LessThan(0.15f), unitType.Id + " feet near Z=0");
+                Assert.That(
+                    mesh.bounds.min.z,
+                    Is.LessThan(-1.4f),
+                    unitType.Id + " height along -Z"
+                );
+
+                if (unitType.Id == "cavalry")
+                {
+                    Vector3 nose = Vector3.zero;
+                    foreach (Vector3 v in mesh.vertices)
+                    {
+                        float h = -v.z;
+                        if (Mathf.Abs(v.x) < 0.18f && h >= 1.30f && h <= 1.62f)
+                        {
+                            if (Mathf.Abs(v.y) > Mathf.Abs(nose.y))
+                            {
+                                nose = v;
+                            }
+                        }
+                    }
+                    Assert.That(
+                        nose.y,
+                        Is.LessThan(-0.85f),
+                        "Expected cavalry snout along -Y in raw imported FBX mesh"
+                    );
+                }
+            }
+        }
+
+        [Test]
+        public void UnitVats_AllNineUnitTypes_BakeWithMovingVerticesAcrossFrames()
+        {
+            var rules = RepoLoader.LoadRules(RepoLoader.EditorRepoRoot);
+            Assert.That(rules.UnitTypes.Count, Is.EqualTo(9));
+
+            foreach (var unitType in rules.UnitTypes)
+            {
+                string cleanId = unitType.Id.Replace("-", string.Empty);
+                string meshPath =
+                    $"Assets/_Game/Art/Generated/U_{cleanId}_a/U_{cleanId}_a_LOD0.fbx";
+                Mesh mesh = UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
+                Assert.That(mesh, Is.Not.Null, unitType.Id);
+
+                UnitVatData vat = VatBaker.BakeOrLoadUnit(cleanId, forceBake: false);
+                Assert.That(vat, Is.Not.Null, unitType.Id);
+                Assert.That(vat.ClipCount, Is.EqualTo(6), unitType.Id + " clip count");
+                Assert.That(
+                    vat.FramesPerClip,
+                    Is.EqualTo(VatBaker.DefaultFramesPerClip),
+                    unitType.Id + " frames per clip"
+                );
+                Assert.That(
+                    vat.FrameCount,
+                    Is.EqualTo(6 * VatBaker.DefaultFramesPerClip),
+                    unitType.Id + " total frames"
+                );
+                Assert.That(vat.VertexCount, Is.EqualTo(mesh.vertexCount), unitType.Id);
+                Assert.That(
+                    vat.Positions.Length,
+                    Is.EqualTo(vat.FrameCount * vat.VertexCount),
+                    unitType.Id
+                );
+                Assert.That(
+                    vat.Normals.Length,
+                    Is.EqualTo(vat.FrameCount * vat.VertexCount),
+                    unitType.Id
+                );
+
+                float minY = float.MaxValue;
+                float maxY = float.MinValue;
+                float walkDisp = 0f;
+                int f7Offset = 7 * vat.VertexCount;
+                for (int v = 0; v < vat.VertexCount; v++)
+                {
+                    Vector3 p0 = vat.Positions[v];
+                    minY = Mathf.Min(minY, p0.y);
+                    maxY = Mathf.Max(maxY, p0.y);
+                    float d = Vector3.Distance(p0, (Vector3)vat.Positions[f7Offset + v]);
+                    if (d > walkDisp)
+                    {
+                        walkDisp = d;
+                    }
+                }
+
+                Assert.That(minY, Is.InRange(-0.25f, 0.25f), unitType.Id + " feet near Y=0");
+                Assert.That(maxY, Is.GreaterThan(1.4f), unitType.Id + " upright height +Y");
+                Assert.That(
+                    walkDisp,
+                    Is.GreaterThan(0.12f),
+                    unitType.Id + " walk clip frame 0..7 vertex displacement"
+                );
+
+                for (int c = 1; c < vat.ClipCount; c++)
+                {
+                    int clipBase = c * vat.FramesPerClip * vat.VertexCount;
+                    float clipMotion = 0f;
+                    float diffFromWalk = 0f;
+                    for (int f = 0; f < vat.FramesPerClip; f++)
+                    {
+                        int fOff = (c * vat.FramesPerClip + f) * vat.VertexCount;
+                        int wOff = f * vat.VertexCount;
+                        for (int v = 0; v < vat.VertexCount; v++)
+                        {
+                            Vector3 pCbt = vat.Positions[fOff + v];
+                            if (f > 0)
+                            {
+                                float dm = Vector3.Distance(
+                                    (Vector3)vat.Positions[clipBase + v],
+                                    pCbt
+                                );
+                                if (dm > clipMotion)
+                                {
+                                    clipMotion = dm;
+                                }
+                            }
+                            float dw = Vector3.Distance((Vector3)vat.Positions[wOff + v], pCbt);
+                            if (dw > diffFromWalk)
+                            {
+                                diffFromWalk = dw;
+                            }
+                        }
+                    }
+
+                    Assert.That(
+                        clipMotion,
+                        Is.GreaterThan(0.30f),
+                        $"{unitType.Id} combat clip {c} internal displacement"
+                    );
+                    Assert.That(
+                        diffFromWalk,
+                        Is.GreaterThan(0.25f),
+                        $"{unitType.Id} combat clip {c} distinct from locomotion"
+                    );
+                }
+
+                for (int c = 4; c < vat.ClipCount; c++)
+                {
+                    int f0Off = c * vat.FramesPerClip * vat.VertexCount;
+                    int fEndOff = (c * vat.FramesPerClip + vat.FramesPerClip - 1) * vat.VertexCount;
+                    float maxY0 = float.MinValue;
+                    float maxYEnd = float.MinValue;
+                    float deathMotion = 0f;
+                    for (int v = 0; v < vat.VertexCount; v++)
+                    {
+                        Vector3 p0 = vat.Positions[f0Off + v];
+                        Vector3 pEnd = vat.Positions[fEndOff + v];
+                        if (p0.y > maxY0)
+                        {
+                            maxY0 = p0.y;
+                        }
+                        if (pEnd.y > maxYEnd)
+                        {
+                            maxYEnd = pEnd.y;
+                        }
+                        float d = Vector3.Distance(p0, pEnd);
+                        if (d > deathMotion)
+                        {
+                            deathMotion = d;
+                        }
+                    }
+
+                    Assert.That(
+                        deathMotion,
+                        Is.GreaterThan(0.45f),
+                        $"{unitType.Id} death clip {c} frame 0..29 displacement"
+                    );
+                    Assert.That(
+                        maxYEnd,
+                        Is.LessThan(maxY0 - 0.35f),
+                        $"{unitType.Id} death clip {c} settles closer to ground"
+                    );
+                }
+
+                for (int c1 = 1; c1 < vat.ClipCount; c1++)
+                {
+                    for (int c2 = c1 + 1; c2 < vat.ClipCount; c2++)
+                    {
+                        float pairDiff = 0f;
+                        for (int f = 0; f < vat.FramesPerClip; f++)
+                        {
+                            int off1 = (c1 * vat.FramesPerClip + f) * vat.VertexCount;
+                            int off2 = (c2 * vat.FramesPerClip + f) * vat.VertexCount;
+                            for (int v = 0; v < vat.VertexCount; v++)
+                            {
+                                float d = Vector3.Distance(
+                                    (Vector3)vat.Positions[off1 + v],
+                                    (Vector3)vat.Positions[off2 + v]
+                                );
+                                if (d > pairDiff)
+                                {
+                                    pairDiff = d;
+                                }
+                            }
+                        }
+
+                        Assert.That(
+                            pairDiff,
+                            Is.GreaterThan(0.25f),
+                            $"{unitType.Id} combat clip {c1} vs {c2} distinct poses"
+                        );
+                    }
+                }
+            }
+        }
     }
 }

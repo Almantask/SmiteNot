@@ -1,0 +1,42 @@
+{
+  "animations": {
+    "clips": [
+      "A_siege_collapse",
+      "A_siege_death",
+      "A_siege_fire",
+      "A_siege_heave",
+      "A_siege_roll",
+      "A_siege_salvo"
+    ],
+    "file": "U_pontoontrain_a_Anims.fbx"
+  },
+  "asset": "U_pontoontrain_a",
+  "blender": "5.2.3 LTS",
+  "lods": [
+    {
+      "file": "U_pontoontrain_a_LOD0.fbx",
+      "lod": "LOD0",
+      "objects": [
+        "RIG_siege",
+        "U_pontoontrain_a_LOD0"
+      ]
+    },
+    {
+      "file": "U_pontoontrain_a_LOD1.fbx",
+      "lod": "LOD1",
+      "objects": [
+        "RIG_siege",
+        "U_pontoontrain_a_LOD1"
+      ]
+    },
+    {
+      "file": "U_pontoontrain_a_LOD2.fbx",
+      "lod": "LOD2",
+      "objects": [
+        "RIG_siege",
+        "U_pontoontrain_a_LOD2"
+      ]
+    }
+  ],
+  "source": "art/source/U_pontoontrain_a.blend"
+}

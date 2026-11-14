@@ -6,7 +6,7 @@ namespace GodGame.Sim.Tests;
 /// </summary>
 internal static class PinnedHashes
 {
-    public const ulong PlaceholderSeed1Units8After60s = 16729809228515817064UL; // SimVersion 16 (the hash includes it)
+    public const ulong PlaceholderSeed1Units8After60s = 11900044932901574050UL; // SimVersion 17 (the hash includes it)
 
     /// <summary>Every sine value plus atan2 over a 129 × 129 grid (TrigTests). Pinned 2026-11-01.</summary>
     public const ulong TrigTables = 0xFA3751819458DAD5UL;
@@ -15,7 +15,7 @@ internal static class PinnedHashes
     public const ulong WorldBattleSeed7 = 11446527993012706866UL;
 
     /// <summary>RulesetHash of data/rules (unit-types.json with speed, radius and formation, movement-classes.json, hazards.json, routes.json and fields.json, v0, placeholder values; canonical form without $comment). Pinned 2026-11-02.</summary>
-    public const ulong RulesV0 = 11895038420107429875UL;
+    public const ulong RulesV0 = 7009821601086276603UL;
 
     /// <summary>data/maps/m1-flat (map hash), data/plans/m1-ten-thousand.json (plan hash) and the world it deploys. Pinned 2026-11-01.</summary>
     public const ulong MapM1Flat = 0x59885A55C9609ABBUL;

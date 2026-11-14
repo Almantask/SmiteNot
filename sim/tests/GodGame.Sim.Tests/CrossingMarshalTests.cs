@@ -69,12 +69,11 @@ public class CrossingMarshalTests
     }
 
     [Test]
-    public void Decision_2026_10_11_TheFirstSetIncludesSpecialists_MarshalsMeterABridge_OneRegimentAtATimeInOpenOrder()
+    public void Decision_2026_11_14_MarshalsIdleLimitAndOwnOrder_OneRegimentAtATime_NarrowedToTheSpan()
     {
-        // S2 14.6: one regiment on the span at a time, in open order and as many files as the span is wide (4.5 m ÷
-        // 2 m = 2); the rest wait short of it. Three regiments of 50 need more than a crossing's 300 s (each reforms into
-        // two files and back): the crossing ends at its limit with the last regiment already on the span, which goes on
-        // ungated, and the marshals keep their second charge.
+        // S2 14.6 as decided on 2026-11-14: one regiment on the span at a time, in its own (close) order but narrowed to
+        // as many files as the span is wide (4.5 m ÷ (2 × 1 m) = 2); the rest wait short of it. The clock counts idle
+        // time only, so the crossing runs until every regiment is across and then ends, keeping the second charge.
         var battle = Column();
         var simulation = battle.Start(new SerialRunner());
         var world = simulation.World;
@@ -84,6 +83,7 @@ public class CrossingMarshalTests
         int firstOnBridge = -1;
         int mostHeld = 0;
         var crossed = new HashSet<int>();
+        int allAcross = int.MaxValue;
         for (int tick = 0; tick < 900 * SimConstants.TicksPerSecond; tick++)
         {
             simulation.Step();
@@ -105,11 +105,21 @@ public class CrossingMarshalTests
             {
                 firstOnBridge = firstOnBridge < 0 ? simulation.Tick : firstOnBridge;
                 crossed.Add(r);
+                Assert.That(world.Army.Open[r], Is.False, $"regiment {r} keeps its own order");
                 if (world.Army.JobRef[0] == r)
                 {
-                    Assert.That(world.Army.Open[r], Is.True, $"regiment {r} crosses in open order");
                     Assert.That(world.RegimentFiles[r], Is.EqualTo(2), "two files on a 4.5 m span");
                 }
+            }
+            if (
+                allAcross == int.MaxValue
+                && TestBattles
+                    .LiveUnits(world)
+                    .Where(u => world.UnitRegiment[u] != 0)
+                    .All(u => world.Position[u].X() > 184.5)
+            )
+            {
+                allAcross = simulation.Tick;
             }
             mostHeld = System.Math.Max(
                 mostHeld,
@@ -144,11 +154,12 @@ public class CrossingMarshalTests
         Assert.That(started, Is.LessThan(firstOnBridge), "before anyone reached it");
         Assert.That(mostHeld, Is.GreaterThanOrEqualTo(2), "regiments waited while one crossed");
         Assert.That(crossed, Is.EquivalentTo(new[] { 1, 2, 3 }), "every regiment crossed");
-        Assert.That(ended, Has.Count.EqualTo(1), "one crossing");
+        Assert.That(ended, Has.Count.EqualTo(1), "one crossing, for all three");
+        Assert.That(starts, Has.Count.EqualTo(1));
         Assert.That(
-            ended[0].Tick - starts[0].Tick,
-            Is.InRange(6_000, 6_000 + TickOrder.RegimentAiRate.Period),
-            "the first ended at its time limit"
+            ended[0].Tick,
+            Is.GreaterThanOrEqualTo(allAcross),
+            "it ended only once every soldier was across"
         );
         Assert.That(world.Army.Spent[0], Is.EqualTo(1));
         Assert.That(
@@ -158,8 +169,7 @@ public class CrossingMarshalTests
         );
         for (int r = 1; r <= 3; r++)
         {
-            Assert.That(world.Army.Open[r], Is.False, "back in close order");
-            Assert.That(world.RegimentFiles[r], Is.EqualTo(20), "and its usual files");
+            Assert.That(world.RegimentFiles[r], Is.EqualTo(20), "back to its usual files");
             Assert.That(world.Army.Order[r], Is.Not.EqualTo(RegimentOrder.Hold));
         }
         Assert.That(world.Counters.SegmentsFailed, Is.Zero);

@@ -101,11 +101,11 @@ Reasons:
 
 | Item | Close order | Open order | Label |
 |---|---|---|---|
-| File and rank spacing | as in 2.1 | × 2,000‰ | [Proposal] Doubles both, so a quarter of the soldiers per square metre |
+| File and rank spacing | as in 2.1 | × 2,000‰ | [Brief, 2026-11-07: "open order doubles file and rank spacing"] Doubles both, so a quarter of the soldiers per square metre. Settled in the brief, so section 17 can't tune it (checked 2026-11-14 against the marshals row) |
 | Load per m² of a marching regiment (infantry) | about 75 kg/m² | about 19 kg/m² | follows |
 | Arrows that hit (section 6.2) | 1,000‰ | 500‰ | [Proposal] Fewer bodies under each arrow; set explicitly because volleys are resolved per regiment |
 | Braces against a charge (section 10) | yes, when standing and facing it | no | [Proposal] |
-| Changing order | only at deployment, and on a span metered by Crossing Marshals (section 14.6) | | [Proposal] |
+| Changing order | only at deployment | | [Proposal]; [Brief, 2026-11-14]: a span metered by Crossing Marshals no longer switches the crossing regiment to open order (section 14.6) |
 | Default | close | | [Proposal] |
 
 Everything else (column length, melee frontage, stampede exposure) follows from the spacing.
@@ -726,10 +726,10 @@ Price rules for S5 [Proposal]: a specialist regiment costs about 0.8–1.2 × th
 |---|---|---|
 | Trigger | its army's route, within 150 m ahead of the vanguard, crosses a span: bridge segments, a pontoon, a trestle, or ice patches | [Brief, 2026-10-11: "meter a bridge or ice"] |
 | Gate | the marshals stand at the near end; one regiment on the span at a time; the next waits at a holding line 20 m before the span until the last soldier of the one before has stepped off | [Docs: brainstorm #45]; 20 m [Proposal] |
-| On the span | the crossing regiment takes open order (2.2), with files = max(1, span width ÷ (2 × file spacing)) | [Docs: brainstorm, "in open file"] |
+| On the span | the crossing regiment keeps its own order (close or open, 2.2) and only narrows to the span: files = max(1, span width ÷ (2 × its file spacing)), no more than its usual files. A close-order infantry regiment on a 4.5 m span crosses in 2 files at 1.2 m ranks: about 2.5 soldiers/s, 22% of a rotted segment while marching | [Brief, 2026-11-14] Replaces S2's open order on the span (from the brainstorm's "in open file"), which passed only 1.25 soldiers/s and could not finish six regiments inside a battle (section 17) |
 | Never reads strain | the gate is a fixed rule (occupancy), not a reaction to creaks | [Brief, 2026-10-09] |
 | Lapses | when the marshals are wiped or rout: the queue surges on at once | [Docs: brainstorm] |
-| A crossing ends | when every regiment of its army whose route uses it has crossed, or after 6,000 ticks (300 s) | [Proposal] |
+| A crossing ends | when no regiment of its army still has the span on its route, or after 4,000 ticks (200 s) of idle time: consecutive time with the span empty, no regiment crossing and none held at the holding line (data key `idleEndsTicks`) | [Brief, 2026-11-14] Replaces 6,000 ticks counted from the gate's start, which cut every large crossing short. 200 s covers the slowest class (wheeled, 800 mm/s) walking the 150 m trigger distance; a working gate never times out, so the limit only decides when the marshals give up a stuck gate and keep their second charge |
 | Charges | 2 crossings | [Proposal] |
 | Exit test | meters a rotted bridge so it holds while the bank queues | |
 
@@ -810,7 +810,7 @@ As S1 section 13 did for M3, the exit criteria become tuning targets. Tune the l
 | **A charge or stampede tramples and launches but never chains** | a cavalry regiment of 60 charging a close-order and an open-order infantry block, braced and unbraced | launches and tramples happen; no soldier is launched except by a charge contact, a stampede animal, a stone, a tree or a collapse (an invariant checked every tick, fuzzed); the braced block suffers about half the launches | 10.3 targets per rider and odds; 9.3 knock-down |
 | **Fascines fill one crossing through a channel** | the S1 channel (2 m deep, 6 m wide) across the siege route, 4 engines and a Fascine regiment of 100 | one crossing 4.5 m wide is filled in ≤ 60 s, the engines cross by it in single file; the rest of the channel stays a channel | 14.4 bundle height 400 mm, rate 2/s |
 | **A pontoon spans a flooded ford until a surge breaks it** | m3-exit with S1's storm; a Pontoon Train of 8 boats; rain at 0:50 | the pontoon is laid across the flooded ford and regiments use it; the crest (about 3:05 on m3-exit) breaks it while regiments are on it, and they are swept | 14.5 cable break 1,800 mm/s for 40 ticks (must sit above the flooded ford's flow when laid and below the crest's) |
-| **Marshals meter a rotted bridge so it holds while the bank queues** | the rotted bridge (above) and the 6 regiments, plus Crossing Marshals | no segment fails; peak load < 950‰; a queue of ≥ 3 regiments forms on the near bank; crossing takes ≥ 2.5× as long as unmetered | 14.6 open-file rule; 2.2 open-order spacing |
+| **Marshals meter a rotted bridge so it holds while the bank queues** | the rotted bridge (above) and the 6 regiments, plus Crossing Marshals | no segment fails; peak load < 950‰; a queue of ≥ 3 regiments forms on the near bank; crossing takes ≥ 2.5× as long as unmetered, and all six are across inside the 900 s battle cap (about 800 s expected) | 14.6 idle limit 4,000 ticks and holding line 20 m (the narrowing rule and 2.2's spacing are settled, 2026-11-14 and 2026-11-07) |
 | **Drovers walk a herd off the road** | a herd grazing on the road ahead of the column; attacker Drovers | the herd is ≥ 50 m from the path before the vanguard arrives; no stampede; without drovers the column queues behind the herd (the polite queue) | 14.8 fear 400 and 30 m; 11.1 driven speed |
 | **Spademen's ditch becomes a moat in the rain** | a valley floor sloping 20‰ toward a 30 m Spademen ditch in the defender's buffer; Rain 100 m upslope at 0:30 | the ditch holds ≥ 1,000 mm (lethal for foot) before the attacker arrives, and soldiers pushed in by the crowd teeter first | 14.3 depth 1,250 mm; S1's rain (unchanged) |
 | **Engineers span a channel with a trestle, repair a rotted span and clear a felled tree** | three setups on one map: a 6 m channel, a rotted wooden bridge, a felled tree across the road | trestle done in ≤ 60 s and engines cross it; the rotted span back above 950‰ before the column arrives; the tree cleared in 30 s; with no engineers, a foot regiment clears the tree in 120 s only when it closes the last wheeled route | 14.7 rates; D14 |
@@ -818,7 +818,9 @@ As S1 section 13 did for M3, the exit criteria become tuning targets. Tune the l
 Rough checks behind the numbers:
 
 - Marching close-order infantry: 0.8/m² × 90 kg = 75 kg/m², a quarter of a wooden bridge and half of a rotted one: the vanguard crosses quietly, a jam (2–3/m², 180–270 kg/m²) breaks a rotted bridge and makes a sound one sag.
-- Under Crossing Marshals one 200-strong regiment in open order on a 40 m × 4.5 m span is about 1.1/m² at worst: 100 kg/m², 67% of a rotted span.
+- Under Crossing Marshals one 200-strong regiment wholly on a 40 m × 4.5 m span is about 1.1/m² at worst: 100 kg/m², 67% of a rotted span.
+- Marshals' throughput (2026-11-14, after the brief's decision that day): a close-order regiment narrowed to 2 files at 1.2 m ranks puts about 5 soldiers (450 kg) on a 13.5 m² rotted segment of 2,025 kg while marching, 22%; the sag line (950‰) is about 21 soldiers, so even a column compressed to half its rank spacing stays near 45%. Flow is 2 ÷ 1.2 m × 1.5 m/s = 2.5 soldiers/s: 80 s per regiment of 200, about 120 s with the 20 m holding line and a 40 m span, so about 800 s for six (inside the 900 s cap). An unmetered column through a 4.5 m span is roughly 5 soldiers/s, about 240–300 s for 1,200, so the metered crossing is about 2.7–3.3×; measure the unmetered time, since the ≥ 2.5× target depends on it. (Open order on the span, the earlier rule, passed 1.25 soldiers/s: about 1,200 s for six, beyond the cap.)
+- The reform from 20 files to 2 at the holding line must not stall on the officer's straggler wait (more than a quarter out of place slows him to a waiting pace): a regiment stringing out into a column trips it almost every time, which was most of the 85–90 s measured per regiment of 50 on 2026-11-14. An implementation matter, not a rule.
 - A 120 mm frozen pond: marching infantry 62%, marching cavalry 93%, a single file 10–20%, any jam > 100%.
 - The pontoon: the M3 flooded ford runs at roughly 0.5–1.2 m/s when the train arrives, the crest above 2 m/s; 1.8 m/s sits between.
 
@@ -836,6 +838,7 @@ Rough checks behind the numbers:
 - **Soaked wool (IB 33):** wet regiments heavier on ice (wave 4, optional).
 - **Death remains** (brief open question): unchanged working assumption, they vanish after a few seconds.
 - **Defender Pontoon Trains cutting their bridge loose after the last crossing** (brainstorm): M7, with retreat rules.
+- **Crossing Marshals' timing: settled 2026-11-14** (brief, "Crossing Marshals: an idle limit, and the crossing regiment keeps its order"). The crossing limit counts idle time only, 4,000 ticks; the crossing regiment keeps its own order and narrows to the span. Rejected: keeping open order on the span and shrinking the calibration row to 4 regiments, or judging it by flow rate; taking open spacing only on the span (removes the reform wait but not the 1.25 soldiers/s limit). Sections 2.2, 14.6 and 17 updated.
 - **The engineers' repair trigger** reads a bridge's strength. That is a property of the structure, not a warning stage, so it keeps "regiments never heed warnings"; flag it if the user reads it otherwise.
 
 ---

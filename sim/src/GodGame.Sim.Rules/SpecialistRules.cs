@@ -155,8 +155,11 @@ namespace GodGame.Sim.Rules
         /// <summary>Waiting regiments stop this far (along their route) short of the span.</summary>
         public int HoldingLineMm { get; internal set; }
 
-        /// <summary>A crossing ends after this long even if regiments still wait.</summary>
-        public int CrossingEndsTicks { get; internal set; }
+        /// <summary>A crossing ends once the gate has stood idle (nobody crossing, on the span or held) this long.</summary>
+        public int IdleEndsTicks { get; internal set; }
+
+        /// <summary>On the span each file takes this share (‰) of the regiment's file spacing: files = width ÷ it.</summary>
+        public int FileWidthPermille { get; internal set; }
 
         /// <summary>Crossings metered per regiment (its charges).</summary>
         public int Crossings { get; internal set; }

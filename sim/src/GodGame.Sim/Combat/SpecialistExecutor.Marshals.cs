@@ -9,16 +9,18 @@ namespace GodGame.Sim
     /// Crossing Marshals (spec S2 14.6): when the army's foot path, within 150 m ahead of any of its regiments, reaches a
     /// standing span (bridge segments, a pontoon, a trestle or ice patches, with every standing segment joined to them),
     /// the marshals meter it. One regiment at a time crosses, the one nearest the span along its route first (ties: the
-    /// lower slot), in open order with files = max(1, span width ÷ (2 × file spacing)), never more than its usual files;
+    /// lower slot), in its own order but narrowed to files = max(1, span width ÷ (2 × file spacing)), never more than its
+    /// usual files (the user's decision of 2026-11-14; S2 had open order);
     /// every other regiment whose route crosses the span stops 20 m short of it, each further back by the depth of the
     /// regiments queued ahead, and the next goes once the last soldier of the one before has stepped off. The gate is a
     /// fixed rule of occupancy and never reads strain (brief 2026-10-09). A crossing ends when no regiment's route uses
-    /// the span any more, or after 300 s; it lapses at once when the marshals are wiped or rout.
+    /// the span any more, or once the gate has stood idle (nobody crossing, on the span or held) for 200 s (the user's
+    /// decision of 2026-11-14: the clock counts idle time only); it lapses at once when the marshals are wiped or rout.
     /// <para>
     /// Determinism: the gate runs serially in slot order before the regiment orders are decided; its scratch (who is held,
     /// distances along routes, soldiers on the span) is rebuilt from the world every AI step; what persists is in
-    /// <see cref="ArmyState"/> (the span's segments and entry, the crossing regiment, the elapsed time, open order and
-    /// files, and the Hold orders with their points).
+    /// <see cref="ArmyState"/> (the span's segments and entry, the crossing regiment, the idle time, files, and the Hold
+    /// orders with their points).
     /// </para>
     /// </summary>
     public sealed partial class SpecialistExecutor
@@ -174,7 +176,6 @@ namespace GodGame.Sim
                 c = -1;
                 army.JobRef[m] = -1;
             }
-            army.WorkProgress[m] += TickOrder.RegimentAiRate.Period;
             // The queue: every other regiment whose route crosses the span, nearest first (ties: the lower slot).
             _queue.Clear();
             for (int q = 0; q < regiments; q++)
@@ -192,35 +193,45 @@ namespace GodGame.Sim
             }
             if (
                 !standing
-                || army.WorkProgress[m] >= rules.CrossingEndsTicks
+                || army.WorkProgress[m] >= rules.IdleEndsTicks
                 || (c < 0 && _queue.Count == 0)
             )
             {
                 EndCrossing(context, m, c);
                 return;
             }
-            // The next goes once it is near: at the holding line, with room to reform into open order before the span.
+            // The next goes once it is near: at the holding line, with room to narrow before the span.
             if (c < 0 && _toSpan[_queue[0]] <= rules.HoldingLineMm + Depth(world, _queue[0]))
             {
                 c = _queue[0];
                 _queue.RemoveAt(0);
                 army.JobRef[m] = c;
-                OpenOrder(world, c, army.JobTargets[m]![1]);
+                Narrow(world, c, army.JobTargets[m]![1]);
             }
             long hold = rules.HoldingLineMm;
+            bool busy = c >= 0;
             foreach (int q in _queue)
             {
                 if (_toSpan[q] <= hold)
                 {
                     _held[q] = true;
+                    busy = true;
                 }
                 hold += Depth(world, q);
             }
+            for (int q = 0; q < regiments && !busy; q++)
+            {
+                busy = q != m && _onSpan[q] > 0;
+            }
+            // The clock counts idle time only: the gate gives up when it has stood with nothing to meter.
+            army.WorkProgress[m] = busy
+                ? 0
+                : army.WorkProgress[m] + TickOrder.RegimentAiRate.Period;
         }
 
         /// <summary>
         /// Whether the last soldier of regiment <paramref name="c"/> has stepped off (S2 14.6): every one on his feet is
-        /// nearer the goal, along the regiment's march field, than the span's far end. A gap in an open-order column can
+        /// nearer the goal, along the regiment's march field, than the span's far end. A gap in a strung-out column can
         /// leave the span empty while its tail is still to come.
         /// </summary>
         private bool Across(TickContext context, int m, int c)
@@ -329,23 +340,26 @@ namespace GodGame.Sim
             army.Order[m] = RegimentOrder.March;
         }
 
-        /// <summary>The crossing regiment takes open order, as many files as the span is wide (S2 14.6).</summary>
-        private void OpenOrder(World world, int c, int widthMm)
+        /// <summary>
+        /// The crossing regiment keeps its own order and narrows to the span: files = max(1, width ÷ (the rule's share ×
+        /// file spacing)), never more than its usual files (S2 14.6, the user's decision of 2026-11-14).
+        /// </summary>
+        private void Narrow(World world, int c, int widthMm)
         {
             var formation = _rules.UnitTypes[world.RegimentUnitType[c]].Formation;
-            long openSpacing =
-                (long)formation.FileSpacingMm * _rules.Combat.OpenSpacingPermille / 1000;
-            int fit = (int)System.Math.Max(1, widthMm / System.Math.Max(1, openSpacing));
+            long fileWidth =
+                (long)formation.FileSpacingMm
+                * _rules.Specialists.MeterCrossing!.FileWidthPermille
+                / 1000;
+            int fit = (int)System.Math.Max(1, widthMm / System.Math.Max(1, fileWidth));
             int usual = Formation.FilesFor(formation, world.RegimentStartingSize[c]);
-            world.Army.Open[c] = true;
             world.RegimentFiles[c] = System.Math.Min(usual, fit);
         }
 
-        /// <summary>Back to close order and its usual files.</summary>
+        /// <summary>Back to its usual files.</summary>
         private void Restore(World world, int c)
         {
             var formation = _rules.UnitTypes[world.RegimentUnitType[c]].Formation;
-            world.Army.Open[c] = false;
             world.RegimentFiles[c] = Formation.FilesFor(formation, world.RegimentStartingSize[c]);
         }
 

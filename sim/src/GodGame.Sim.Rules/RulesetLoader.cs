@@ -940,14 +940,16 @@ namespace GodGame.Sim.Rules
                             "id",
                             "aheadMm",
                             "holdingLineMm",
-                            "crossingEndsTicks",
+                            "idleEndsTicks",
+                            "fileWidthPermille",
                             "crossings"
                         );
                         result.MeterCrossing = new MeterCrossingRules
                         {
                             AheadMm = action.Int("aheadMm", 0, 1_000_000),
                             HoldingLineMm = action.Int("holdingLineMm", 0, 1_000_000),
-                            CrossingEndsTicks = action.Int("crossingEndsTicks", 1, 1_000_000),
+                            IdleEndsTicks = action.Int("idleEndsTicks", 1, 1_000_000),
+                            FileWidthPermille = action.Int("fileWidthPermille", 1, 100_000),
                             Crossings = action.Int("crossings", 1, 64),
                         };
                         break;

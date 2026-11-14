@@ -18,6 +18,9 @@ namespace GodGame.Sim
     public sealed class Navigation
     {
         private int[] _regimentField = new int[0];
+
+        /// <summary>A working specialist's field leads to the map-aligned block of this many cells square holding its work point.</summary>
+        public const int WorkBlockCells = 8;
         private int[] _codes = new int[0]; // scratch: freshly computed speed codes
         private bool _builtFromWorld; // false until the derived data has been built from the world's stored codes
 
@@ -548,6 +551,26 @@ namespace GodGame.Sim
                     );
                     continue;
                 }
+                if (world.Army.Order[r] == RegimentOrder.Work)
+                {
+                    // A specialist at work (S2 14): a field to the block holding its work point, so it gets there round
+                    // whatever stands between; the block (WorkBlockCells square, map-aligned) lets successive points share a
+                    // field. Inside it, the officer walks straight to the point.
+                    Terrain.CellOf(world.Army.Point[r], out int px, out int py);
+                    int bx = px / WorkBlockCells * WorkBlockCells;
+                    int by = py / WorkBlockCells * WorkBlockCells;
+                    var block = new CellRect(
+                        bx,
+                        by,
+                        System.Math.Min(Terrain.Columns - 1, bx + WorkBlockCells - 1),
+                        System.Math.Min(Terrain.Rows - 1, by + WorkBlockCells - 1)
+                    );
+                    if (AnyPassable(movementClass, block))
+                    {
+                        _regimentField[r] = FlowFields.GetOrAdd(movementClass, block);
+                        continue;
+                    }
+                }
                 if (world.RegimentSide[r] != Side.Attacker || !hasTarget)
                 {
                     continue;
@@ -558,6 +581,27 @@ namespace GodGame.Sim
                 _regimentField[r] = FlowFields.GetOrAdd(movementClass, classGoal);
             }
             FlowFields.BuildPending(runner);
+        }
+
+        /// <summary>
+        /// The attackers' march field for a movement class (the far quarter of the defender zone, as regiments get), built
+        /// now if no regiment of that class needed it yet: the Pontoon Train reads the army's foot path, not its own. Null
+        /// on a map without a defender zone.
+        /// </summary>
+        public FlowField? MarchField(MovementClass movementClass, IParallelRunner runner)
+        {
+            if (!TryZone(Side.Defender, out var target))
+            {
+                return null;
+            }
+            var goal = Terrain.CellsOf(FarQuarter(target));
+            if (!AnyPassable(movementClass, goal))
+            {
+                goal = Terrain.CellsOf(target);
+            }
+            int index = FlowFields.GetOrAdd(movementClass, goal);
+            FlowFields.BuildPending(runner);
+            return FlowFields[index];
         }
 
         /// <summary>

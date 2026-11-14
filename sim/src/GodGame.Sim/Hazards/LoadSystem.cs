@@ -52,6 +52,7 @@ namespace GodGame.Sim
             }
             int segments = states.Count;
             Rot(states, context.Tick);
+            Surge(context, states, terrain);
             if (_load.Length < states.Capacity)
             {
                 _load = new long[states.Capacity];
@@ -111,7 +112,7 @@ namespace GodGame.Sim
 
         /// <summary>
         /// A floating deck's share of its strength (S2 8.1): full afloat, the grounded share where the water under it is
-        /// shallow (its shallowest cell), linear between. 1,000 for every other deck.
+        /// shallow (its deepest cell), linear between. 1,000 for every other deck.
         /// </summary>
         private int Afloat(Terrain terrain, int s, World world)
         {
@@ -122,23 +123,23 @@ namespace GodGame.Sim
                 return 1000;
             }
             var depth = fields.Get(WaterModel.Depth).Values;
-            long shallowest = long.MaxValue;
+            long deepest = 0; // read at the deepest cell: an end on the dry bank is solid support; a drained river grounds the boats
             foreach (int cell in terrain.Segment(s).Cells)
             {
-                shallowest = System.Math.Min(shallowest, depth[cell] / 1000);
+                deepest = System.Math.Max(deepest, depth[cell] / 1000);
             }
-            if (shallowest >= kind.AfloatDepthMm)
+            if (deepest >= kind.AfloatDepthMm)
             {
                 return 1000;
             }
-            if (shallowest <= kind.GroundedDepthMm || kind.AfloatDepthMm == kind.GroundedDepthMm)
+            if (deepest <= kind.GroundedDepthMm || kind.AfloatDepthMm == kind.GroundedDepthMm)
             {
                 return kind.GroundedPermille;
             }
             return (int)(
                 kind.GroundedPermille
                 + (1000L - kind.GroundedPermille)
-                    * (shallowest - kind.GroundedDepthMm)
+                    * (deepest - kind.GroundedDepthMm)
                     / (kind.AfloatDepthMm - kind.GroundedDepthMm)
             );
         }
@@ -186,7 +187,86 @@ namespace GodGame.Sim
             }
         }
 
-        private void Fail(TickContext context, int s)
+        /// <summary>For <see cref="Fail(TickContext, int, bool, int)"/>: blame the failure on the Rot under way, if any.</summary>
+        private const int CauseFromRot = -2;
+
+        private void Fail(TickContext context, int s) => Fail(context, s, false, CauseFromRot);
+
+        /// <summary>
+        /// A floating deck in a surge (S2 14.5): a segment where the current has run at its surge line long enough breaks
+        /// loose, with every segment beyond it (built from it, away from the near bank); everyone on them is swept, and the
+        /// break is blamed on the water's own cause.
+        /// </summary>
+        private void Surge(TickContext context, StructureStates states, Terrain terrain)
+        {
+            var fields = context.World.Fields;
+            if (fields == null || fields.Rules.IndexOf(WaterModel.Depth) < 0)
+            {
+                return;
+            }
+            var depth = fields.Get(WaterModel.Depth);
+            int period = TickOrder.FieldsRate.Period;
+            for (int s = 0; s < states.Count; s++)
+            {
+                var kind = terrain.Segment(s).Kind;
+                if (!kind.Floats || states.Broken[s])
+                {
+                    continue;
+                }
+                long peak = 0;
+                int peakCell =
+                    terrain.Segment(s).Cells.Length > 0 ? terrain.Segment(s).Cells[0] : -1;
+                foreach (int cell in terrain.Segment(s).Cells)
+                {
+                    WaterModel.Velocity(
+                        fields,
+                        terrain.CellSizeMm,
+                        cell % terrain.Columns,
+                        cell / terrain.Columns,
+                        out int east,
+                        out int north
+                    );
+                    long speed = IntMath.Sqrt((ulong)((long)east * east + (long)north * north));
+                    if (speed > peak)
+                    {
+                        peak = speed;
+                        peakCell = cell;
+                    }
+                }
+                states.SurgeTicks[s] =
+                    peak >= kind.SurgeFlowMmPerS ? states.SurgeTicks[s] + period : 0;
+                if (states.SurgeTicks[s] < kind.SurgeTicks)
+                {
+                    continue;
+                }
+                int tag = CauseLog.None;
+                if (context.World.Causes != null && peakCell >= 0)
+                {
+                    tag = context.World.Causes.TileTag[
+                        depth.TileOf(peakCell % terrain.Columns, peakCell / terrain.Columns)
+                    ];
+                }
+                // This segment and every one built on from it, in index order (each continues an earlier one). Each failure
+                // costs its standing neighbours support as any other does (S2 8.2), so the segment nearer the bank is left
+                // weaker too.
+                var loose = new bool[states.Count];
+                loose[s] = true;
+                for (int t = s + 1; t < states.Count; t++)
+                {
+                    int previous = t >= states.StaticCount ? states.BattlePrevious[t] : -1;
+                    loose[t] = previous >= 0 && loose[previous] && !states.Broken[t];
+                }
+                for (int t = s; t < states.Count; t++)
+                {
+                    if (loose[t])
+                    {
+                        Fail(context, t, true, tag);
+                    }
+                }
+            }
+        }
+
+        private void Fail(TickContext context, int s, bool sweepsAll, int cause)
         {
             var world = context.World;
             var states = world.Structures!;
@@ -198,8 +278,13 @@ namespace GodGame.Sim
             states.RotStart[s] = 0;
             var log = world.Causes;
             int failed =
-                log?.Add(CauseKind.SegmentFailed, context.Tick, s, ice ? 2 : 1, states.RotCause[s])
-                ?? CauseLog.None;
+                log?.Add(
+                    CauseKind.SegmentFailed,
+                    context.Tick,
+                    s,
+                    ice ? 2 : 1,
+                    cause == CauseFromRot ? states.RotCause[s] : cause
+                ) ?? CauseLog.None;
             world.Counters.SegmentsFailed++;
             // Lost support: the neighbours weaken at once (S2 8.2), which can bring the next one down under its load.
             int loss = ice
@@ -252,7 +337,7 @@ namespace GodGame.Sim
                     flow = IntMath.Sqrt((ulong)((long)east * east + (long)north * north));
                 }
                 var flags = world.Flags[u] & ~(UnitFlags.Teetering | UnitFlags.Stunned);
-                if (ice || response.Sweeps(depthMm, flow))
+                if (ice || (sweepsAll && depthMm > 0) || response.Sweeps(depthMm, flow))
                 {
                     world.Flags[u] = flags | UnitFlags.Swept;
                     world.HazardTimer[u] =

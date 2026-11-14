@@ -1,0 +1,99 @@
+{
+  "$comment": "M5 pontoon scenario (spec S2 section 17): the M3 exit march and storm on m3-exit (an 80 m storm on the river 300 m upstream of the ford at 0:50), plus a Pontoon Train of 8 boats with the column: it bridges the river where the army's foot path meets it, regiments use the bridge, and the storm's crest breaks it loose.",
+  "version": 0,
+  "map": "m3-exit",
+  "army": [
+    {
+      "id": "a-pontoon",
+      "side": "attacker",
+      "unitType": "pontoon-train",
+      "soldiers": 8,
+      "xMm": 20000,
+      "yMm": 150000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a000",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 100000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a001",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 120000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a002",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 140000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a003",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 160000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a004",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 180000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "a005",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 20000,
+      "yMm": 200000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d000",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 465000,
+      "yMm": 130000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "d001",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 100,
+      "xMm": 465000,
+      "yMm": 170000,
+      "facingCentiDegrees": 18000
+    }
+  ],
+  "terrain": [],
+  "casts": [
+    {
+      "id": "storm",
+      "power": "rain",
+      "tick": 1000,
+      "xMm": 240000,
+      "yMm": 450000,
+      "radiusMm": 80000
+    }
+  ]
+}

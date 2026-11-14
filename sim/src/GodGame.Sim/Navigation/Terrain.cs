@@ -77,7 +77,7 @@ namespace GodGame.Sim
             }
         }
 
-        /// <summary>A battle-made deck segment (a trestle, a pontoon): it covers its cells not already under a deck.</summary>
+        /// <summary>A battle-made deck segment (a trestle, a pontoon): it covers its cells (its builder left out any under a standing deck).</summary>
         public int AddSegment(DeckSegment segment)
         {
             int cells = Columns * Rows;
@@ -95,10 +95,9 @@ namespace GodGame.Sim
             _broken.Add(false);
             foreach (int cell in segment.Cells)
             {
-                if (_segmentOf[cell] < 0)
-                {
-                    _segmentOf[cell] = s;
-                }
+                // Its builder picked only cells under no standing deck (a failed one's are free), so it takes them all;
+                // a restore lays the same lists in the same order and gets the same cells.
+                _segmentOf[cell] = s;
             }
             return s;
         }

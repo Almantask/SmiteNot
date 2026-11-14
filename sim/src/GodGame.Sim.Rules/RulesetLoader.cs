@@ -691,7 +691,9 @@ namespace GodGame.Sim.Rules
                     "floats",
                     "groundedDepthMm",
                     "afloatDepthMm",
-                    "groundedPermille"
+                    "groundedPermille",
+                    "surgeFlowMmPerS",
+                    "surgeTicks"
                 );
                 string id = DataIds.Require(item["id"]);
                 if (result.Kind(id) != null || kinds.Exists(k => k.Id == id))
@@ -727,6 +729,8 @@ namespace GodGame.Sim.Rules
                             100_000
                         );
                         kind.GroundedPermille = item.Int("groundedPermille", 0, 1_000);
+                        kind.SurgeFlowMmPerS = item.Int("surgeFlowMmPerS", 1, 100_000);
+                        kind.SurgeTicks = item.Int("surgeTicks", 1, 72_000);
                     }
                     if (item.Has("minWidthMm"))
                     {
@@ -882,6 +886,23 @@ namespace GodGame.Sim.Rules
                                 0,
                                 10_000_000
                             ),
+                        };
+                        break;
+                    case "lay-pontoon":
+                        action.OnlyKeys(
+                            "$comment",
+                            "id",
+                            "aheadMm",
+                            "closedDepthMm",
+                            "ticksPerSegment",
+                            "segmentsPerBoat"
+                        );
+                        result.LayPontoon = new LayPontoonRules
+                        {
+                            AheadMm = action.Int("aheadMm", 0, 1_000_000),
+                            ClosedDepthMm = action.Int("closedDepthMm", 1, 100_000),
+                            TicksPerSegment = action.Int("ticksPerSegment", 1, 72_000),
+                            SegmentsPerBoat = action.Int("segmentsPerBoat", 1, 64),
                         };
                         break;
                     case "clear-blocker":

@@ -56,6 +56,12 @@ namespace GodGame.Sim.Rules
 
         public int GroundedPermille { get; internal set; } = 1000;
 
+        /// <summary>Floating decks: a segment where the current reaches this (mm/s)…</summary>
+        public int SurgeFlowMmPerS { get; internal set; }
+
+        /// <summary>…for this long breaks loose, and every segment beyond it with it (S2 14.5).</summary>
+        public int SurgeTicks { get; internal set; }
+
         /// <summary>Movement classes it carries, as bits (1 &lt;&lt; class).</summary>
         public int ClassMask { get; internal set; }
     }

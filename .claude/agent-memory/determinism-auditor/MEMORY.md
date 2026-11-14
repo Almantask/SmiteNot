@@ -22,3 +22,4 @@
 - [Snapshot validators vs live state](pattern_snapshot_validators_vs_live_state.md) — check first: duplicate-target specialists break restore; missing upper bounds half-restore
 - [Shared map objects](pattern_shared_map_objects.md) — PlayedMap decks, boulders and blocked arrays are shared by live and preview sims; ResetDecks wipes runtime blockers
 - [Analyzer script runs in place](feedback_analyzer_script_in_place.md) — check_sim_analyzers.py writes a probe into sim/src; run it from a scratch copy
+- [Pontoon and work fields](pattern_pontoon_work_fields.md) — FlowFieldSet growth from AI step, AfterRestore assign window, Surge chain, CI misses surge, probe recipe

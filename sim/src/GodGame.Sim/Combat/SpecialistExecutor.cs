@@ -98,6 +98,10 @@ namespace GodGame.Sim
             {
                 return true;
             }
+            if (type.Does("lay-pontoon"))
+            {
+                return Pontoon(context, r);
+            }
             if (engineers)
             {
                 return Engineer(context, r, type);
@@ -114,6 +118,242 @@ namespace GodGame.Sim
         public const int TrestleAction = 3;
         public const int RepairAction = 4;
         public const int ClearAction = 5;
+        public const int PontoonAction = 6;
+
+        // ---- The Pontoon Train (S2 14.5) ----
+
+        /// <summary>
+        /// The boats lay a floating bridge where the army's foot path meets water closed to wheeled: the water's width
+        /// plus a cell at each end, a segment per laying time from the near bank, their segments per living boat. Then
+        /// they wait for the next crossing while they have segments left.
+        /// </summary>
+        private bool Pontoon(TickContext context, int r)
+        {
+            var world = context.World;
+            var army = world.Army;
+            var rules = _rules.Specialists.LayPontoon!;
+            var kind = _rules.Structures.Kind("pontoon");
+            int left = world.RegimentAlive[r] * rules.SegmentsPerBoat - army.Spent[r];
+            if (kind == null || left <= 0)
+            {
+                if (army.Job[r] == SpecialistJob.Active)
+                {
+                    world.Causes?.Add(
+                        CauseKind.SpecialistEnded,
+                        context.Tick,
+                        r,
+                        PontoonAction,
+                        CauseLog.None
+                    );
+                }
+                army.Job[r] = SpecialistJob.Done;
+                army.Order[r] = RegimentOrder.March;
+                return false;
+            }
+            if (army.Job[r] == SpecialistJob.Idle)
+            {
+                if (!FindWater(context, r, rules, kind, left))
+                {
+                    return false;
+                }
+                army.Job[r] = SpecialistJob.Active;
+                army.JobKind[r] = PontoonAction;
+                army.WorkProgress[r] = 0;
+                world.Causes?.Add(
+                    CauseKind.SpecialistStarted,
+                    context.Tick,
+                    r,
+                    PontoonAction,
+                    CauseLog.None
+                );
+            }
+            army.Order[r] = RegimentOrder.Work;
+            army.Target[r] = -1;
+            WorkPoint(world, r);
+            if (!AtWork(world, r))
+            {
+                return true;
+            }
+            army.WorkProgress[r] += TickOrder.RegimentAiRate.Period;
+            if (army.WorkProgress[r] < rules.TicksPerSegment)
+            {
+                return true;
+            }
+            army.WorkProgress[r] -= rules.TicksPerSegment;
+            var run = army.JobCells[r]!;
+            var terrain = _navigation.Terrain;
+            int along = kind.SegmentCellsAlong;
+            int from = army.WorkStep[r] * along;
+            var cells = new List<int>();
+            int half = System.Math.Max(1, kind.WidthCells) / 2;
+            for (int k = from; k < System.Math.Min(run.Length, from + along); k++)
+            {
+                int c = run[k];
+                int prev = k == 0 ? army.JobTargets[r]![run.Length] : run[k - 1];
+                int dx = c % terrain.Columns - prev % terrain.Columns;
+                int dy = c / terrain.Columns - prev / terrain.Columns;
+                for (int w = -half; w <= System.Math.Max(1, kind.WidthCells) - 1 - half; w++)
+                {
+                    int qx = c % terrain.Columns - w * dy;
+                    int qy = c / terrain.Columns + w * dx;
+                    if (!terrain.InBounds(qx, qy))
+                    {
+                        continue;
+                    }
+                    int q = terrain.Index(qx, qy);
+                    if (terrain.StandingSegment(q) < 0 && !cells.Contains(q))
+                    {
+                        cells.Add(q);
+                    }
+                }
+            }
+            if (cells.Count > 0)
+            {
+                int built = _navigation.BuildDeck(
+                    context,
+                    kind,
+                    cells.ToArray(),
+                    army.JobTargets[r]![0],
+                    army.JobRef[r]
+                );
+                if (built >= 0)
+                {
+                    army.JobRef[r] = built;
+                    army.Spent[r]++;
+                }
+            }
+            army.WorkStep[r]++;
+            if (army.WorkStep[r] * along < run.Length)
+            {
+                return true;
+            }
+            world.Causes?.Add(
+                CauseKind.SpecialistEnded,
+                context.Tick,
+                r,
+                PontoonAction,
+                CauseLog.None
+            );
+            army.Job[r] = SpecialistJob.Idle;
+            army.JobKind[r] = 0;
+            army.JobRef[r] = -1;
+            army.JobCells[r] = null;
+            army.JobTargets[r] = null;
+            army.WorkStep[r] = 0;
+            army.Order[r] = RegimentOrder.March;
+            return false;
+        }
+
+        /// <summary>
+        /// Water on the army's foot path ahead (S2 14.5): the first cell at least the closing depth deep or sweeping
+        /// wheeled, the wet run beyond it to dry ground, and a cell at each end, if the boats carry enough segments.
+        /// </summary>
+        private bool FindWater(
+            TickContext context,
+            int r,
+            LayPontoonRules rules,
+            StructureKindRules kind,
+            int left
+        )
+        {
+            var world = context.World;
+            var fields = world.Fields;
+            int officer = world.RegimentAnchor[r];
+            var field = _navigation.MarchField(MovementClass.Foot, context.Runner);
+            if (
+                fields == null
+                || fields.Rules.IndexOf(WaterModel.Depth) < 0
+                || officer < 0
+                || field == null
+            )
+            {
+                return false;
+            }
+            var depth = fields.Get(WaterModel.Depth).Values;
+            int[]? codes =
+                fields.Rules.IndexOf(FieldSpeed.FieldId) >= 0
+                    ? fields.Get(FieldSpeed.FieldId).Values
+                    : null;
+            int dry = _rules.Fields.Water?.DryDepthUm ?? int.MaxValue;
+            var terrain = _navigation.Terrain;
+            var directions = field.Directions;
+            terrain.CellOf(world.Position[officer], out int x, out int y);
+            var path = new List<int> { terrain.Index(x, y) };
+            for (int k = 0; k < rules.AheadMm / terrain.CellSizeMm; k++)
+            {
+                byte d = directions[terrain.Index(x, y)];
+                if (d >= FlowField.AtGoal)
+                {
+                    break;
+                }
+                var (dx, dy) = FlowField.Offset(d);
+                if (!terrain.InBounds(x + dx, y + dy))
+                {
+                    break;
+                }
+                x += dx;
+                y += dy;
+                path.Add(terrain.Index(x, y));
+            }
+            for (int k = 1; k < path.Count; k++)
+            {
+                int c = path[k];
+                bool closed =
+                    depth[c] / 1000 >= rules.ClosedDepthMm
+                    || (
+                        codes != null
+                        && depth[c] >= dry
+                        && FieldSpeed.Code(codes[c], MovementClass.Wheeled) <= FieldSpeed.Closed
+                    ); // water that sweeps wheeled or is too deep for them to enter
+                if (!closed || terrain.StandingSegment(c) >= 0)
+                {
+                    continue;
+                }
+                // Back to where the water starts, then on to dry ground.
+                int start = k;
+                while (start > 1 && depth[path[start - 1]] >= dry)
+                {
+                    start--;
+                }
+                int end = k;
+                while (end < path.Count && depth[path[end]] >= dry)
+                {
+                    end++;
+                }
+                if (end >= path.Count)
+                {
+                    return false; // the far bank isn't in sight yet
+                }
+                var run = new List<int>();
+                for (int j = start - 1; j <= end; j++)
+                {
+                    if (terrain.StandingSegment(path[j]) >= 0)
+                    {
+                        return false; // a deck already crosses here
+                    }
+                    run.Add(path[j]);
+                }
+                int segments = (run.Count + kind.SegmentCellsAlong - 1) / kind.SegmentCellsAlong;
+                if (segments > left)
+                {
+                    return false; // longer than the boats carry: refused (S2 14.5)
+                }
+                int bank = path[start - 1];
+                var targets = new int[run.Count + 1];
+                int deck = terrain.HeightMm(bank % terrain.Columns, bank / terrain.Columns);
+                for (int t = 0; t < run.Count; t++)
+                {
+                    targets[t] = deck;
+                }
+                targets[run.Count] = start >= 2 ? path[start - 2] : bank; // the boats stand on the near bank
+                world.Army.JobCells[r] = run.ToArray();
+                world.Army.JobTargets[r] = targets;
+                world.Army.WorkStep[r] = 0;
+                world.Army.JobRef[r] = -1;
+                return true;
+            }
+            return false;
+        }
 
         private readonly List<int> _path = new List<int>();
 
@@ -233,6 +473,7 @@ namespace GodGame.Sim
             int cell = army.JobKind[r] switch
             {
                 ClearAction => army.WorkStep[r],
+                PontoonAction => army.JobTargets[r]![army.JobTargets[r]!.Length - 1],
                 TrestleAction => army.WorkStep[r] < 0
                     ? 0
                     : army.JobTargets[r]![army.JobTargets[r]!.Length - 1],
@@ -374,9 +615,9 @@ namespace GodGame.Sim
                 for (; j < path.Count; j++)
                 {
                     int c = path[j];
-                    if (terrain.SegmentAt(c) >= 0)
+                    if (terrain.StandingSegment(c) >= 0)
                     {
-                        return false; // under another deck (a failed span): not a trestle's gap
+                        return false; // under a standing deck: not a trestle's gap
                     }
                     bool open =
                         costs.Cost(MovementClass.Wheeled, c % terrain.Columns, c / terrain.Columns)
@@ -459,7 +700,7 @@ namespace GodGame.Sim
                         continue;
                     }
                     int q = terrain.Index(qx, qy);
-                    if (terrain.SegmentAt(q) < 0 && !cells.Contains(q))
+                    if (terrain.StandingSegment(q) < 0 && !cells.Contains(q))
                     {
                         cells.Add(q);
                     }

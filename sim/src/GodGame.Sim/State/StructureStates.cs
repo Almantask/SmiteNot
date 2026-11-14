@@ -38,6 +38,7 @@ namespace GodGame.Sim
             BattleDeckHeight = new int[segments];
             BattleMaxStrength = new long[segments];
             BattlePrevious = new int[segments];
+            SurgeTicks = new int[segments];
             Strength = new int[segments];
             Broken = new bool[segments];
             OverChecks = new int[segments];
@@ -74,6 +75,9 @@ namespace GodGame.Sim
 
         public int[] BattlePrevious { get; }
 
+        /// <summary>Floating decks: consecutive ticks the current under the segment has been at its surge line.</summary>
+        public int[] SurgeTicks { get; }
+
         /// <summary>Records a battle-made segment; its index, or -1 when the battle has built as many as it may.</summary>
         public int AddBattleSegment(
             int kind,
@@ -100,6 +104,7 @@ namespace GodGame.Sim
             LoadPermille[s] = 0;
             RotStart[s] = 0;
             RotCause[s] = CauseLog.None;
+            SurgeTicks[s] = 0;
             return s;
         }
 
@@ -160,6 +165,7 @@ namespace GodGame.Sim
                 writer.WriteInt32(RotStart[s]);
                 writer.WriteInt32(RotTicks[s]);
                 writer.WriteInt32(RotCause[s]);
+                writer.WriteInt32(SurgeTicks[s]);
             }
         }
 
@@ -235,6 +241,7 @@ namespace GodGame.Sim
                 RotStart[s] = NonNegative(reader.ReadInt32());
                 RotTicks[s] = NonNegative(reader.ReadInt32());
                 RotCause[s] = reader.ReadInt32();
+                SurgeTicks[s] = NonNegative(reader.ReadInt32());
                 if (RotCause[s] < CauseLog.None)
                 {
                     throw new FormatException("Snapshot rot cause is invalid.");
@@ -274,6 +281,7 @@ namespace GodGame.Sim
                 hash.AppendInt32(RotStart[s]);
                 hash.AppendInt32(RotTicks[s]);
                 hash.AppendInt32(RotCause[s]);
+                hash.AppendInt32(SurgeTicks[s]);
             }
         }
     }

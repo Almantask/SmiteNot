@@ -57,6 +57,14 @@
       "nearPathMm": 4500,
       "boulderTicks": 1200,
       "ticksPer40Soldiers": 2400
+    },
+    {
+      "$comment": "The Pontoon Train (S2 14.5, both seats; brainstorm #33, 'about 80 m in 45 s'): when the army's foot path, within aheadMm ahead of the train, meets water at least closedDepthMm deep or sweeping wheeled, the boats lay a floating bridge from the near bank: the water's width along the path plus a cell at each end, one segment (load.json pontoon: 2 cells along, 3 wide) per ticksPerSegment, segmentsPerBoat per living boat, refused if longer than that. Simplified for now (S2 asks more, noted in the changelog): the site is where the path meets the water (not the weakest-current line within 50 m), the trigger reads the train's own position (not the vanguard's), a boat that is lost takes its unlaid segments with it but the segments already laid stand (S2 removes them; crews arrive with the base types, item 6), and a defender's retreat-route pontoon waits for the regiment AI's retreat routes (M7).",
+      "id": "lay-pontoon",
+      "aheadMm": 150000,
+      "closedDepthMm": 500,
+      "ticksPerSegment": 40,
+      "segmentsPerBoat": 3
     }
   ]
 }

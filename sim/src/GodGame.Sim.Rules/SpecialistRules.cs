@@ -131,6 +131,21 @@ namespace GodGame.Sim.Rules
         public int TicksPer40Soldiers { get; internal set; }
     }
 
+    /// <summary>The Pontoon Train (spec S2 14.5): a floating bridge where the army's foot path meets water closed to wheeled.</summary>
+    public sealed class LayPontoonRules
+    {
+        /// <summary>How far ahead of the train along the army's foot path the trigger looks.</summary>
+        public int AheadMm { get; internal set; }
+
+        /// <summary>Water at least this deep (or sweeping wheeled) is a crossing the train bridges.</summary>
+        public int ClosedDepthMm { get; internal set; }
+
+        public int TicksPerSegment { get; internal set; }
+
+        /// <summary>Deck segments each boat carries.</summary>
+        public int SegmentsPerBoat { get; internal set; }
+    }
+
     /// <summary>
     /// The shared specialist executor's rules (<c>data/rules/specialists.json</c>, spec S2 section 14). Ruleset v0 holds
     /// the actions whose targets exist in M5 so far; the Pontoon Train, Crossing Marshals, Engineers and Drovers join
@@ -145,6 +160,8 @@ namespace GodGame.Sim.Rules
         public FillCrossingRules? FillCrossing { get; internal set; }
 
         public BridgeworkRules? Bridgework { get; internal set; }
+
+        public LayPontoonRules? LayPontoon { get; internal set; }
 
         public ClearBlockerRules? ClearBlocker { get; internal set; }
 

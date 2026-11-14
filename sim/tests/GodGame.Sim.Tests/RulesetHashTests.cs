@@ -172,6 +172,7 @@ public class RulesetLoaderTests
                     "spademen",
                     "fascine-carriers",
                     "engineers",
+                    "pontoon-train",
                 }
             )
         );

@@ -7,7 +7,7 @@ description: Run Unity Edit Mode and Play Mode tests via Unity MCP or headless b
 
 ## Inputs
 
-Extract the requested test platform from the prompt: `editmode`, `playmode`, or `all` (defaults to `all`).
+Extract the requested test platform from the prompt: `editmode`, `playmode`, or `all` (defaults to `editmode`: after a small change run only Edit Mode; run `all` when the whole milestone is done).
 
 ## Workflow
 

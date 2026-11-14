@@ -22,7 +22,9 @@ Extract `<unit or specialist name>` from the prompt.
 6. **Art pipeline checklist (`art/`).** Verify rig (`RIG_humanoid`, `RIG_quadruped`, or `RIG_siege`), LOD triangle budgets, work-loop and movement clips, `TeamMask` vertex-colour regions, and cartoon death gags per cause (`.claude/rules/art-pipeline.md`).
 7. **Tests (`sim/tests/`).** Run and verify:
    ```powershell
-   dotnet test sim/GodGame.Sim.sln
+   dotnet test sim/GodGame.Sim.sln --filter Category=Fast                    # unit tests
+   dotnet test sim/GodGame.Sim.sln --filter "FullyQualifiedName~<NewTest>"   # the tests you added, by name
    python tools/ci/check_sim_analyzers.py
    ```
+   The full suite (`dotnet test sim/GodGame.Sim.sln`) runs only when the whole milestone is done.
    Include scenario tests via `/scenario-test` for each brief decision, a test proving the specialist counters part (not all) of its target god setup, snapshot/hash coverage, and multi-thread determinism.

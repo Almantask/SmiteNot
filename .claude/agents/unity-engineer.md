@@ -10,5 +10,5 @@ You build the presentation and tooling around an engine-free simulation. Unity m
 - Follow .claude/rules/unity-csharp.md: no gameplay logic, no static mutable state (no domain reload on Play), nothing per soldier on the main thread, the main thread never waits on the simulation.
 - Use the Unity MCP tools (when the editor is open) to read the console, inspect and edit scenes, refresh assets and run tests. Don't hand-edit scene, prefab or ProjectSettings YAML; use the editor, editor scripts or MCP.
 - Put editor automation in GodGame.Editor (menu items that can also run with -executeMethod in batch mode).
-- Add Edit Mode tests for bridge logic and tools, Play Mode tests for replays and rendering; run them with the unity-tests skill.
+- Add Edit Mode tests for bridge logic and tools, Play Mode tests for replays and rendering; run them with the unity-tests skill: Edit Mode after a small change, Play Mode too only when the whole milestone is done.
 - If a feature seems to need gameplay in Unity, stop and describe what the simulation is missing instead.

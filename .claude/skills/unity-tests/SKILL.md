@@ -4,7 +4,7 @@ description: Run Unity Edit Mode and Play Mode tests, through the Unity MCP serv
 argument-hint: "[editmode | playmode | all]"
 ---
 
-Platform: $ARGUMENTS (empty means all)
+Platform: $ARGUMENTS (empty means editmode: after a small change run only Edit Mode; run `all` when the whole milestone is done)
 
 1. **Editor open** (the Unity MCP server responds): run the tests through its test-runner tool, then read the console for compile errors first.
 2. **Editor closed:** run batch mode from the repository root, once per platform:

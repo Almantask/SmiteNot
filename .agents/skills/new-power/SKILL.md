@@ -25,5 +25,5 @@ Extract `<power name>` from the prompt.
    - One scenario test per brief decision touched
    - One test per counter-web row where the power appears
    - A 100 m range-rule fizzle test at the firing tick
-   - Determinism check (`dotnet test sim/GodGame.Sim.sln` and `python tools/ci/check_sim_analyzers.py`)
+   - Determinism check (`dotnet test sim/GodGame.Sim.sln --filter Category=Fast`, the new tests by name, and `python tools/ci/check_sim_analyzers.py`; the full suite waits for the end of the milestone)
 8. **Sync design docs.** If implementation settled a previously `seed` detail, record it in `docs/design/power-palette.md` and `docs/design/game-brief.md` following `/game-design`.

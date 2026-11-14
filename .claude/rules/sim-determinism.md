@@ -31,5 +31,5 @@ Outcomes must be bit-identical across runs, thread counts, Windows and Linux, an
 - Hash every piece of state that can affect the future in StateHash; a field left out of the hash hides desyncs.
 
 ## Before you finish
-- Fast tests green; thread-count determinism tests green (from M1).
+- Fast tests green (they include the thread-count determinism tests). Run only those, plus by name any test you added or edited; the full suite waits for the end of the milestone.
 - If existing goldens or pinned hashes change, stop and report. Don't regenerate them; /golden-replay does that.

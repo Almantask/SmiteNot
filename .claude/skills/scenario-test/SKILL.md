@@ -10,5 +10,5 @@ Decision: $ARGUMENTS
 2. Name the test `Decision_YYYY_MM_DD_<Name>_<Expectation>` in sim/tests/GodGame.Sim.Scenarios, category `Fast` if it runs in under a second or two, otherwise `Slow`.
 3. Build the smallest world that shows the decision: `MapBuilder` and `PlanBuilder` (from M1; until then, the placeholder battle), one variable at a time, and a control case that shows the opposite outcome.
 4. Assert on cause events and statistics (casualties by cause, swept, launched, routs, arrival times), never on internals.
-5. Run it twice and with 1 and N threads (from M1); it must be deterministic.
+5. Run only it, by name (`dotnet test sim/GodGame.Sim.sln --filter "FullyQualifiedName~Decision_YYYY_MM_DD"`), plus the fast tests; it must be deterministic, twice and with 1 and N threads. The full suite waits for the end of the milestone.
 6. If it matters, save it as a golden replay through /golden-replay.

@@ -8,13 +8,13 @@ A god helps a weak army survive a far stronger attacker, using only indirect pow
 - Simulation: sim/ (pure .NET; sim/src is also a Unity package). Unity project: unity/. Rules data: data/. Blender sources: art/. Scripts: tools/.
 
 ## Commands
-- Fast tests: `dotnet test sim/GodGame.Sim.sln --filter Category=Fast`
-- All simulation tests: `dotnet test sim/GodGame.Sim.sln`
+- Unit tests (the `Fast` category, thread-count tests included; after every small change): `dotnet test sim/GodGame.Sim.sln --filter Category=Fast`
+- All simulation tests (only once the whole milestone is done): `dotnet test sim/GodGame.Sim.sln`
 - Benchmarks: `dotnet run -c Release --project sim/bench/GodGame.Sim.Bench`
 - Headless run: `dotnet run --project sim/tools/GodGame.Sim.Cli -- run --seconds 180` (M0 placeholder; `hash --out <file>` writes per-second hashes)
 - Analyzers still reject banned code: `python tools/ci/check_sim_analyzers.py`
 - Format: `dotnet csharpier format <path>` (the edit hook does this); CI runs `dotnet csharpier check sim`
-- Unity tests: the unity-tests skill (MCP when the editor is open, batch mode otherwise)
+- Unity tests: the unity-tests skill (MCP when the editor is open, batch mode otherwise); Edit Mode after a small change, Play Mode too once the milestone is done
 - Blender: `blender -b <file.blend> --python tools/blender/export.py -- --out <dir>`, then `validate.py`
 
 ## Golden rules
@@ -37,4 +37,5 @@ sim-engineer (simulation code) · determinism-auditor (before pushing sim change
 ## Workflow
 - Start with /milestone; use plan mode for anything beyond a one-line fix.
 - Tick items in docs/milestones/STATUS.md in the commit that finishes them.
+- Tests: after a small change, run only the unit tests (simulation `Fast`, which the Stop hook also runs; Unity Edit Mode), plus by name any test the change adds or edits. Run all tests (every simulation category, Unity Edit and Play Mode) only when the whole milestone is done, and fix what fails before closing it. In between, only /golden-replay runs the Golden tests; CI still runs everything except Perf and Fuzz after each push.
 - Design decisions are recorded with the game-design skill; mirror them to the claude.ai project so the two never drift.

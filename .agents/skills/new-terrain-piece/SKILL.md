@@ -20,7 +20,9 @@ Extract `<piece name>` from the prompt.
 7. **Placement UI, overlays & art (`unity/`, `art/`).** Add mouse drag/shape placement, route/reachability preview feedback, and art props/damage states (`docs/implementation-plan.md` section 7.7).
 8. **Tests (`sim/tests/`).** Verify with `run_command`:
    ```powershell
-   dotnet test sim/GodGame.Sim.sln
+   dotnet test sim/GodGame.Sim.sln --filter Category=Fast                    # unit tests
+   dotnet test sim/GodGame.Sim.sln --filter "FullyQualifiedName~<NewTest>"   # the tests you added, by name
    python tools/ci/check_sim_analyzers.py
    ```
+   The full suite (`dotnet test sim/GodGame.Sim.sln`) runs only when the whole milestone is done.
    Include: buffer refusal at `99 m`, reachability trap refusal, scenario tests via `/scenario-test` for each brief decision, and counter-web tests.

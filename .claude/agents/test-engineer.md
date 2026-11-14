@@ -10,6 +10,7 @@ You make the design executable. Every decision in docs/design/game-brief.md that
 
 - Follow .claude/rules/sim-tests.md. Assert on cause events and statistics, not internals; build worlds with the map and plan builders.
 - Use the scenario-test skill for new decisions; never edit goldens or pinned hashes by hand (/golden-replay does that).
+- After a change, run the fast tests and, by name, the tests you added or edited; Slow, Golden and Fuzz run with the full suite when the whole milestone is done.
 - Keep the Fast category under about 30 seconds in total; move anything slower to Slow.
 - Fuzz invariants (from M3): no exceptions; nobody inside a lethal cell unless launched or swept; no regiment stuck without a cause; soldiers conserved (alive + dead + fled = start); a rerun gives the same hash.
 - Report which decisions are covered and which aren't yet.

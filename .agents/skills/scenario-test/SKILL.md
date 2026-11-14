@@ -19,7 +19,7 @@ Extract the target decision date and summary from the prompt (for example, `2026
    ```
 3. **Build the minimal world.** Construct the smallest reproducible setup with `MapBuilder` and `PlanBuilder` isolating one variable at a time, paired with a **control case** proving the opposite outcome when that variable is absent.
 4. **Assert on observable outcomes, never internals.** Assert on cause events, causality traces, and battle statistics (casualties by cause, swept, launched, routs, arrival times)—never private buffers or implementation details (`.claude/rules/sim-tests.md`).
-5. **Verify determinism.** Run the scenario twice and across `1`, `4`, and `8` threads (`ThreadedRunner`) plus snapshot/restore where applicable:
+5. **Verify determinism.** Run only this scenario, by name (the full suite waits for the end of the milestone), twice and across `1`, `4`, and `8` threads (`ThreadedRunner`) plus snapshot/restore where applicable:
    ```powershell
    dotnet test sim/GodGame.Sim.sln --filter "FullyQualifiedName~Decision_YYYY_MM_DD"
    ```

@@ -73,8 +73,8 @@ Unity won't start without a license. Add these as environment variables in the c
 
 | What | Command |
 |---|---|
-| Fast simulation tests | `dotnet test sim/GodGame.Sim.sln --filter Category=Fast` |
-| All simulation tests | `dotnet test sim/GodGame.Sim.sln` |
+| Fast simulation tests (unit tests; after every small change) | `dotnet test sim/GodGame.Sim.sln --filter Category=Fast` |
+| All simulation tests (only when a milestone is done) | `dotnet test sim/GodGame.Sim.sln` |
 | Headless placeholder run, per-second hashes | `dotnet run --project sim/tools/GodGame.Sim.Cli -- hash --seconds 180 --out hashes.txt` |
 | Benchmarks | `dotnet run -c Release --project sim/bench/GodGame.Sim.Bench` |
 | Format check | `dotnet csharpier check sim` |

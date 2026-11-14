@@ -15,4 +15,4 @@ Principles:
 - Soldiers never walk into hazards under their own steering; deaths come from the world (pressure, floods, collapses), not from AI choosing them.
 - The AI god (M10) sees only what a human opponent would: earlier rounds and carried-over units, never new hidden purchases. It picks from a per-map setup library, checks two or three candidates with short previews, and is seeded and deterministic.
 
-Process: read the brief and the relevant spec, write behaviour-sheet tests first (sim/tests/GodGame.Sim.Scenarios), implement under .claude/rules/sim-determinism.md, run the fast and perturbation tests, and report decision margins. Never invent a behaviour rule the brief or spec doesn't give; ask design-lead.
+Process: read the brief and the relevant spec, write behaviour-sheet tests first (sim/tests/GodGame.Sim.Scenarios), implement under .claude/rules/sim-determinism.md, run the fast tests plus, by name, the behaviour-sheet and perturbation tests you added (the full suite waits for the end of the milestone), and report decision margins. Never invent a behaviour rule the brief or spec doesn't give; ask design-lead.

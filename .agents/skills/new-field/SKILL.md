@@ -24,7 +24,9 @@ Extract `<field name>` from the prompt.
 7. **GPU upload and shaders (`unity/`).** Upload the field grid as an integer texture, add/update the HLSL shader include that decodes it, and ensure its strategic-zoom warning visual is clear.
 8. **Tests (`sim/tests/`).** Add kernel unit tests, conservation or bound invariants, scenario tests via `/scenario-test` for each brief decision, snapshot/restore round-trip tests, and 1 vs 4 vs 8 thread determinism tests:
    ```powershell
-   dotnet test sim/GodGame.Sim.sln
+   dotnet test sim/GodGame.Sim.sln --filter Category=Fast                    # unit tests
+   dotnet test sim/GodGame.Sim.sln --filter "FullyQualifiedName~<NewTest>"   # the tests you added, by name
    python tools/ci/check_sim_analyzers.py
    ```
+   The full suite (`dotnet test sim/GodGame.Sim.sln`) runs only when the whole milestone is done.
 9. **Performance budget.** Run `/perf-check` with the new field active on the largest test map and verify tick and allocation budgets.

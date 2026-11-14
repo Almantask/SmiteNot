@@ -30,4 +30,6 @@ Run these checks in parallel first (Antigravity does not auto-expand shell snipp
    - Relevant workspace workflows (`/new-field`, `/new-power`, `/new-terrain-piece`, `/new-unit-type`, `/scenario-test`, `/perf-check`, `/golden-replay`, `/unity-tests`)
    - Concrete unit, scenario, and determinism tests to add
    - Reminder: commits happen directly on `main` (one checklist item per commit) and push straight to `origin/main`.
+   - Reminder: after each small change run only the unit tests (`dotnet test sim/GodGame.Sim.sln --filter Category=Fast`, Unity Edit Mode), plus the new tests by name.
 5. **Open questions check:** If the proposed item touches an open question in `docs/implementation-plan.md` section 10 or `docs/design/game-brief.md`, name the question and state the plan's working default.
+6. **Milestone close-out:** If every checklist item is ticked, or the proposed item is the last open one, add the close-out: once it lands, run all tests (`dotnet test sim/GodGame.Sim.sln`, every category, and `/unity-tests all`) and fix what fails before the milestone counts as done.

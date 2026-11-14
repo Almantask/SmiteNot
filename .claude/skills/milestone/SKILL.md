@@ -23,3 +23,4 @@ Then:
 3. List the unchecked items. If recent commits seem to complete one, verify in the code and offer to tick it.
 4. Propose the next item: the smallest unblocked item on the critical path. Give the agent(s), the skills and the tests to add. Work happens on main (no branch), and the finished item is pushed straight to origin/main.
 5. If the item depends on an open question (docs/implementation-plan.md section 10), name it and the working default.
+6. If every checklist item is ticked, or the proposed item is the last open one, add the close-out: once it lands, run all tests (`dotnet test sim/GodGame.Sim.sln`, every category, and the unity-tests skill with `all`) and fix what fails before the milestone counts as done. Until then, work runs only the unit tests (CLAUDE.md, Workflow).

@@ -13,6 +13,7 @@ namespace GodGame.Sim
             XCm = new int[count];
             YCm = new int[count];
             State = new byte[count];
+            HeightCm = new short[count];
         }
 
         public int Tick { get; }
@@ -27,6 +28,12 @@ namespace GodGame.Sim
 
         /// <summary><see cref="Alive"/> plus the low <see cref="UnitFlags"/> (launched, stunned, teetering, swept).</summary>
         public byte[] State { get; }
+
+        /// <summary>
+        /// A launched soldier's height above the map datum, in centimetres (spec S2 9.1); 0 for soldiers on the ground,
+        /// who stand at the terrain's height.
+        /// </summary>
+        public short[] HeightCm { get; }
 
         public const byte Alive = 0x80;
     }
@@ -204,6 +211,15 @@ namespace GodGame.Sim
                 sample.XCm[u] = (int)(world.Position[u].X.Raw * 100 >> Fix.FractionalBits);
                 sample.YCm[u] = (int)(world.Position[u].Y.Raw * 100 >> Fix.FractionalBits);
                 sample.State[u] = (byte)(UnitSample.Alive | ((uint)world.Flags[u] & 0x0F));
+                if ((world.Flags[u] & UnitFlags.Launched) != 0)
+                {
+                    // Centimetres fit a short for any height within ±327 m of the datum.
+                    sample.HeightCm[u] = (short)
+                        System.Math.Max(
+                            short.MinValue,
+                            System.Math.Min(short.MaxValue, world.Ballistic.HeightMm[u] / 10)
+                        );
+                }
             }
             Append(_samples, ref _sampleCount, sample);
         }

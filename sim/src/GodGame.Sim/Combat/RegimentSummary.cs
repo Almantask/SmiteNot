@@ -15,6 +15,7 @@ namespace GodGame.Sim
         private long[] _sumY = new long[0];
         private long[] _sumVx = new long[0];
         private long[] _sumVy = new long[0];
+        private int[] _grounded = new int[0];
 
         public int[] Count { get; private set; } = new int[0];
 
@@ -51,7 +52,9 @@ namespace GodGame.Sim
                 _sumY = new long[n];
                 _sumVx = new long[n];
                 _sumVy = new long[n];
+                _grounded = new int[n];
             }
+            Array.Clear(_grounded, 0, n);
             Array.Clear(Count, 0, n);
             Array.Clear(Swept, 0, n);
             Array.Clear(_sumX, 0, n);
@@ -80,8 +83,13 @@ namespace GodGame.Sim
                 }
                 _sumX[r] += p.X.Raw;
                 _sumY[r] += p.Y.Raw;
-                _sumVx[r] += world.Velocity[u].X.Raw;
-                _sumVy[r] += world.Velocity[u].Y.Raw;
+                if ((world.Flags[u] & UnitFlags.Launched) == 0)
+                {
+                    // An airborne body's arc isn't the regiment's walk (it still counts in the outline).
+                    _sumVx[r] += world.Velocity[u].X.Raw;
+                    _sumVy[r] += world.Velocity[u].Y.Raw;
+                    _grounded[r]++;
+                }
                 long x = Mm(p.X.Raw);
                 long y = Mm(p.Y.Raw);
                 MinX[r] = System.Math.Min(MinX[r], x);
@@ -99,10 +107,11 @@ namespace GodGame.Sim
                     continue;
                 }
                 Centroid[r] = new FixVec2(Fix.FromRaw(_sumX[r] / c), Fix.FromRaw(_sumY[r] / c));
-                MeanVelocity[r] = new FixVec2(
-                    Fix.FromRaw(_sumVx[r] / c),
-                    Fix.FromRaw(_sumVy[r] / c)
-                );
+                int g = _grounded[r];
+                MeanVelocity[r] =
+                    g == 0
+                        ? FixVec2.Zero
+                        : new FixVec2(Fix.FromRaw(_sumVx[r] / g), Fix.FromRaw(_sumVy[r] / g));
             }
         }
 

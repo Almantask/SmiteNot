@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Launches, ruleset v0",
+  "description": "Read by GodGame.Sim.Rules.RulesetLoader (spec S2 section 9). Numbers are integers; unknown keys are rejected.",
+  "type": "object",
+  "required": [
+    "version",
+    "gravityMmPerS2",
+    "spinMinCdPerS",
+    "spinMaxCdPerS",
+    "spreadHeadingCd",
+    "spreadSpeedPermille",
+    "sources",
+    "landings",
+    "knockDown",
+    "previewCellMm"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "landing": {
+      "type": "object",
+      "required": ["damage", "stunTicks"],
+      "additionalProperties": false,
+      "properties": {
+        "damage": { "type": "integer", "minimum": 0, "maximum": 1000000, "description": "Health points lost on landing" },
+        "stunTicks": { "type": "integer", "minimum": 1, "maximum": 1200, "description": "Ticks stunned after landing" },
+        "withinMm": { "type": "integer", "minimum": 0, "maximum": 10000, "description": "Fringe only: deep water within this many mm of a standable cell only stuns" },
+        "dropMm": { "type": "integer", "minimum": 1, "maximum": 1000000, "description": "Hard fall only: a landing at least this many mm below the launch surface hurts" }
+      }
+    }
+  },
+  "properties": {
+    "$comment": { "type": "string" },
+    "version": { "const": 0 },
+    "status": { "enum": ["placeholder", "settled"], "description": "placeholder: numbers no spec has set yet" },
+    "gravityMmPerS2": { "type": "integer", "minimum": 1, "maximum": 100000, "description": "Gravity for launched bodies, mm/s2" },
+    "spinMinCdPerS": { "type": "integer", "minimum": 0, "maximum": 3600000, "description": "Slowest tumble, centi-degrees per second" },
+    "spinMaxCdPerS": { "type": "integer", "minimum": 0, "maximum": 3600000, "description": "Fastest tumble, centi-degrees per second" },
+    "spreadHeadingCd": { "type": "integer", "minimum": 0, "maximum": 18000, "description": "Heading spread either side, centi-degrees" },
+    "spreadSpeedPermille": { "type": "integer", "minimum": 0, "maximum": 900, "description": "Speed spread either side, permille" },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "horizontalMmPerS", "verticalMmPerS", "heading"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "horizontalMmPerS": { "type": "integer", "minimum": 0, "maximum": 50000, "description": "Launch speed along the ground, mm/s" },
+          "verticalMmPerS": { "type": "integer", "minimum": 1, "maximum": 50000, "description": "Launch speed upward, mm/s" },
+          "heading": { "enum": ["rider", "herd-run", "away-from-trunk", "away-from-impact", "seeded"] }
+        }
+      }
+    },
+    "landings": {
+      "type": "object",
+      "required": ["ground", "ice", "shallowWater", "fringe", "hardFall", "hardBlocker"],
+      "additionalProperties": false,
+      "properties": {
+        "ground": { "$ref": "#/$defs/landing" },
+        "ice": { "$ref": "#/$defs/landing" },
+        "shallowWater": { "$ref": "#/$defs/landing" },
+        "fringe": { "$ref": "#/$defs/landing" },
+        "hardFall": { "$ref": "#/$defs/landing" },
+        "hardBlocker": { "$ref": "#/$defs/landing" }
+      }
+    },
+    "knockDown": {
+      "type": "object",
+      "required": ["radiusMm", "staggerTicks"],
+      "additionalProperties": false,
+      "properties": {
+        "radiusMm": { "type": "integer", "minimum": 0, "maximum": 10000, "description": "Soldiers on their feet within this many mm of a landing are knocked down" },
+        "staggerTicks": { "type": "integer", "minimum": 1, "maximum": 1200, "description": "Ticks a knocked-down soldier stays down" }
+      }
+    },
+    "previewCellMm": { "type": "integer", "minimum": 100, "maximum": 100000, "description": "Cell size of the landing-spread preview, mm" }
+  }
+}

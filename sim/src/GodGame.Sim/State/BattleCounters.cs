@@ -31,6 +31,12 @@ namespace GodGame.Sim
         /// <summary>Deck segments (bridges, ice) that failed.</summary>
         public int SegmentsFailed { get; internal set; }
 
+        /// <summary>Launched soldiers who came down at least a lethal drop below where they were thrown from (S2 9.3).</summary>
+        public int Fell { get; internal set; }
+
+        /// <summary>Launched soldiers killed by the damage of their landing (ground, a hard fall, a blocker).</summary>
+        public int LandingKilled { get; internal set; }
+
         internal void WriteTo(ByteWriter writer)
         {
             writer.WriteInt32(Swept);
@@ -40,6 +46,8 @@ namespace GodGame.Sim
             writer.WriteInt32(Killed);
             writer.WriteInt32(Fled);
             writer.WriteInt32(SegmentsFailed);
+            writer.WriteInt32(Fell);
+            writer.WriteInt32(LandingKilled);
         }
 
         internal void ReadFrom(ByteReader reader)
@@ -51,6 +59,8 @@ namespace GodGame.Sim
             Killed = reader.ReadInt32();
             Fled = reader.ReadInt32();
             SegmentsFailed = reader.ReadInt32();
+            Fell = reader.ReadInt32();
+            LandingKilled = reader.ReadInt32();
             if (
                 Swept < 0
                 || Drowned < 0
@@ -59,6 +69,8 @@ namespace GodGame.Sim
                 || Killed < 0
                 || Fled < 0
                 || SegmentsFailed < 0
+                || Fell < 0
+                || LandingKilled < 0
             )
             {
                 throw new FormatException("Snapshot counters are negative.");
@@ -74,6 +86,8 @@ namespace GodGame.Sim
             hash.AppendInt32(Killed);
             hash.AppendInt32(Fled);
             hash.AppendInt32(SegmentsFailed);
+            hash.AppendInt32(Fell);
+            hash.AppendInt32(LandingKilled);
         }
     }
 }

@@ -9,12 +9,11 @@ namespace GodGame.Sim
     /// segments' strength; each standing segment's load is the mass of the units whose centre is on it (not swept ones);
     /// its strain stage follows load ÷ strength with hysteresis, for the player's eyes only; at or over strength for
     /// <see cref="StructureRules.FailChecks"/> checks in a row it fails. A failed segment's cells fall back to what lies
-    /// below, its neighbours lose strength (lost support), and the units on it go into the water: swept if the water
-    /// below sweeps their class (on broken ice always, with the cold-water timer), else stunned where they land.
-    /// <para>
-    /// The launch arc between the deck and the water joins with launches (M5 item 5); until then a collapse puts its
-    /// units straight into the state they would land in.
-    /// </para>
+    /// below, its neighbours lose strength (lost support), and the units on it go down (S2 8.4): off a failed bridge,
+    /// trestle or pontoon deck they are launched with the collapse source and land on what lies below (usually water:
+    /// swept, or stunned in the fringe; see <see cref="BallisticsSystem"/>); through broken ice they are swept at once,
+    /// with the cold-water timer; off a floating deck the current tore loose (a surge) they are swept at once, carried
+    /// off with the boats.
     /// <para>Determinism: serial, in unit then segment order; everything that persists is in <see cref="StructureStates"/>.</para>
     /// </summary>
     public sealed class LoadSystem : ISimSystem
@@ -297,10 +296,13 @@ namespace GodGame.Sim
                     states.Strength[n] = System.Math.Max(0, states.Strength[n] - loss);
                 }
             }
+            // A wooden or stone deck drops its units from its own height (a floating one from the water it rode on).
+            var terrain = _navigation.Terrain;
+            var collapse = _rules.Launches.Source("collapse");
+            bool launches = !ice && !sweepsAll && collapse != null;
             _navigation.SegmentFailed(context, s);
 
             // The units on it go into what lies below (S2 8.4).
-            var terrain = _navigation.Terrain;
             var fields = world.Fields;
             var water = _rules.Fields.Water;
             var depth = fields != null && water != null ? fields.Get(WaterModel.Depth) : null;
@@ -317,6 +319,28 @@ namespace GodGame.Sim
                 int cell = terrain.Index(x, y);
                 if (terrain.SegmentAt(cell) != s)
                 {
+                    continue;
+                }
+                if (launches)
+                {
+                    int surface = segment.Kind.Floats
+                        ? Ballistics.SurfaceMm(terrain, world, x, y)
+                        : System.Math.Max(
+                            segment.DeckHeightMm,
+                            Ballistics.SurfaceMm(terrain, world, x, y)
+                        );
+                    Ballistics.Launch(
+                        world,
+                        _rules.Launches,
+                        u,
+                        collapse!,
+                        s, // the segment: its stable identity seeds the spread
+                        null,
+                        failed,
+                        context.Tick,
+                        context.Seed,
+                        surface
+                    );
                     continue;
                 }
                 var cls = _rules.UnitTypes[world.UnitType[u]].MovementClass;

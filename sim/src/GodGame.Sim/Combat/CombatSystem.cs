@@ -400,7 +400,11 @@ namespace GodGame.Sim
             for (int k = 0; k < System.Math.Min(found, _candidates.Length); k++)
             {
                 int u = _candidates[k];
-                if (world.UnitRegiment[u] == target && world.Health[u] > 0)
+                if (
+                    world.UnitRegiment[u] == target
+                    && world.Health[u] > 0
+                    && (world.Flags[u] & UnitFlags.Launched) == 0
+                )
                 {
                     _candidates[count++] = u;
                 }
@@ -492,7 +496,11 @@ namespace GodGame.Sim
                     for (int k = 0; k < count; k++)
                     {
                         int j = neighbours[k];
-                        if (j == u || w.RegimentSide[w.UnitRegiment[j]] == side)
+                        if (
+                            j == u
+                            || w.RegimentSide[w.UnitRegiment[j]] == side
+                            || (w.Flags[j] & UnitFlags.Launched) != 0
+                        )
                         {
                             continue;
                         }

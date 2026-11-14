@@ -1,0 +1,27 @@
+{
+  "$comment": "Launches (ruleset v0; spec S2 section 9, settled 2026-11-07; numbers are proposals from docs/design/s2-data/launches.json). Integers only: mm, mm/s, mm/s2, cd (centi-degrees), cd/s, ticks at 20 per second, permille, health points. A launched soldier is a ballistic body under reduced gravity (gravityMmPerS2); flight = 2 x vertical / gravity, distance = horizontal x flight. Each source gives a launch speed before the spread; its heading is the rider's, the herd's run, away from the trunk or the stone, or seeded (a collapse: any direction). The spread, seeded per (source event, soldier) and never from contact geometry: heading +- spreadHeadingCd, speed +- spreadSpeedPermille (both components). Spin is seeded between spinMinCdPerS and spinMaxCdPerS. Landings (S2 9.3): ground, a standing deck and intact ice take damage and a stun; shallow water (not sweeping for the class) stuns only; deep or sweeping water within fringe.withinMm of a cell the class can stand in snaps him to that cell, stunned, no damage; beyond the fringe he is swept (S1's swept state and drowning timer). Measured from the surface he was launched from: landing ground hazards.json lethalDropMm or more lower kills (cause fell); hardFall.dropMm or more lower hurts. A hard blocker (a boulder, a wall) moves him back along his arc to the nearest open cell, hurt. Thrown off the map he is clamped to the edge cell and lands as on ground. Every landing knocks down the soldiers on their feet within knockDown.radiusMm (stunned staggerTicks, no damage); knocked-down soldiers knock nobody down. Burning landings wait for fire (M5 item 7). previewCellMm: the landing-spread preview's cell.",
+  "version": 0,
+  "status": "placeholder",
+  "gravityMmPerS2": 4000,
+  "spinMinCdPerS": 36000,
+  "spinMaxCdPerS": 108000,
+  "spreadHeadingCd": 2500,
+  "spreadSpeedPermille": 200,
+  "sources": [
+    { "id": "charge", "horizontalMmPerS": 5000, "verticalMmPerS": 6000, "heading": "rider" },
+    { "id": "stampede", "horizontalMmPerS": 6000, "verticalMmPerS": 7000, "heading": "herd-run" },
+    { "id": "falling-tree", "horizontalMmPerS": 3000, "verticalMmPerS": 5000, "heading": "away-from-trunk" },
+    { "id": "siege-stone", "horizontalMmPerS": 4000, "verticalMmPerS": 6000, "heading": "away-from-impact" },
+    { "id": "collapse", "horizontalMmPerS": 1000, "verticalMmPerS": 2000, "heading": "seeded" }
+  ],
+  "landings": {
+    "ground": { "damage": 10, "stunTicks": 60 },
+    "ice": { "damage": 10, "stunTicks": 60 },
+    "shallowWater": { "damage": 0, "stunTicks": 60 },
+    "fringe": { "withinMm": 2000, "damage": 0, "stunTicks": 60 },
+    "hardFall": { "dropMm": 2000, "damage": 40, "stunTicks": 80 },
+    "hardBlocker": { "damage": 20, "stunTicks": 60 }
+  },
+  "knockDown": { "radiusMm": 1000, "staggerTicks": 20 },
+  "previewCellMm": 1500
+}

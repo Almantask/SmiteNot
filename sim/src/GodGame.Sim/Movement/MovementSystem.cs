@@ -325,8 +325,12 @@ namespace GodGame.Sim
                 if (world.Units.IsAlive(u))
                 {
                     int r = world.UnitRegiment[u];
-                    sumX[r] += world.Velocity[u].X.Raw;
-                    sumY[r] += world.Velocity[u].Y.Raw;
+                    if ((world.Flags[u] & UnitFlags.Launched) == 0)
+                    {
+                        // An airborne body's arc isn't the regiment's walk.
+                        sumX[r] += world.Velocity[u].X.Raw;
+                        sumY[r] += world.Velocity[u].Y.Raw;
+                    }
                     if (promote && _leaderless[r] && !Down(world.Flags[u]))
                     {
                         int current = world.RegimentAnchor[r];
@@ -496,9 +500,9 @@ namespace GodGame.Sim
             }
         }
 
-        /// <summary>Swept or stunned: not on its feet, so it neither steers nor leads.</summary>
+        /// <summary>Swept, stunned or airborne: not on its feet, so it neither steers nor leads.</summary>
         private static bool Down(UnitFlags flags) =>
-            (flags & (UnitFlags.Swept | UnitFlags.Stunned)) != 0;
+            (flags & (UnitFlags.Swept | UnitFlags.Stunned | UnitFlags.Launched)) != 0;
 
         private readonly struct Kernel : IChunkKernel
         {
@@ -544,6 +548,13 @@ namespace GodGame.Sim
                         FixVec2 drift = Drift(type, p);
                         _s._newPosition[u] = Clamp(p + drift, maxX, maxY);
                         _s._newVelocity[u] = drift;
+                        continue;
+                    }
+                    if ((flags & UnitFlags.Launched) != 0)
+                    {
+                        // Airborne: the ballistics step flies him; nobody pushes him and he pushes nobody.
+                        _s._newPosition[u] = p;
+                        _s._newVelocity[u] = velocity[u];
                         continue;
                     }
                     if ((flags & UnitFlags.Stunned) != 0)
@@ -692,7 +703,7 @@ namespace GodGame.Sim
                     for (int k = 0; k < count; k++)
                     {
                         int j = neighbours[k];
-                        if (j == u)
+                        if (j == u || (_world.Flags[j] & UnitFlags.Launched) != 0)
                         {
                             continue;
                         }

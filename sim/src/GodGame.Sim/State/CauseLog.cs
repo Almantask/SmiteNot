@@ -51,6 +51,25 @@ namespace GodGame.Sim
 
         /// <summary>A deck segment failed under its load. Subject: the segment; detail: 1 bridge, 2 ice; cause: the latest Rot on it.</summary>
         SegmentFailed = 15,
+
+        /// <summary>
+        /// A soldier was launched (spec S2 9). Subject: his regiment; detail: the source's stable identity
+        /// (<see cref="Ballistics.SourceId"/>: the source kind and its key, such as the failed segment); cause: the source
+        /// event (a failed segment, a charge contact, a stampede).
+        /// </summary>
+        SoldierLaunched = 16,
+
+        /// <summary>
+        /// A launched soldier came down. Subject: his regiment; detail: <see cref="Landing.Detail"/> (the landing cell and
+        /// the <see cref="LandingOutcome"/>); cause: his launch.
+        /// </summary>
+        SoldierLanded = 17,
+
+        /// <summary>
+        /// A soldier died of his landing: off a cliff (landing outcome Fell) or killed by the landing's damage (outcome
+        /// Killed). Subject: his regiment; detail: his unit slot; cause: his landing, whose outcome tells which.
+        /// </summary>
+        SoldierFell = 18,
     }
 
     /// <summary>One entry in the cause log: what, when, and the (up to two) earlier events that caused it.</summary>
@@ -243,7 +262,7 @@ namespace GodGame.Sim
                 int cause2 = reader.ReadInt32();
                 if (
                     kind < (byte)CauseKind.CastFired
-                    || kind > (byte)CauseKind.SegmentFailed
+                    || kind > (byte)CauseKind.SoldierFell
                     || cause < None
                     || cause >= i
                     || cause2 < None

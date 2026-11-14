@@ -382,6 +382,9 @@ namespace GodGame.Sim.Rules
         /// <summary>Decks, load, strain and collapse (<c>load.json</c>).</summary>
         public StructureRules Structures { get; internal set; } = new StructureRules();
 
+        /// <summary>Launched soldiers and their landings (<c>launches.json</c>).</summary>
+        public LaunchRules Launches { get; internal set; } = new LaunchRules();
+
         /// <summary>The specialist executor's actions (<c>specialists.json</c>).</summary>
         public SpecialistRules Specialists { get; internal set; } = new SpecialistRules();
 

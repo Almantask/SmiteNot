@@ -50,9 +50,9 @@ namespace GodGame.Sim
             int tick = context.Tick;
             for (int u = 0; u < world.Units.HighWater; u++)
             {
-                if (!world.Units.IsAlive(u))
+                if (!world.Units.IsAlive(u) || (world.Flags[u] & UnitFlags.Launched) != 0)
                 {
-                    continue;
+                    continue; // airborne: the water under him matters only once he lands
                 }
                 var flags = world.Flags[u];
                 long depthMm = 0;

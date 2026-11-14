@@ -120,6 +120,7 @@ namespace GodGame.Sim
             Flags = new UnitFlags[unitCapacity];
             FormationSlot = new int[unitCapacity];
             HazardTimer = new int[unitCapacity];
+            Ballistic = new BallisticState(unitCapacity);
 
             RegimentSide = new Side[regimentCapacity];
             RegimentUnitType = new int[regimentCapacity];
@@ -177,6 +178,9 @@ namespace GodGame.Sim
         /// crowd pushes it over while <see cref="UnitFlags.Teetering"/>. 0 otherwise.
         /// </summary>
         public int[] HazardTimer { get; }
+
+        /// <summary>Launched soldiers' arcs (spec S2 9.1); zero for every soldier who isn't <see cref="UnitFlags.Launched"/>.</summary>
+        public BallisticState Ballistic { get; }
 
         /// <summary>The ground as soldiers changed it this battle (dug and filled cells, spec S2 section 14).</summary>
         public GroundEdits Ground { get; } = new GroundEdits();
@@ -290,6 +294,7 @@ namespace GodGame.Sim
             Morale[u] = 0;
             Flags[u] = UnitFlags.None;
             HazardTimer[u] = 0;
+            Ballistic.Clear(u);
             if (Causes != null)
             {
                 // A reused slot must never inherit this soldier's links.
@@ -358,6 +363,7 @@ namespace GodGame.Sim
                 writer.WriteInt32(FormationSlot[u]);
                 writer.WriteInt32(HazardTimer[u]);
             }
+            Ballistic.WriteTo(writer);
             for (int r = 0; r < Regiments.Capacity; r++)
             {
                 writer.WriteByte((byte)RegimentSide[r]);
@@ -427,6 +433,19 @@ namespace GodGame.Sim
                     {
                         throw new FormatException("A unit's hazard state is invalid.");
                     }
+                    if ((Flags[u] & UnitFlags.Launched) != 0)
+                    {
+                        // Airborne: no hazard state until he lands.
+                        if (hazard != UnitFlags.None)
+                        {
+                            throw new FormatException("A launched unit is also in a hazard state.");
+                        }
+                        Ballistic.Check(u, Causes?.Events.Count ?? 0);
+                    }
+                    else if (!Ballistic.IsClear(u))
+                    {
+                        throw new FormatException("A unit on the ground has an arc.");
+                    }
                     if (FormationSlot[u] < 0 || FormationSlot[u] >= RegimentStartingSize[r])
                     {
                         throw new FormatException(
@@ -445,6 +464,7 @@ namespace GodGame.Sim
                     || Flags[u] != UnitFlags.None
                     || FormationSlot[u] != 0
                     || HazardTimer[u] != 0
+                    || !Ballistic.IsClear(u)
                 )
                 {
                     throw new FormatException("A dead unit slot is not zero.");
@@ -550,6 +570,7 @@ namespace GodGame.Sim
                 FormationSlot[u] = reader.ReadInt32();
                 HazardTimer[u] = reader.ReadInt32();
             }
+            Ballistic.ReadFrom(reader);
             for (int r = 0; r < Regiments.Capacity; r++)
             {
                 byte side = reader.ReadByte();
@@ -620,6 +641,10 @@ namespace GodGame.Sim
                 hash.AppendInt32(unchecked((int)Flags[u]));
                 hash.AppendInt32(FormationSlot[u]);
                 hash.AppendInt32(HazardTimer[u]);
+                if ((Flags[u] & UnitFlags.Launched) != 0)
+                {
+                    Ballistic.AppendTo(hash, u);
+                }
             }
             for (int r = 0; r < Regiments.HighWater; r++)
             {

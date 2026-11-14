@@ -161,7 +161,7 @@ public static class Program
         Console.WriteLine(
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"killed {c.Killed}, fled {c.Fled}, drowned {c.Drowned}, swept {c.Swept}, pushed over {c.PushedOver}"
+                $"killed {c.Killed}, fled {c.Fled}, drowned {c.Drowned}, swept {c.Swept}, pushed over {c.PushedOver}, fell {c.Fell}, killed landing {c.LandingKilled}"
             )
         );
         if (battle.Rules.HasPlaceholders)

@@ -39,6 +39,8 @@ namespace GodGame.Sim.Rules
 
         public const string LoadFile = "load.json";
 
+        public const string LaunchesFile = "launches.json";
+
         public const int TerrainVersion = 0;
 
         public const int PowersVersion = 0;
@@ -97,6 +99,7 @@ namespace GodGame.Sim.Rules
             JsonValue? moraleJson = null;
             JsonValue? specialistsJson = null;
             JsonValue? loadJson = null;
+            JsonValue? launchesJson = null;
             foreach (var file in files)
             {
                 var value = JsonReader.Parse(file.Value, file.Key);
@@ -148,6 +151,10 @@ namespace GodGame.Sim.Rules
                 else if (string.Equals(file.Key, LoadFile, StringComparison.Ordinal))
                 {
                     loadJson = value;
+                }
+                else if (string.Equals(file.Key, LaunchesFile, StringComparison.Ordinal))
+                {
+                    launchesJson = value;
                 }
                 else
                 {
@@ -220,6 +227,11 @@ namespace GodGame.Sim.Rules
                 throw new DataFormatException(SpecialistsFile + " is missing.");
             }
             var specialists = ReadSpecialists(specialistsJson, ref placeholders);
+            if (launchesJson == null)
+            {
+                throw new DataFormatException(LaunchesFile + " is missing.");
+            }
+            var launches = ReadLaunches(launchesJson, ref placeholders);
             ResolveUnitTypes(unitTypesJson, unitTypes, combat, specialists);
             return new Ruleset(
                 unitTypes,
@@ -240,6 +252,7 @@ namespace GodGame.Sim.Rules
                 Morale = morale,
                 Specialists = specialists,
                 Structures = structures,
+                Launches = launches,
             };
         }
 
@@ -643,6 +656,124 @@ namespace GodGame.Sim.Rules
                 combat.SmallRegimentSoldiers = root.Int("smallRegimentSoldiers", 0, 100_000);
             }
             return combat;
+        }
+
+        /// <summary>Launches (<c>launches.json</c>, spec S2 section 9).</summary>
+        private static LaunchRules ReadLaunches(JsonValue root, ref bool placeholders)
+        {
+            root.OnlyKeys(
+                "$comment",
+                "version",
+                "status",
+                "gravityMmPerS2",
+                "spinMinCdPerS",
+                "spinMaxCdPerS",
+                "spreadHeadingCd",
+                "spreadSpeedPermille",
+                "sources",
+                "landings",
+                "knockDown",
+                "previewCellMm"
+            );
+            if (root.Int("version") != 0)
+            {
+                throw new DataFormatException(root.Path + ": version must be 0.");
+            }
+            placeholders |= ReadStatus(root);
+            int spinMin = root.Int("spinMinCdPerS", 0, 3_600_000);
+            var sources = new List<LaunchSourceRules>();
+            foreach (var item in root.Array("sources"))
+            {
+                item.OnlyKeys("$comment", "id", "horizontalMmPerS", "verticalMmPerS", "heading");
+                string id = item.Str("id");
+                foreach (var other in sources)
+                {
+                    if (string.Equals(other.Id, id, StringComparison.Ordinal))
+                    {
+                        throw new DataFormatException(
+                            item.Path + ": launch source \"" + id + "\" appears twice."
+                        );
+                    }
+                }
+                string heading = item.Str("heading");
+                LaunchHeading h =
+                    heading == "rider" ? LaunchHeading.Rider
+                    : heading == "herd-run" ? LaunchHeading.HerdRun
+                    : heading == "away-from-trunk" ? LaunchHeading.AwayFromTrunk
+                    : heading == "away-from-impact" ? LaunchHeading.AwayFromImpact
+                    : heading == "seeded" ? LaunchHeading.Seeded
+                    : throw new DataFormatException(
+                        item.Path + ": unknown launch heading \"" + heading + "\"."
+                    );
+                sources.Add(
+                    new LaunchSourceRules(
+                        sources.Count,
+                        id,
+                        item.Int("horizontalMmPerS", 0, 50_000),
+                        item.Int("verticalMmPerS", 1, 50_000),
+                        h
+                    )
+                );
+            }
+            if (sources.Count > 64)
+            {
+                throw new DataFormatException(root.Path + ": at most 64 launch sources.");
+            }
+            bool collapse = false;
+            foreach (var source in sources)
+            {
+                collapse |= string.Equals(source.Id, "collapse", StringComparison.Ordinal);
+            }
+            if (!collapse)
+            {
+                // A failed bridge segment launches its units with it (S2 8.4).
+                throw new DataFormatException(
+                    root.Path + ": the \"collapse\" launch source is missing."
+                );
+            }
+            var landings = root["landings"];
+            landings.OnlyKeys(
+                "$comment",
+                "ground",
+                "ice",
+                "shallowWater",
+                "fringe",
+                "hardFall",
+                "hardBlocker"
+            );
+            LandingRules Landing(string key, params string[] extra)
+            {
+                var item = landings[key];
+                var keys = new List<string> { "$comment", "damage", "stunTicks" };
+                keys.AddRange(extra);
+                item.OnlyKeys(keys.ToArray());
+                return new LandingRules(
+                    item.Int("damage", 0, 1_000_000),
+                    item.Int("stunTicks", 1, 1_200)
+                );
+            }
+            var knock = root["knockDown"];
+            knock.OnlyKeys("$comment", "radiusMm", "staggerTicks");
+            return new LaunchRules
+            {
+                GravityMmPerS2 = root.Int("gravityMmPerS2", 1, 100_000),
+                SpinMinCdPerS = spinMin,
+                SpinMaxCdPerS = root.Int("spinMaxCdPerS", spinMin, 3_600_000),
+                SpreadHeadingCd = root.Int("spreadHeadingCd", 0, 18_000),
+                SpreadSpeedPermille = root.Int("spreadSpeedPermille", 0, 900),
+                Sources = sources,
+                Ground = Landing("ground"),
+                Ice = Landing("ice"),
+                ShallowWater = Landing("shallowWater"),
+                Fringe = Landing("fringe", "withinMm"),
+                FringeMm = landings["fringe"].Int("withinMm", 0, 10_000),
+                HardFall = Landing("hardFall", "dropMm"),
+                HardFallDropMm = landings["hardFall"].Int("dropMm", 1, 1_000_000),
+                HardBlocker = Landing("hardBlocker"),
+                KnockDownRadiusMm = knock.Int("radiusMm", 0, 10_000),
+                KnockDownTicks = knock.Int("staggerTicks", 1, 1_200),
+                PreviewCellMm = root.Int("previewCellMm", 100, 100_000),
+            };
         }
 
         private static StructureRules ReadStructures(JsonValue root, ref bool placeholders)

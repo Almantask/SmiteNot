@@ -1,0 +1,24 @@
+{
+  "$comment": "M5 wide map for trying powers in the planning player: 1000 x 900 m, flat, calm. The attacker zone reaches 150 m in from the west edge and the defender zone from 550 m to the east edge, leaving 400 m of open ground between them: room for god powers cast more than 100 m from both armies (the range rule) while the attackers march across. The 300 m north and south of the armies, deployed in the middle of the map's depth, leave room for casts there too. The m5-wide plan puts the m5-melee armies on it; the combat golden stays on the compact m5-field, where they meet within three minutes.",
+  "version": 0,
+  "id": "m5-wide",
+  "widthMm": 1000000,
+  "depthMm": 900000,
+  "cellSizeMm": 1500,
+  "deployment": [
+    {
+      "side": "attacker",
+      "minXMm": 0,
+      "minYMm": 0,
+      "maxXMm": 150000,
+      "maxYMm": 900000
+    },
+    {
+      "side": "defender",
+      "minXMm": 550000,
+      "minYMm": 0,
+      "maxXMm": 1000000,
+      "maxYMm": 900000
+    }
+  ]
+}

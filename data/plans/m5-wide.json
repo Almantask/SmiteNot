@@ -1,0 +1,117 @@
+{
+  "$comment": "M5 wide plan for the planning player: the m5-melee armies (six attacking regiments of 200 infantry, cavalry and archers against six defending infantry and archers, 2,400 soldiers) on m5-wide, 455 m apart in the middle of the map's depth (y 340-560 m), leaving room between and beside them for casts more than 100 m from both armies. The attackers need about five minutes to reach the defenders.",
+  "version": 0,
+  "map": "m5-wide",
+  "army": [
+    {
+      "id": "a00",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 120000,
+      "yMm": 340000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d00",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 575000,
+      "yMm": 340000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "a01",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 120000,
+      "yMm": 384000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d01",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 200,
+      "xMm": 575000,
+      "yMm": 384000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "a02",
+      "side": "attacker",
+      "unitType": "cavalry",
+      "soldiers": 200,
+      "xMm": 120000,
+      "yMm": 428000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d02",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 575000,
+      "yMm": 428000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "a03",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 120000,
+      "yMm": 472000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d03",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 575000,
+      "yMm": 472000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "a04",
+      "side": "attacker",
+      "unitType": "ranged",
+      "soldiers": 200,
+      "xMm": 120000,
+      "yMm": 516000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d04",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 200,
+      "xMm": 575000,
+      "yMm": 516000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "a05",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 120000,
+      "yMm": 560000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "d05",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 200,
+      "xMm": 575000,
+      "yMm": 560000,
+      "facingCentiDegrees": 18000
+    }
+  ],
+  "terrain": [],
+  "casts": []
+}

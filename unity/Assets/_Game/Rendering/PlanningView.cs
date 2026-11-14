@@ -64,6 +64,9 @@ namespace GodGame.Rendering
         private MapData _map;
         private Terrain _terrain;
         private PlanEditor _editor;
+
+        /// <summary>The plan as loaded from disk: [R] puts it back.</summary>
+        private BattlePlan _loadedPlan;
         private PreviewWorker _worker;
         private TrackReader _reader;
         private TrackReader _ghostReader;
@@ -138,6 +141,7 @@ namespace GodGame.Rendering
             _rules = RepoLoader.LoadRules(repo);
             _map = RepoLoader.LoadMap(repo, _mapId);
             var plan = RepoLoader.LoadPlan(repo, _planFile, _map, _rules);
+            _loadedPlan = plan;
             _editor = new PlanEditor(plan, _map, _rules);
             var battle = new Battle(_rules, _map, plan, 1);
             _worker = new PreviewWorker(
@@ -589,7 +593,7 @@ namespace GodGame.Rendering
             }
             _hud.text = string.Format(
                 CultureInfo.InvariantCulture,
-                "{0}  {1} / {2}  filled {3:0}%{4}{5}\ntool [1-4] {6}  radius [ ] {7} m  play [Space]  ghost [G] {8}  hold [V] speed  hold [N] no-cast rings  trace [right-click]  {9:0} fps{10}{11}",
+                "{0}  {1} / {2}  filled {3:0}%{4}{5}\ntool [1-4] {6}  radius [ ] {7} m  play [Space]  reset [R]  ghost [G] {8}  hold [V] speed  hold [N] no-cast rings  trace [right-click]  {9:0} fps{10}{11}",
                 _mapId,
                 CauseTrace.Clock((int)(_scrubSeconds * SimConstants.TicksPerSecond)),
                 CauseTrace.Clock(_worker.EndTick),
@@ -678,6 +682,8 @@ namespace GodGame.Rendering
                 _tool = Tool.Channel;
             if (keyboard.spaceKey.wasPressedThisFrame)
                 _playing = !_playing;
+            if (keyboard.rKey.wasPressedThisFrame)
+                ResetPlan();
             if (keyboard.gKey.wasPressedThisFrame)
                 _showGhost = !_showGhost;
             if (keyboard.leftBracketKey.wasPressedThisFrame)
@@ -814,6 +820,20 @@ namespace GodGame.Rendering
         }
 
         /// <summary>Hands the edited plan to the worker if the loader accepts it; a refusal shows its reason instead.</summary>
+        /// <summary>
+        /// [R]: the plan as it was loaded, every edit dropped, back at 0:00 and paused. The preview re-runs it like any
+        /// other edit (the simulation decides; this only hands it the plan).
+        /// </summary>
+        private void ResetPlan()
+        {
+            _editor = new PlanEditor(_loadedPlan, _map, _rules);
+            _selectedCast = null;
+            _selectedPiece = null;
+            _playing = false;
+            _scrubSeconds = 0f;
+            _worker.Edit(_loadedPlan);
+        }
+
         private void CommitEdit()
         {
             if (_editor.Commit())

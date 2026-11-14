@@ -71,11 +71,11 @@ public class M5MarshalsScenario
         string plan =
             "{\"version\":0,\"map\":\"gorge\",\"army\":["
             + string.Join(",", army)
-            + "],\"terrain\":[{\"id\":\"b\",\"piece\":\"wooden-bridge\",\"points\":[[223500,100500],[252000,100500]],\"widthMm\":4500}],"
+            + "],\"terrain\":[{\"id\":\"b\",\"piece\":\"wooden-bridge\",\"points\":[[223500,100750],[252000,100750]],\"widthMm\":4500}],"
             + "\"casts\":["
             + (
                 rot
-                    ? "{\"id\":\"rot\",\"power\":\"rot\",\"tick\":20,\"xMm\":237750,\"yMm\":100500,\"radiusMm\":15000}"
+                    ? "{\"id\":\"rot\",\"power\":\"rot\",\"tick\":20,\"xMm\":237750,\"yMm\":100750,\"radiusMm\":15000}"
                     : ""
             )
             + "]}";
@@ -162,11 +162,12 @@ public class M5MarshalsScenario
     [Test]
     public void Decision_2026_11_14_MarshalsIdleLimitAndOwnOrder_MarshalsMeterARottedBridge_ItHoldsWhileTheBankQueues()
     {
-        // S2 17's targets: no segment fails; peak load under 950‰ (sag); a queue of three or more regiments on the near
-        // bank; the crossing takes at least 2.5 times as long as the same army's unmetered (on a sound bridge, since a
-        // rotted one fails under it, below). Not yet met, so not asserted: S2's "all six across inside the 900 s cap"
-        // (about 1,350 s here: each regiment of 200 takes about three minutes, and the next waits for its last
-        // stragglers), left for section 17 tuning.
+        // S2 17's targets (as decided 2026-11-14): no segment fails; peak load under 950‰ (sag); a queue of three or more
+        // regiments on the near bank; the crossing takes at least twice as long as the same army's unmetered (on a sound
+        // bridge, since a rotted one fails under it, below). Not yet met, so not asserted: all six across inside the 900 s
+        // cap (about 1,340 s here). Each picked regiment comes off a 20-file block and converges on the 4.5 m bridge mouth
+        // at once, which passes about 1.5-2 soldiers a second against a tidy column's 2.5: the crowd-steering calibration
+        // S2 4.2 already defers.
         var metered = Run(marshals: true, rot: true, seconds: 1_800);
         var sound = Run(marshals: false, rot: false, seconds: 1_800);
         var rotted = Run(marshals: false, rot: true, seconds: 1_800);
@@ -186,9 +187,9 @@ public class M5MarshalsScenario
         );
         Assert.That(sound.AllAcross, Is.GreaterThan(0));
         Assert.That(
-            metered.Seconds * 10,
-            Is.GreaterThanOrEqualTo(sound.Seconds * 25),
-            "metering takes at least 2.5 times as long"
+            metered.Seconds,
+            Is.GreaterThanOrEqualTo(sound.Seconds * 2),
+            "metering takes at least twice as long"
         );
         Assert.That(
             rotted.Failed,

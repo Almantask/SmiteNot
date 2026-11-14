@@ -27,7 +27,7 @@ git status --porcelain -- "art/source/*.blend"
    ```
    Exit code `1` indicates rule errors. Read `TestResults/art/<name>.json` with `read_file` and check `.claude/rules/art-pipeline.md` when diagnosing failures.
 3. **Summarise reports.** Report all errors and warnings (triangle budgets, materials, naming conventions, unapplied transforms, UVs outside `art/palettes/`, rig bone counts, animation clips).
-   - On errors, propose fixes. If the `blender` MCP server is listed in `<mcp_servers>`, inspect its tool schemas and apply interactive fixes with `call_mcp_tool` (saving the `.blend` before large edits), then rerun from step 1.
+   - On errors, propose fixes. If `smitenot_blender` (or `blender`) is listed in `<mcp_servers>`, inspect its tool schemas under `<appDataDir>/mcp/<serverName>/` and apply interactive fixes with `call_mcp_tool` (saving the `.blend` before large edits), then rerun from step 1.
 4. **Refresh in Unity.** Check `<mcp_servers>` for `unityMCP` (or `UnityMCP`):
    - When connected, read the relevant tool schemas under `<appDataDir>/mcp/<serverName>/` and call `call_mcp_tool` to refresh assets, inspect console logs, verify `ArtImportPostprocessor` applied import settings, and run the VAT baker for exported units (from M8).
    - When the editor is closed, note that Unity import verification and VAT baking should run next time the project opens.

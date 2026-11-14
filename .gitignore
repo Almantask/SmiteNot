@@ -62,3 +62,7 @@ desktop.ini
 CLAUDE.local.md
 .claude/settings.local.json
 .claude/.last_green
+
+# Antigravity local files
+.agents/plugins/smitenot-local/
+.agents/hooks/.pending_lint.json

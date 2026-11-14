@@ -1,0 +1,65 @@
+{
+  "smitenot-session-start": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "python hooks/bridge.py session-start",
+        "timeout": 15
+      }
+    ]
+  },
+  "smitenot-guards": {
+    "PreToolUse": [
+      {
+        "matcher": "edit_file|write_file|replace_file_content|multi_replace_file_content|write_to_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/bridge.py pre-edit",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/bridge.py pre-bash",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  },
+  "smitenot-sim-lint": {
+    "PostToolUse": [
+      {
+        "matcher": "edit_file|write_file|replace_file_content|multi_replace_file_content|write_to_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/bridge.py post-edit",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PostInvocation": [
+      {
+        "type": "command",
+        "command": "python hooks/bridge.py post-invocation",
+        "timeout": 10
+      }
+    ]
+  },
+  "smitenot-stop-checks": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python hooks/bridge.py stop",
+        "timeout": 600
+      }
+    ]
+  }
+}

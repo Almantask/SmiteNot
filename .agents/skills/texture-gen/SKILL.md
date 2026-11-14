@@ -21,7 +21,7 @@ uv run --no-project --with pillow --with numpy python .agents/skills/texture-gen
 
 ## Workflow
 
-1. **Check ComfyUI MCP server.** Look for `comfy` in `<mcp_servers>`. If absent, stop and inform that the `comfy` MCP server is not connected in this Antigravity session. Read its schema files under `<appDataDir>/mcp/comfy/` as needed and invoke via `call_mcp_tool` (or `mcp_comfy_*` if eager): call `server_info`, and if ComfyUI is stopped, call `launch_comfyui` with no `extra_args`.
+1. **Check ComfyUI MCP server.** Look for `smitenot-local_comfy` (or `comfy`) in `<mcp_servers>`. If absent, stop and inform that the `comfy` MCP server is not connected in this Antigravity session. Read its schema files under `<appDataDir>/mcp/<serverName>/` as needed and invoke via `call_mcp_tool` (or `mcp_<serverName>_*` if eager): call `server_info`, and if ComfyUI is stopped, call `launch_comfyui` with no `extra_args`.
 2. **Name & prompt.** Lowercase `T_<category>_<name>` (e.g., `T_terrain_mud_a`, `T_icon_rain_a`). Include: subject & material; view (tiles: `"seen from directly above, flat orthographic top-down, no horizon, no perspective"`); style (`"stylized hand-painted game texture"`, playful, no gore); lighting (`"soft even daylight, no cast shadows"` for tiles); colour notes; evenly distributed small details (no single landmark). **Never** include `"seamless"` or `"tileable"` in the prompt text.
 3. **Build 3–4 candidate workflows** with distinct seeds (`S = TestResults/textures/<name>/s<n>`):
    ```powershell

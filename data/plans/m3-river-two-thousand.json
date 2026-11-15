@@ -1,5 +1,5 @@
 {
-  "$comment": "M3 debug plan on m3-river (written by tools/maps/make_m3_river.py): 1,700 attackers (4 cavalry, 8 infantry and 2 siege regiments) march east across the river to 400 defenders, who hold.",
+  "$comment": "M3 debug plan on m3-river (written by tools/maps/make_m3_river.py): 4 cavalry, 8 infantry and 2 siege regiments (4 engines + 32 crew each) march east across the river to 400 defenders, who hold.",
   "version": 0,
   "map": "m3-river",
   "army": [
@@ -115,7 +115,7 @@
       "id": "a012",
       "side": "attacker",
       "unitType": "siege",
-      "soldiers": 50,
+      "soldiers": 4,
       "xMm": 21000,
       "yMm": 180000,
       "facingCentiDegrees": 0
@@ -124,7 +124,7 @@
       "id": "a013",
       "side": "attacker",
       "unitType": "siege",
-      "soldiers": 50,
+      "soldiers": 4,
       "xMm": 21000,
       "yMm": 212000,
       "facingCentiDegrees": 0

@@ -94,13 +94,13 @@ army = []
 types = ['cavalry'] * 4 + ['infantry'] * 8 + ['siege'] * 2
 for i, unit in enumerate(types):
     column, row = divmod(i, 7)
-    army.append({"id": "a%03d" % i, "side": "attacker", "unitType": unit, "soldiers": 50 if unit == 'siege' else 100,
+    army.append({"id": "a%03d" % i, "side": "attacker", "unitType": unit, "soldiers": 4 if unit == 'siege' else 100,
                  "xMm": 30000 - column * 18000 // 2, "yMm": 20000 + row * 32000, "facingCentiDegrees": 0})
 for i in range(4):
     army.append({"id": "d%03d" % i, "side": "defender", "unitType": "infantry", "soldiers": 100,
                  "xMm": width - 25000, "yMm": 40000 + i * 50000, "facingCentiDegrees": 18000})
 plan = {
-    "$comment": "M3 debug plan on m3-river (written by tools/maps/make_m3_river.py): 1,700 attackers (4 cavalry, 8 infantry and 2 siege regiments) march east across the river to 400 defenders, who hold.",
+    "$comment": "M3 debug plan on m3-river (written by tools/maps/make_m3_river.py): 4 cavalry, 8 infantry and 2 siege regiments (4 engines + 32 crew each) march east across the river to 400 defenders, who hold.",
     "version": 0,
     "map": "m3-river",
     "army": army,

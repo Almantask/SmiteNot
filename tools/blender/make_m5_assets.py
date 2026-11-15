@@ -153,6 +153,93 @@ def build_crew(b: make_units.UnitBuilder, lod: int):
     b.add_tapered_box((-0.34, -0.20, 1.94), (0.07, 0.07), (0.10, 0.03), 0.22, (0, 0, 0), "metal", 0, "forearm.R")
 
 
+def build_drovers(b: make_units.UnitBuilder, lod: int):
+    """Livestock drover specialist: wide-brimmed slouch hat, team tabard & shoulder mantle, goad staff, whip coil and horn."""
+    make_units.add_humanoid_base(
+        b,
+        lod,
+        tunic_cell="team_tabard",
+        tunic_team=1,
+        pants_cell="cloth_brown",
+        leather_cell="leather",
+        tunic_skirt=True,
+        shoulder_pads=False,
+    )
+    make_units.add_humanoid_arms(
+        b,
+        lod,
+        sleeve_cell="team_tabard",
+        sleeve_team=1,
+        l_elbow=(0.30, -0.08, 1.18),
+        l_hand=(0.27, -0.22, 1.06),
+        r_elbow=(-0.31, -0.06, 1.20),
+        r_hand=(-0.33, -0.22, 1.08),
+    )
+
+    if lod == 2:
+        # Wide-brimmed drover hat + team crown band + long goad crook
+        b.add_box((0.0, -0.01, 1.75), (0.56, 0.56, 0.05), (-4, 0, 0), "leather", 0, "head")
+        b.add_tapered_box((0.0, 0.0, 1.84), (0.30, 0.30), (0.24, 0.24), 0.14, (-4, 0, 0), "team_tabard", 1, "head")
+        b.add_box((-0.34, -0.24, 1.06), (0.06, 0.06, 1.92), (8, 0, 0), "wood", 0, "forearm.R")
+        b.add_box((-0.34, -0.44, 2.02), (0.06, 0.20, 0.08), (12, 0, 0), "metal", 0, "forearm.R")
+        return
+
+    seg = (10, 6, 4)[lod]
+    # Wide-brimmed drover's slouch hat with team-colored hatband
+    b.add_cylinder((0.0, -0.01, 1.71), (0.0, -0.02, 1.745), 0.31, 0.295, seg, "leather", 0, "head")
+    b.add_cylinder((0.0, -0.01, 1.745), (0.0, -0.01, 1.79), 0.175, 0.165, seg, "team_tabard", 1, "head")
+    b.add_cylinder((0.0, -0.01, 1.79), (0.0, 0.0, 1.92), 0.165, 0.135, seg, "leather", 0, "head")
+
+    # Shoulder capelet / mantle and weathered coat tail
+    b.add_cylinder((0.0, 0.0, 1.38), (0.0, 0.0, 1.49), 0.28, 0.20, seg, "team_tabard", 1, "chest")
+    b.add_tapered_box((0.0, 0.19, 0.80), (0.42, 0.08), (0.34, 0.07), 0.56, (10, 0, 0), "cloth_brown", 0, "hips")
+
+    # Long ashwood drover's goad staff with hooked iron crook in right hand
+    b.add_cylinder((-0.33, -0.18, 0.04), (-0.33, -0.34, 1.96), 0.028, 0.024, 6 if lod == 0 else 4, "wood", 0, "forearm.R")
+    crook_pts = [
+        (-0.33, -0.34, 1.95),
+        (-0.33, -0.41, 2.08),
+        (-0.33, -0.52, 2.06),
+        (-0.33, -0.53, 1.94),
+    ]
+    b.add_arc_tube(crook_pts if lod == 0 else crook_pts[:3], 0.024, 5 if lod == 0 else 3, "metal", 0, "forearm.R")
+
+    # Coiled rawhide whip hanging at right hip / forearm & curved calling horn at left side
+    if lod == 0:
+        b.add_arc_tube(
+            [(-0.32, -0.22, 1.06), (-0.38, -0.14, 0.92), (-0.31, -0.05, 0.84), (-0.25, -0.16, 0.96), (-0.32, -0.22, 1.06)],
+            0.020,
+            5,
+            "straw",
+            0,
+            "forearm.R",
+        )
+        # Leather scrip pouch & cross-chest strap
+        b.add_box((0.23, 0.03, 0.86), (0.11, 0.18, 0.20), (0, 0, -6), "leather", 0, "hips")
+        b.add_arc_tube(
+            [(-0.20, -0.19, 1.44), (0.02, -0.23, 1.20), (0.23, -0.06, 0.95), (0.20, 0.16, 1.18), (-0.18, 0.18, 1.42)],
+            0.024,
+            4,
+            "leather",
+            0,
+            "chest",
+        )
+        # Brass-tipped cattle horn held in left hand / hip
+        b.add_arc_tube(
+            [(0.27, -0.22, 1.06), (0.28, -0.34, 0.96), (0.24, -0.42, 0.82), (0.18, -0.42, 0.72)],
+            [0.022, 0.034, 0.052, 0.068],
+            6,
+            "horn_bone",
+            0,
+            "forearm.L",
+        )
+        b.add_cylinder((0.20, -0.42, 0.75), (0.17, -0.42, 0.70), 0.062, 0.072, 6, "brass", 0, "forearm.L")
+    else:
+        # Simplified horn & satchel for LOD1
+        b.add_box((0.23, 0.02, 0.88), (0.10, 0.16, 0.18), (0, 0, 0), "leather", 0, "hips")
+        b.add_cylinder((0.27, -0.22, 1.06), (0.21, -0.40, 0.76), 0.024, 0.064, 4, "horn_bone", 0, "forearm.L")
+
+
 def make_cattle_anims(rig, scene):
     """Six distinct quadruped clips for U_cattle_a (walk, gore, kick, stampede, death, collapse)."""
     pulse = make_units._pulse
@@ -593,6 +680,8 @@ UNIT_SPECS = [
      "Siege and pontoon crewman with leather matross apron, coiled rope baldric, padded engineer cap and heavy handspike."),
     ("cattle", "U_cattle_a", CATTLE_BONES, "RIG_quadruped", make_cattle_anims, build_cattle,
      "Horned draught/range cattle with russet-brindle hide, dewlap, swept ivory horns (1.54 m), halter rope and 6 quadruped animations."),
+    ("drovers", "U_drovers_a", make_units.HUMANOID_BONES, "RIG_humanoid", make_units.make_humanoid_anims, build_drovers,
+     "Drovers specialist unit with wide-brimmed slouch hat, team tabard & capelet, goad crook staff, whip coil and cattle horn."),
 ]
 
 PROP_SPECS = [

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Level, format v0",
+  "description": "Read by GodGame.Sim.LevelData.Load. All coordinates in millimetres and ticks at 20 per second (no floats). Defines one playable puzzle/campaign level: map reference, starting plan, allowed terrain pieces, power hand, outcome criteria (spec S2 7.5), side quests and teaching flags.",
+  "type": "object",
+  "required": [
+    "version",
+    "id",
+    "chapter",
+    "map",
+    "plan",
+    "hand",
+    "outcome"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": { "type": "string" },
+    "version": { "const": 0 },
+    "id": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" },
+    "chapter": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" },
+    "title": { "type": "string" },
+    "map": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" },
+    "plan": { "type": "string", "minLength": 1 },
+    "seed": { "type": "integer", "minimum": 0 },
+    "allowedPieces": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" }
+    },
+    "hand": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["power", "charges"],
+        "additionalProperties": false,
+        "properties": {
+          "power": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" },
+          "charges": { "type": "integer", "minimum": 1, "maximum": 99 },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "pendingPowers": {
+      "type": "array",
+      "description": "Powers slated for this level once their simulation implementation lands (ignored until in data/rules/powers.json).",
+      "items": {
+        "type": "object",
+        "required": ["power", "charges"],
+        "additionalProperties": false,
+        "properties": {
+          "power": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" },
+          "charges": { "type": "integer", "minimum": 1, "maximum": 99 },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "required": ["variant"],
+      "additionalProperties": false,
+      "properties": {
+        "$comment": { "type": "string" },
+        "variant": { "enum": ["survival", "objective"] },
+        "sunsetTick": { "type": "integer", "minimum": 1, "maximum": 18000 },
+        "armyRoutPermille": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "objectiveMinSoldiers": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "objectiveHoldTicks": { "type": "integer", "minimum": 1, "maximum": 18000 },
+        "objectivePolygonMm": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 8,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "sideQuests": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "teachingFlags": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

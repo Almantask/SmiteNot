@@ -1,0 +1,83 @@
+{
+  "$comment": "Design Gate B grey-box campaign level (tools/maps/make_design_gate_b.py). Attackers try to capture the eastern bluff objective; player must stop them until sunset (3:45) or rout 700 permille of the attacking force. Lightning is active in hand; Wind Shift remains in pendingPowers until wind power rules land.",
+  "version": 0,
+  "id": "b1-river-crossing",
+  "chapter": "chapter-0",
+  "title": "Crossing at Oakhaven Reach (Gate B)",
+  "map": "b1-river-crossing",
+  "plan": "b1-river-crossing.json",
+  "seed": 1,
+  "allowedPieces": [
+    "channel",
+    "ridge",
+    "hollow",
+    "boulder",
+    "hedgerow",
+    "drystone-wall",
+    "wooden-bridge",
+    "footbridge"
+  ],
+  "hand": [
+    {
+      "power": "rain",
+      "charges": 2,
+      "note": "Swell the north river to flood the southern ford and slow cavalry."
+    },
+    {
+      "power": "rot",
+      "charges": 2,
+      "note": "Weaken the central wooden bridge under heavy infantry or siege weight."
+    },
+    {
+      "power": "lightning",
+      "charges": 1,
+      "note": "Strike the bluff-side approach or ignite the dry hedgerow (30 m fixed radius)."
+    }
+  ],
+  "pendingPowers": [
+    {
+      "power": "wind-shift",
+      "charges": 1,
+      "note": "Pending wind power rules: shift crosswind plume over the ford/bluff."
+    }
+  ],
+  "outcome": {
+    "variant": "objective",
+    "sunsetTick": 4500,
+    "armyRoutPermille": 700,
+    "objectiveMinSoldiers": 60,
+    "objectiveHoldTicks": 240,
+    "objectivePolygonMm": [
+      [
+        500000,
+        200000
+      ],
+      [
+        600000,
+        200000
+      ],
+      [
+        600000,
+        340000
+      ],
+      [
+        500000,
+        340000
+      ]
+    ]
+  },
+  "sideQuests": [
+    {
+      "id": "collapse_wood_bridge",
+      "description": "Rot or overload the central wooden bridge before the infantry clears it."
+    },
+    {
+      "id": "hold_the_bluff",
+      "description": "Keep enemy soldiers off the eastern bluff for the entire defense."
+    }
+  ],
+  "teachingFlags": [
+    "grey-box-gate-b",
+    "lightning-enabled"
+  ]
+}

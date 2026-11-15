@@ -108,4 +108,119 @@ public class PlaybackTrackTests
         AssertSampleMatches(after.SampleAtOrBefore(900)!, FreshAt(edited, 900));
         AssertFieldsMatch(after, FreshAt(edited, 940));
     }
+
+    [Test]
+    public void Track_RecordsStructuresAndLaunches_OnBridgeFailure_AndForkTrimsFutureLaunches()
+    {
+        var rules = RepoData.Rules();
+        // Steep 6 m deep gorge in columns 94..102 (141..153 m) spanned by a wooden bridge (>100 m from both zones).
+        var map = TestBattles.Map(
+            (x, _) => x >= 94 && x <= 102 ? -6_000 : 0,
+            200,
+            24,
+            zoneMetres: 20,
+            id: "gorge-track"
+        );
+        string bridge =
+            "{\"id\":\"b0\",\"piece\":\"wooden-bridge\",\"points\":[[138000,18000],[156000,18000]],\"widthMm\":4500}";
+        string army =
+            "{\"id\":\"a0\",\"side\":\"attacker\",\"unitType\":\"cavalry\",\"soldiers\":80,\"xMm\":16000,\"yMm\":18000,\"facingCentiDegrees\":0},"
+            + "{\"id\":\"d0\",\"side\":\"defender\",\"unitType\":\"infantry\",\"soldiers\":50,\"xMm\":288000,\"yMm\":18000,\"facingCentiDegrees\":18000}";
+        string planJson =
+            "{\"version\":0,\"map\":\""
+            + map.Id
+            + "\",\"army\":["
+            + army
+            + "],\"terrain\":["
+            + bridge
+            + "],\"casts\":[{\"id\":\"c0\",\"power\":\"rot\",\"tick\":1,\"xMm\":147000,\"yMm\":18000,\"radiusMm\":15000}]}";
+        var battle = new Battle(rules, map, BattlePlan.Load(planJson, map, rules), 1);
+        var timeline = new Timeline(
+            battle,
+            new ThreadedRunner(4),
+            new KeyframeStore(long.MaxValue)
+        );
+        timeline.AdvanceTo(1_200);
+        var track = timeline.Track;
+
+        Assert.That(track.StructureSampleCount, Is.GreaterThan(0));
+        bool sawStrain = false;
+        bool sawBroken = false;
+        for (int i = 0; i < track.StructureSampleCount; i++)
+        {
+            var segs = track.Structure(i).Segments;
+            for (int s = 0; s < segs.Length; s++)
+            {
+                if (segs[s].LoadPermille > 0 || segs[s].Stage != StrainStage.Quiet)
+                {
+                    sawStrain = true;
+                }
+                if (segs[s].Broken)
+                {
+                    sawBroken = true;
+                }
+            }
+        }
+        Assert.That(sawStrain, Is.True, "marching over the bridge produces nonzero load/strain");
+        Assert.That(sawBroken, Is.True, "rotted overloaded bridge breaks");
+        Assert.That(track.LaunchCount, Is.GreaterThan(0), "bridge failure records launch events");
+
+        var firstLaunch = track.Launch(0);
+        Assert.That(firstLaunch.GravityMmPerS2, Is.GreaterThan(0));
+        Assert.That(firstLaunch.SpinCdPerS, Is.Not.Zero);
+        Assert.That(
+            track.LaunchLandingCount,
+            Is.GreaterThan(0),
+            "airborne soldiers finish landing"
+        );
+
+        // Editing just before the first launch trims the future launches on the forked track.
+        int cutTick = System.Math.Max(0, firstLaunch.LaunchTick - 1);
+        string noRotJson =
+            "{\"version\":0,\"map\":\""
+            + map.Id
+            + "\",\"army\":["
+            + army
+            + "],\"terrain\":["
+            + bridge
+            + "],\"casts\":[]}";
+        int resumed = timeline.Edit(BattlePlan.Load(noRotJson, map, rules));
+        Assert.That(resumed, Is.LessThanOrEqualTo(firstLaunch.LaunchTick));
+        var trimmed = track.Fork(cutTick);
+        Assert.That(trimmed.LaunchCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Track_RecordsRegimentMoraleRoutingAndUnitRoutingFlag()
+    {
+        var timeline = new Timeline(
+            Plan(100),
+            new ThreadedRunner(4),
+            new KeyframeStore(long.MaxValue)
+        );
+        timeline.AdvanceTo(1_200);
+        var track = timeline.Track;
+
+        Assert.That(track.RegimentFrameCount, Is.GreaterThan(10));
+        Assert.That(track.RegimentSides.Length, Is.EqualTo(2));
+        Assert.That(track.RegimentStartingSizes[0], Is.EqualTo(50));
+        Assert.That(track.RegimentStartingSizes[1], Is.EqualTo(50));
+
+        var start = track.RegimentsAtOrBefore(0)!;
+        Assert.That(start.Regiments[0].Morale, Is.EqualTo(1000));
+        Assert.That(start.Regiments[1].Morale, Is.EqualTo(1000));
+
+        // Direct unit/regiment recording check ensures all 7 UnitFlags bits survive the UnitSample mask.
+        var sim = FreshAt(Plan(100), 20);
+        sim.World.Flags[0] |= UnitFlags.Routing | UnitFlags.Burning | UnitFlags.Garrisoned;
+        var direct = new PlaybackTrack(track.Columns, track.Rows, 16);
+        direct.RecordUnits(20, sim.World);
+        direct.RecordRegiments(20, sim.World);
+        byte state = direct.Sample(0).State[0];
+        Assert.That((state & UnitSample.Alive) != 0, Is.True);
+        Assert.That((state & (byte)UnitFlags.Routing) != 0, Is.True);
+        Assert.That((state & (byte)UnitFlags.Burning) != 0, Is.True);
+        Assert.That((state & (byte)UnitFlags.Garrisoned) != 0, Is.True);
+        Assert.That(direct.RegimentsAtOrBefore(20)!.Regiments[0].AliveCount, Is.EqualTo(50));
+    }
 }

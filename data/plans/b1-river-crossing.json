@@ -1,0 +1,120 @@
+{
+  "$comment": "Starting plan for Design Gate B level b1-river-crossing: far stronger attacker wave overwhelms the outnumbered bluff garrison unless the player uses terrain + casts.",
+  "version": 0,
+  "map": "b1-river-crossing",
+  "army": [
+    {
+      "id": "atk_cav_north",
+      "side": "attacker",
+      "unitType": "cavalry",
+      "soldiers": 80,
+      "xMm": 215000,
+      "yMm": 380000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "atk_inf_north",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 160,
+      "xMm": 240000,
+      "yMm": 306000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "atk_inf_mid",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 160,
+      "xMm": 250000,
+      "yMm": 225000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "atk_inf_south",
+      "side": "attacker",
+      "unitType": "infantry",
+      "soldiers": 160,
+      "xMm": 250000,
+      "yMm": 135000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "atk_ranged_south",
+      "side": "attacker",
+      "unitType": "ranged",
+      "soldiers": 100,
+      "xMm": 210000,
+      "yMm": 135000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "atk_siege",
+      "side": "attacker",
+      "unitType": "siege",
+      "soldiers": 3,
+      "xMm": 200000,
+      "yMm": 225000,
+      "facingCentiDegrees": 0
+    },
+    {
+      "id": "def_inf_bluff",
+      "side": "defender",
+      "unitType": "infantry",
+      "soldiers": 50,
+      "xMm": 535000,
+      "yMm": 270000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "def_ranged_bluff",
+      "side": "defender",
+      "unitType": "ranged",
+      "soldiers": 50,
+      "xMm": 565000,
+      "yMm": 270000,
+      "facingCentiDegrees": 18000
+    },
+    {
+      "id": "def_spademen",
+      "side": "defender",
+      "unitType": "spademen",
+      "soldiers": 50,
+      "xMm": 530000,
+      "yMm": 225000,
+      "facingCentiDegrees": 18000
+    }
+  ],
+  "terrain": [
+    {
+      "id": "wood_bridge_mid",
+      "piece": "wooden-bridge",
+      "points": [
+        [
+          372000,
+          225000
+        ],
+        [
+          408000,
+          225000
+        ]
+      ],
+      "widthMm": 4500
+    },
+    {
+      "id": "hedge_north_flank",
+      "piece": "hedgerow",
+      "points": [
+        [
+          418000,
+          324000
+        ],
+        [
+          418000,
+          366000
+        ]
+      ]
+    }
+  ],
+  "casts": []
+}

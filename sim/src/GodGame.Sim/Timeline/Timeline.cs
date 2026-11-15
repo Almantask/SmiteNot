@@ -27,6 +27,8 @@ namespace GodGame.Sim
         // have their own plan's cast layout and battle id, and are rebased from it when resumed.
         private readonly List<int> _sourceTicks = new List<int>();
         private readonly List<Battle> _sources = new List<Battle>();
+        private readonly List<LaunchRecord> _pendingLaunches = new List<LaunchRecord>();
+        private int _recordedCauseCursor;
 
         public Timeline(
             Battle battle,
@@ -116,6 +118,7 @@ namespace GodGame.Sim
             }
             var head = edited.Start(_runner);
             head.RestoreSnapshot(rebased);
+            _recordedCauseCursor = head.World.Causes?.Events.Count ?? 0;
             var track = Track.Fork(at);
             Battle = edited;
             Simulation = head;
@@ -136,6 +139,7 @@ namespace GodGame.Sim
 
         private PlaybackTrack NewTrack(Simulation simulation)
         {
+            _recordedCauseCursor = 0;
             var fields = simulation.World.Fields;
             var track =
                 fields == null
@@ -152,9 +156,12 @@ namespace GodGame.Sim
         private void Record(PlaybackTrack track, Simulation simulation)
         {
             int tick = simulation.Tick;
+            RecordLaunches(track, simulation.World, tick);
             if (tick % PlaybackTrack.SampleTicks == 0)
             {
                 track.RecordUnits(tick, simulation.World);
+                track.RecordStructures(tick, simulation.World);
+                track.RecordRegiments(tick, simulation.World);
             }
             if (tick % PlaybackTrack.FrameTicks == 0)
             {
@@ -165,6 +172,90 @@ namespace GodGame.Sim
                     track.FrameCount % PlaybackTrack.FullFrameEvery == 0
                 );
             }
+        }
+
+        private void RecordLaunches(PlaybackTrack track, World world, int tick)
+        {
+            var log = world.Causes;
+            if (log == null)
+            {
+                return;
+            }
+            var events = log.Events;
+            if (events.Count <= _recordedCauseCursor)
+            {
+                return;
+            }
+            bool anyLaunch = false;
+            int start = _recordedCauseCursor;
+            for (int i = start; i < events.Count; i++)
+            {
+                var e = events[i];
+                if (e.Kind == CauseKind.SoldierLaunched)
+                {
+                    anyLaunch = true;
+                }
+                else if (e.Kind == CauseKind.SoldierLanded && e.Cause != CauseLog.None)
+                {
+                    track.RecordLaunchLanding(new LaunchLandingRecord(e.Tick + 1, e.Cause));
+                }
+            }
+            if (anyLaunch)
+            {
+                var arc = world.Ballistic;
+                int gravityMmPerS2 = Battle.Rules.Launches.GravityMmPerS2;
+                long rawToMmPerS = 1000L * SimConstants.TicksPerSecond;
+                _pendingLaunches.Clear();
+                for (int u = 0; u < world.Units.HighWater; u++)
+                {
+                    if (
+                        !world.Units.IsAlive(u)
+                        || (world.Flags[u] & UnitFlags.Launched) == 0
+                        || arc.LaunchEvent[u] < start
+                    )
+                    {
+                        continue;
+                    }
+                    int launchEvent = arc.LaunchEvent[u];
+                    int elapsed = arc.Ticks[u];
+                    var origin = world.Position[u] - world.Velocity[u] * elapsed;
+                    int startXCm = (int)(origin.X.Raw * 100 >> GodGame.Sim.Math.Fix.FractionalBits);
+                    int startYCm = (int)(origin.Y.Raw * 100 >> GodGame.Sim.Math.Fix.FractionalBits);
+                    int vx = (int)(
+                        world.Velocity[u].X.Raw * rawToMmPerS >> GodGame.Sim.Math.Fix.FractionalBits
+                    );
+                    int vy = (int)(
+                        world.Velocity[u].Y.Raw * rawToMmPerS >> GodGame.Sim.Math.Fix.FractionalBits
+                    );
+                    int sourceEvent =
+                        launchEvent >= 0 && launchEvent < events.Count
+                            ? events[launchEvent].Cause
+                            : CauseLog.None;
+                    _pendingLaunches.Add(
+                        new LaunchRecord(
+                            tick - elapsed,
+                            u,
+                            sourceEvent,
+                            launchEvent,
+                            startXCm,
+                            startYCm,
+                            arc.StartMm[u],
+                            vx,
+                            vy,
+                            arc.VerticalMmPerS[u],
+                            arc.SpinCdPerS[u],
+                            gravityMmPerS2
+                        )
+                    );
+                }
+                _pendingLaunches.Sort((a, b) => a.LaunchEvent.CompareTo(b.LaunchEvent));
+                for (int i = 0; i < _pendingLaunches.Count; i++)
+                {
+                    track.RecordLaunch(_pendingLaunches[i]);
+                }
+                _pendingLaunches.Clear();
+            }
+            _recordedCauseCursor = events.Count;
         }
 
         private void Restart(Battle battle)

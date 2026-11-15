@@ -5,7 +5,13 @@ using GodGame.Sim.Math;
 namespace GodGame.Sim
 {
     /// <summary>Where every soldier was at one tick, for drawing (never for resuming: that is what keyframes are for).</summary>
-    public sealed class UnitSample
+    internal interface ITickedEntry
+    {
+        int Tick { get; }
+    }
+
+    /// <summary>A 5 Hz snapshot of all living units' positions, state flags and ballistic heights (presentation only).</summary>
+    public sealed class UnitSample : ITickedEntry
     {
         internal UnitSample(int tick, int count)
         {
@@ -26,7 +32,7 @@ namespace GodGame.Sim
 
         public int[] YCm { get; }
 
-        /// <summary><see cref="Alive"/> plus the low <see cref="UnitFlags"/> (launched, stunned, teetering, swept).</summary>
+        /// <summary><see cref="Alive"/> plus the low <see cref="UnitFlags"/> (launched, stunned, teetering, swept, burning, routing, garrisoned).</summary>
         public byte[] State { get; }
 
         /// <summary>
@@ -36,6 +42,166 @@ namespace GodGame.Sim
         public short[] HeightCm { get; }
 
         public const byte Alive = 0x80;
+    }
+
+    /// <summary>One soldier launch recorded for scrubbing and replays (S2 9.4: presentation only, never hashed).</summary>
+    public sealed class LaunchRecord
+    {
+        public LaunchRecord(
+            int launchTick,
+            int unit,
+            int sourceEvent,
+            int launchEvent,
+            int startXCm,
+            int startYCm,
+            int startHeightMm,
+            int velXMmPerS,
+            int velYMmPerS,
+            int verticalMmPerS,
+            int spinCdPerS,
+            int gravityMmPerS2
+        )
+        {
+            LaunchTick = launchTick;
+            Unit = unit;
+            SourceEvent = sourceEvent;
+            LaunchEvent = launchEvent;
+            StartXCm = startXCm;
+            StartYCm = startYCm;
+            StartHeightMm = startHeightMm;
+            VelXMmPerS = velXMmPerS;
+            VelYMmPerS = velYMmPerS;
+            VerticalMmPerS = verticalMmPerS;
+            SpinCdPerS = spinCdPerS;
+            GravityMmPerS2 = gravityMmPerS2;
+        }
+
+        public int LaunchTick { get; }
+        public int Unit { get; }
+        public int SourceEvent { get; }
+        public int LaunchEvent { get; }
+        public int StartXCm { get; }
+        public int StartYCm { get; }
+        public int StartHeightMm { get; }
+        public int VelXMmPerS { get; }
+        public int VelYMmPerS { get; }
+        public int VerticalMmPerS { get; }
+        public int SpinCdPerS { get; }
+        public int GravityMmPerS2 { get; }
+    }
+
+    /// <summary>The tick a launched soldier came back down, matched by <see cref="LaunchRecord.LaunchEvent"/>.</summary>
+    public sealed class LaunchLandingRecord
+    {
+        public LaunchLandingRecord(int landTick, int launchEvent)
+        {
+            LandTick = landTick;
+            LaunchEvent = launchEvent;
+        }
+
+        public int LandTick { get; }
+        public int LaunchEvent { get; }
+    }
+
+    /// <summary>One deck or ice segment's load, strength, strain stage and failure state at a sample tick.</summary>
+    public readonly struct SegmentStateSample
+    {
+        public SegmentStateSample(
+            ushort loadPermille,
+            ushort strengthPermille,
+            StrainStage stage,
+            bool broken
+        )
+        {
+            LoadPermille = loadPermille;
+            StrengthPermille = strengthPermille;
+            Flags = (byte)(((int)stage & 0x03) | (broken ? 0x04 : 0));
+        }
+
+        public ushort LoadPermille { get; }
+        public ushort StrengthPermille { get; }
+        public byte Flags { get; }
+        public StrainStage Stage => (StrainStage)(Flags & 0x03);
+        public bool Broken => (Flags & 0x04) != 0;
+    }
+
+    /// <summary>Every deck segment's strain state at one 5 Hz sample tick (presentation only).</summary>
+    public sealed class StructureSample : ITickedEntry
+    {
+        public StructureSample(int tick, SegmentStateSample[] segments)
+        {
+            Tick = tick;
+            Segments = segments;
+        }
+
+        public int Tick { get; }
+        public SegmentStateSample[] Segments { get; }
+    }
+
+    /// <summary>Metadata for a bridge/trestle/pontoon segment built during the battle (presentation only).</summary>
+    public sealed class DynamicSegmentInfo
+    {
+        public DynamicSegmentInfo(
+            int addedTick,
+            int index,
+            int kindIndex,
+            int deckHeightMm,
+            int[] cells
+        )
+        {
+            AddedTick = addedTick;
+            Index = index;
+            KindIndex = kindIndex;
+            DeckHeightMm = deckHeightMm;
+            Cells = cells;
+        }
+
+        public int AddedTick { get; }
+        public int Index { get; }
+        public int KindIndex { get; }
+        public int DeckHeightMm { get; }
+        public int[] Cells { get; }
+    }
+
+    /// <summary>One regiment's morale, order and alive strength at a 5 Hz sample tick (presentation only).</summary>
+    public readonly struct RegimentStateSample
+    {
+        public RegimentStateSample(
+            ushort morale,
+            RegimentOrder order,
+            bool alive,
+            bool wiped,
+            int aliveCount
+        )
+        {
+            Morale = morale;
+            Order = order;
+            Flags = (byte)(
+                (alive ? 1 : 0) | (wiped ? 2 : 0) | (order == RegimentOrder.Rout ? 4 : 0)
+            );
+            AliveCount = aliveCount;
+        }
+
+        public ushort Morale { get; }
+        public RegimentOrder Order { get; }
+        public byte Flags { get; }
+        public int AliveCount { get; }
+        public bool Alive => (Flags & 1) != 0;
+        public bool Wiped => (Flags & 2) != 0;
+        public bool Routing => (Flags & 4) != 0;
+    }
+
+    /// <summary>Every regiment's morale and order at one 5 Hz sample tick (presentation only).</summary>
+    public sealed class RegimentFrame : ITickedEntry
+    {
+        public RegimentFrame(int tick, RegimentStateSample[] regiments)
+        {
+            Tick = tick;
+            Regiments = regiments;
+        }
+
+        public int Tick { get; }
+        public RegimentStateSample[] Regiments { get; }
     }
 
     /// <summary>
@@ -91,8 +257,21 @@ namespace GodGame.Sim
 
         private readonly UnitSample[][] _samples = new UnitSample[4096][];
         private readonly FieldFrame[][] _frames = new FieldFrame[4096][];
+        private readonly StructureSample[][] _structures = new StructureSample[4096][];
+        private readonly DynamicSegmentInfo[][] _dynamicSegments = new DynamicSegmentInfo[256][];
+        private readonly RegimentFrame[][] _regiments = new RegimentFrame[4096][];
+        private readonly LaunchRecord[][] _launches = new LaunchRecord[4096][];
+        private readonly LaunchLandingRecord[][] _landings = new LaunchLandingRecord[4096][];
         private int _sampleCount;
         private int _frameCount;
+        private int _structureCount;
+        private int _dynamicSegmentCount;
+        private int _regimentFrameCount;
+        private int _launchCount;
+        private int _landingCount;
+        private Side[] _regimentSides = Array.Empty<Side>();
+        private int[] _regimentStartingSizes = Array.Empty<int>();
+        private int[] _unitRegiments = Array.Empty<int>();
         private uint[] _last; // the fields as of the newest frame, for deltas (writer only)
 
         public PlaybackTrack(int columns, int rows, int tileCells)
@@ -119,21 +298,65 @@ namespace GodGame.Sim
 
         public int FrameCount => Volatile.Read(ref _frameCount);
 
+        public int StructureSampleCount => Volatile.Read(ref _structureCount);
+
+        public int DynamicSegmentCount => Volatile.Read(ref _dynamicSegmentCount);
+
+        public int RegimentFrameCount => Volatile.Read(ref _regimentFrameCount);
+
+        public int LaunchCount => Volatile.Read(ref _launchCount);
+
+        public int LaunchLandingCount => Volatile.Read(ref _landingCount);
+
+        public int RegimentCount => Volatile.Read(ref _regimentSides).Length;
+
+        public Side[] RegimentSides => Volatile.Read(ref _regimentSides);
+
+        public int[] RegimentStartingSizes => Volatile.Read(ref _regimentStartingSizes);
+
+        public int[] UnitRegiments => Volatile.Read(ref _unitRegiments);
+
         public UnitSample Sample(int index) => _samples[index / BlockSize]![index % BlockSize];
 
         public FieldFrame Frame(int index) => _frames[index / BlockSize]![index % BlockSize];
 
+        public StructureSample Structure(int index) =>
+            _structures[index / BlockSize]![index % BlockSize];
+
+        public DynamicSegmentInfo DynamicSegment(int index) =>
+            _dynamicSegments[index / BlockSize]![index % BlockSize];
+
+        public RegimentFrame RegimentAt(int index) =>
+            _regiments[index / BlockSize]![index % BlockSize];
+
+        public LaunchRecord Launch(int index) => _launches[index / BlockSize]![index % BlockSize];
+
+        public LaunchLandingRecord LaunchLanding(int index) =>
+            _landings[index / BlockSize]![index % BlockSize];
+
         /// <summary>The newest sample at or before <paramref name="tick"/>, or null before the first.</summary>
-        public UnitSample? SampleAtOrBefore(int tick)
+        public UnitSample? SampleAtOrBefore(int tick) =>
+            FindAtOrBefore(_samples, SampleCount, tick);
+
+        /// <summary>The newest structure sample at or before <paramref name="tick"/>, or null when the battle has none.</summary>
+        public StructureSample? StructureAtOrBefore(int tick) =>
+            FindAtOrBefore(_structures, StructureSampleCount, tick);
+
+        /// <summary>The newest regiment morale/order frame at or before <paramref name="tick"/>, or null before the first.</summary>
+        public RegimentFrame? RegimentsAtOrBefore(int tick) =>
+            FindAtOrBefore(_regiments, RegimentFrameCount, tick);
+
+        private static T? FindAtOrBefore<T>(T[][] blocks, int count, int tick)
+            where T : class, ITickedEntry
         {
-            int count = SampleCount;
             int lo = 0;
             int hi = count - 1;
             int found = -1;
             while (lo <= hi)
             {
                 int mid = (lo + hi) / 2;
-                if (Sample(mid).Tick <= tick)
+                var entry = blocks[mid / BlockSize]![mid % BlockSize];
+                if (entry.Tick <= tick)
                 {
                     found = mid;
                     lo = mid + 1;
@@ -143,7 +366,7 @@ namespace GodGame.Sim
                     hi = mid - 1;
                 }
             }
-            return found < 0 ? null : Sample(found);
+            return found < 0 ? null : blocks[found / BlockSize]![found % BlockSize];
         }
 
         /// <summary>
@@ -201,6 +424,15 @@ namespace GodGame.Sim
         /// <summary>Records the world's units (writer only).</summary>
         public void RecordUnits(int tick, World world)
         {
+            if (world.Units.HighWater > _unitRegiments.Length)
+            {
+                var regs = new int[world.Units.HighWater];
+                for (int i = 0; i < regs.Length; i++)
+                {
+                    regs[i] = world.UnitRegiment[i];
+                }
+                Volatile.Write(ref _unitRegiments, regs);
+            }
             var sample = new UnitSample(tick, world.Units.HighWater);
             for (int u = 0; u < sample.Count; u++)
             {
@@ -210,7 +442,7 @@ namespace GodGame.Sim
                 }
                 sample.XCm[u] = (int)(world.Position[u].X.Raw * 100 >> Fix.FractionalBits);
                 sample.YCm[u] = (int)(world.Position[u].Y.Raw * 100 >> Fix.FractionalBits);
-                sample.State[u] = (byte)(UnitSample.Alive | ((uint)world.Flags[u] & 0x0F));
+                sample.State[u] = (byte)(UnitSample.Alive | ((uint)world.Flags[u] & 0x7F));
                 if ((world.Flags[u] & UnitFlags.Launched) != 0)
                 {
                     // Centimetres fit a short for any height within ±327 m of the datum.
@@ -222,6 +454,112 @@ namespace GodGame.Sim
                 }
             }
             Append(_samples, ref _sampleCount, sample);
+        }
+
+        /// <summary>Records every deck/ice segment's strain state at <paramref name="tick"/> (writer only).</summary>
+        public void RecordStructures(int tick, World world)
+        {
+            var structures = world.Structures;
+            if (structures == null || structures.Count == 0)
+            {
+                return;
+            }
+            for (int s = structures.StaticCount + DynamicSegmentCount; s < structures.Count; s++)
+            {
+                var cells = structures.BattleCells[s];
+                if (cells == null)
+                {
+                    continue;
+                }
+                Append(
+                    _dynamicSegments,
+                    ref _dynamicSegmentCount,
+                    new DynamicSegmentInfo(
+                        tick,
+                        s,
+                        structures.BattleKind[s],
+                        structures.BattleDeckHeight[s],
+                        (int[])cells.Clone()
+                    )
+                );
+            }
+            var states = new SegmentStateSample[structures.Count];
+            for (int s = 0; s < states.Length; s++)
+            {
+                int load = System.Math.Max(
+                    0,
+                    System.Math.Min(ushort.MaxValue, structures.LoadPermille[s])
+                );
+                int strength = System.Math.Max(
+                    0,
+                    System.Math.Min(ushort.MaxValue, structures.Strength[s])
+                );
+                states[s] = new SegmentStateSample(
+                    (ushort)load,
+                    (ushort)strength,
+                    structures.Stage[s],
+                    structures.Broken[s]
+                );
+            }
+            Append(_structures, ref _structureCount, new StructureSample(tick, states));
+        }
+
+        /// <summary>Records every regiment's morale, order and live count at <paramref name="tick"/> (writer only).</summary>
+        public void RecordRegiments(int tick, World world)
+        {
+            int count = world.Regiments.HighWater;
+            if (_regimentSides.Length == 0 && count > 0)
+            {
+                var sides = new Side[count];
+                var starts = new int[count];
+                for (int r = 0; r < count; r++)
+                {
+                    sides[r] = world.RegimentSide[r];
+                    starts[r] = world.RegimentStartingSize[r];
+                }
+                Volatile.Write(ref _regimentStartingSizes, starts);
+                Volatile.Write(ref _regimentSides, sides);
+            }
+            if (count == 0)
+            {
+                return;
+            }
+            var regs = new RegimentStateSample[count];
+            for (int r = 0; r < count; r++)
+            {
+                int morale = System.Math.Max(
+                    0,
+                    System.Math.Min(ushort.MaxValue, world.RegimentMorale[r])
+                );
+                regs[r] = new RegimentStateSample(
+                    (ushort)morale,
+                    world.Army.Order[r],
+                    world.Regiments.IsAlive(r),
+                    world.Army.Wiped[r],
+                    world.RegimentAlive[r]
+                );
+            }
+            Append(_regiments, ref _regimentFrameCount, new RegimentFrame(tick, regs));
+        }
+
+        /// <summary>Appends an immutable launch record (writer only; chronological by <see cref="LaunchRecord.LaunchTick"/>).</summary>
+        public void RecordLaunch(LaunchRecord record)
+        {
+            if (record == null)
+            {
+                throw new ArgumentNullException(nameof(record));
+            }
+            Append(_launches, ref _launchCount, record);
+        }
+
+        /// <summary>Appends an immutable landing timestamp paired with a launch event (writer only).</summary>
+        public void RecordLaunchLanding(LaunchLandingRecord record)
+        {
+            if (record == null)
+            {
+                throw new ArgumentNullException(nameof(record));
+            }
+            Append(_landings, ref _landingCount, record);
         }
 
         /// <summary>Records the world's fields: every tile when <paramref name="full"/>, else the ones that changed.</summary>
@@ -257,9 +595,32 @@ namespace GodGame.Sim
         public PlaybackTrack Fork(int tick)
         {
             var fork = new PlaybackTrack(Columns, Rows, TileCells);
+            Volatile.Write(ref fork._regimentStartingSizes, _regimentStartingSizes);
+            Volatile.Write(ref fork._regimentSides, _regimentSides);
+            Volatile.Write(ref fork._unitRegiments, _unitRegiments);
             for (int i = 0; i < SampleCount && Sample(i).Tick <= tick; i++)
             {
                 Append(fork._samples, ref fork._sampleCount, Sample(i));
+            }
+            for (int i = 0; i < StructureSampleCount && Structure(i).Tick <= tick; i++)
+            {
+                Append(fork._structures, ref fork._structureCount, Structure(i));
+            }
+            for (int i = 0; i < DynamicSegmentCount && DynamicSegment(i).AddedTick <= tick; i++)
+            {
+                Append(fork._dynamicSegments, ref fork._dynamicSegmentCount, DynamicSegment(i));
+            }
+            for (int i = 0; i < RegimentFrameCount && RegimentAt(i).Tick <= tick; i++)
+            {
+                Append(fork._regiments, ref fork._regimentFrameCount, RegimentAt(i));
+            }
+            for (int i = 0; i < LaunchCount && Launch(i).LaunchTick <= tick; i++)
+            {
+                Append(fork._launches, ref fork._launchCount, Launch(i));
+            }
+            for (int i = 0; i < LaunchLandingCount && LaunchLanding(i).LandTick <= tick; i++)
+            {
+                Append(fork._landings, ref fork._landingCount, LaunchLanding(i));
             }
             for (int i = 0; i < FrameCount && Frame(i).Tick <= tick; i++)
             {

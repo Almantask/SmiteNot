@@ -1,0 +1,75 @@
+{
+  "$comment": "Design Gate B grey-box map (tools/maps/make_design_gate_b.py): 840 x 540 m river valley with a northern stone bridge (y = 390 m), a central frozen pond (y = 294..318 m, 110 mm ice), a southern wadeable ford (y = 120..150 m), an eastern defensive bluff and prevailing ENE wind.",
+  "version": 0,
+  "id": "b1-river-crossing",
+  "widthMm": 840000,
+  "depthMm": 540000,
+  "cellSizeMm": 1500,
+  "deployment": [
+    {
+      "side": "attacker",
+      "minXMm": 60000,
+      "minYMm": 40000,
+      "maxXMm": 265000,
+      "maxYMm": 500000
+    },
+    {
+      "side": "defender",
+      "minXMm": 520000,
+      "minYMm": 40000,
+      "maxXMm": 780000,
+      "maxYMm": 500000
+    }
+  ],
+  "water": {
+    "sources": [
+      {
+        "minXMm": 375000,
+        "minYMm": 538500,
+        "maxXMm": 405000,
+        "maxYMm": 540000,
+        "litresPerSecond": 18000
+      }
+    ],
+    "sinks": [
+      {
+        "minXMm": 375000,
+        "minYMm": 0,
+        "maxXMm": 405000,
+        "maxYMm": 1500
+      }
+    ]
+  },
+  "wind": {
+    "$comment": "Prevailing ENE wind (~4.7 m/s) boosting eastern defenders' down-valley reach slightly less than attackers shooting uphill.",
+    "xMmPerS": 4500,
+    "yMmPerS": 1500
+  },
+  "stoneBridges": [
+    {
+      "$comment": "Northern masonry crossing; immune to Rot, high deck above settled flow.",
+      "points": [
+        [
+          369000,
+          390000
+        ],
+        [
+          411000,
+          390000
+        ]
+      ],
+      "widthMm": 12000,
+      "deckHeightMm": 2200
+    }
+  ],
+  "frozenPonds": [
+    {
+      "$comment": "Central ice sheet over deepened river pool (150 kg/m2 limit: carries crossing troops with visible strain unless overloaded or broken).",
+      "minXMm": 370500,
+      "minYMm": 294000,
+      "maxXMm": 409500,
+      "maxYMm": 318000,
+      "thicknessMm": 150
+    }
+  ]
+}

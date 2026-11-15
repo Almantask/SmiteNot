@@ -271,7 +271,12 @@ namespace GodGame.Sim
                     bool braced =
                         _rules.UnitTypes[world.UnitType[j]].Braces
                         && !army.Open[tr]
-                        && tv.X.Raw * tv.X.Raw + tv.Y.Raw * tv.Y.Raw < braceSpeed * braceSpeed
+                        // Standing: slower than the brace speed, or holding against this charge (brief 2026-11-15:
+                        // the line counts as standing however its ranks jostle).
+                        && (
+                            army.Order[tr] == RegimentOrder.Hold
+                            || tv.X.Raw * tv.X.Raw + tv.Y.Raw * tv.Y.Raw < braceSpeed * braceSpeed
+                        )
                         && System.Math.Abs(world.RegimentFacing[tr].DeltaTo(reverse)) <= facingArc;
                     if (braced)
                     {

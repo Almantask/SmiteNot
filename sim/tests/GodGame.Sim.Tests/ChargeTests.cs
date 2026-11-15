@@ -163,6 +163,68 @@ public class ChargeTests
     }
 
     [Test]
+    public void Decision_2026_11_15_CloseOrderInfantryHoldAndBrace_ABracedLineSuffersFewerLaunches_AndHurtsTheRiders()
+    {
+        // Brief 2026-11-15, S2 10.3: a close-order line holds against the charge and braces (launch 250 per mille, 25
+        // damage to each rider per braced target); an open-order line keeps its orders and is ridden through (500).
+        (int Launched, int RiderHealthLost, bool Held) Run(string extra)
+        {
+            var battle = Load(Flat(), Riders + "," + Line(extra));
+            var simulation = battle.Start(new SerialRunner());
+            var world = simulation.World;
+            bool held = false;
+            int RiderHealth() =>
+                TestBattles
+                    .LiveUnits(world)
+                    .Where(u => world.UnitRegiment[u] == 0)
+                    .Sum(u => world.Health[u]);
+            int before = -1;
+            int contact = -1;
+            int lost = 0;
+            for (int tick = 0; tick < 100 * SimConstants.TicksPerSecond; tick++)
+            {
+                int health = RiderHealth();
+                simulation.Step();
+                held |= world.Army.Order[1] == RegimentOrder.Hold;
+                bool anyCharged = TestBattles
+                    .LiveUnits(world)
+                    .Any(u =>
+                        world.UnitRegiment[u] == 0 && (world.Flags[u] & UnitFlags.Charged) != 0
+                    );
+                if (contact < 0 && anyCharged)
+                {
+                    contact = tick;
+                    before = health;
+                }
+                if (contact >= 0 && tick == contact + 10)
+                {
+                    lost = before - RiderHealth(); // the half second of contact, before melee swings add up
+                }
+            }
+            int chargeSource = battle.Rules.Launches.Source("charge")!.Index;
+            int launched = world.Causes!.Events.Count(e =>
+                e.Kind == CauseKind.SoldierLaunched
+                && Ballistics.SourceIndexOf(e.Detail) == chargeSource
+            );
+            return (launched, lost, held);
+        }
+        var close = Run("");
+        var open = Run(",\"order\":\"open\"");
+        TestContext.Out.WriteLine(
+            $"close order: launched {close.Launched}, rider health lost {close.RiderHealthLost}, held {close.Held}; "
+                + $"open order: launched {open.Launched}, rider health lost {open.RiderHealthLost}, held {open.Held}"
+        );
+        Assert.That(close.Held, Is.True, "the close-order line holds against the charge");
+        Assert.That(open.Held, Is.False, "open order keeps its orders");
+        Assert.That(close.Launched, Is.LessThan(open.Launched), "braced: fewer launches");
+        Assert.That(
+            close.RiderHealthLost,
+            Is.GreaterThan(open.RiderHealthLost),
+            "the braced line hurts the riders"
+        );
+    }
+
+    [Test]
     public void ChargesAreDeterministic_AcrossThreadCountsAndARestore()
     {
         var battle = Load(Flat(), Riders + "," + Line());

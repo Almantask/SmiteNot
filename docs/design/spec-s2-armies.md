@@ -445,6 +445,7 @@ A charging rider whose cell has mud ≥ 49,151 (three quarters of deep) or water
 | Targets per charging rider | at most 2 enemy soldiers in body contact in front of him (within 4,500 cd of his heading), per charge | [Proposal] A charge breaks the front ranks and scatters them; it can't bowl through a whole block |
 | Each target | launched (charge source) with 500‰, otherwise trampled: 40 damage (armour ignored), stunned 40 ticks | [Brief, 2026-10-11: trampled by a charge]; numbers [Proposal] |
 | Braced target | infantry in close order, standing (speed < 300 mm/s), regiment facing within 6,000 cd of the charge's reverse: launch chance 250‰, and the rider takes 25 damage per target | [Proposal] The counter loop's anchor (brainstorm), without a new unit |
+| Hold and brace | a close-order regiment of a bracing type that an enemy regiment is charging stops and holds its ground until that charge ends, without turning to face it (a flank or rear charge meets it unbraced); open order keeps its orders. Data flag combat.json charge.braceHolds | [Brief, 2026-11-15] Without it the working-default targeting walks the line into the charge and it is never braced |
 | After contact | the rider slows to 1,500 mm/s and fights in melee | [Proposal] |
 | Morale | one casualty event per hit regiment per charge, launched soldiers as half losses (7.1) | [Docs: tech notes 5] |
 | Death cause | `trampled`, source the cavalry regiment | [Brief, 2026-10-11] |

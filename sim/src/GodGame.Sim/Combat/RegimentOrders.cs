@@ -30,6 +30,7 @@ namespace GodGame.Sim
         private readonly HerdSystem? _herds;
         private readonly Charges? _charges;
         private bool[] _wasHold = new bool[0];
+        private bool[] _beingCharged = new bool[0];
 
         public RegimentOrderSystem(Ruleset rules, MapData map, Terrain terrain)
         {
@@ -66,7 +67,11 @@ namespace GodGame.Sim
             if (_wasHold.Length < world.Regiments.Capacity)
             {
                 _wasHold = new bool[world.Regiments.Capacity];
+                _beingCharged = new bool[world.Regiments.Capacity];
             }
+            // Who is being charged, as the step finds it (charges begun on earlier updates), so a line's hold can't
+            // depend on whether its charger's slot comes before or after its own.
+            BeingCharged(world);
             for (int r = 0; r < world.Regiments.HighWater; r++)
             {
                 // Read before the loop rewrites every order: a regiment still held keeps the point it stopped at.
@@ -92,6 +97,17 @@ namespace GodGame.Sim
                 }
                 var type = _rules.UnitTypes[world.RegimentUnitType[r]];
                 var side = world.RegimentSide[r];
+                if (_beingCharged[r] && type.Braces && !army.Open[r])
+                {
+                    // Brief 2026-11-15: close-order line infantry hold and brace against the charge, until it ends.
+                    // They stand where their officer stands: a newly promoted officer (the old one thrown or killed)
+                    // holds where he is rather than walking the line to his predecessor's spot.
+                    int anchor = world.RegimentAnchor[r];
+                    army.Point[r] = anchor >= 0 ? world.Position[anchor] : _summary.Centroid[r];
+                    army.Order[r] = RegimentOrder.Hold;
+                    army.Target[r] = -1;
+                    continue;
+                }
                 if (
                     type.Charges
                     && _charges?.Rules != null
@@ -324,6 +340,35 @@ namespace GodGame.Sim
                 }
             }
             return best;
+        }
+
+        /// <summary>
+        /// Marks the regiments an enemy regiment is charging right now (brief 2026-11-15), when the rules let a line hold
+        /// against a charge.
+        /// </summary>
+        private void BeingCharged(World world)
+        {
+            Array.Clear(_beingCharged, 0, _beingCharged.Length);
+            if (_rules.Combat.Charge == null || !_rules.Combat.Charge.BraceHolds)
+            {
+                return;
+            }
+            var army = world.Army;
+            for (int e = 0; e < world.Regiments.HighWater; e++)
+            {
+                int target = army.Target[e];
+                if (
+                    world.Regiments.IsAlive(e)
+                    && army.ChargeSince[e] > 0
+                    && target >= 0
+                    && target < _beingCharged.Length
+                    && world.Regiments.IsAlive(target)
+                    && Sides.Hostile(world.RegimentSide[e], world.RegimentSide[target])
+                )
+                {
+                    _beingCharged[target] = true;
+                }
+            }
         }
 
         /// <summary>An enemy regiment with soldiers on the map that isn't wiped (routing ones may still be ridden down).</summary>

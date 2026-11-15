@@ -796,7 +796,8 @@ namespace GodGame.Sim.Rules
                 "rechargeSeparationMm",
                 "deepMudStop",
                 "contact",
-                "braced"
+                "braced",
+                "braceHolds"
             );
             var stop = c["deepMudStop"];
             stop.OnlyKeys("$comment", "mudAtLeast", "waterAtLeastMm", "stunTicks");
@@ -843,6 +844,7 @@ namespace GodGame.Sim.Rules
                 BracedFacingArcCd = braced.Int("facingArcCd", 0, 18_000),
                 BracedLaunchPermille = braced.Int("launchPermille", 0, 1_000),
                 RiderDamagePerTarget = braced.Int("riderDamagePerTarget", 0, 100_000),
+                BraceHolds = c.Has("braceHolds") && c["braceHolds"].AsBool,
             };
             if (rules.StartMinMm > rules.StartMaxMm || rules.ChargingMinMmPerS > rules.SpeedMmPerS)
             {

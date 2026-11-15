@@ -252,6 +252,12 @@ namespace GodGame.Sim.Rules
 
         /// <summary>The rider takes this much per braced target.</summary>
         public int RiderDamagePerTarget { get; internal set; }
+
+        /// <summary>
+        /// Brief 2026-11-15: a close-order regiment of a bracing type that an enemy regiment is charging holds its ground
+        /// until the charge ends (so it stands, and is braced when the charge comes from in front).
+        /// </summary>
+        public bool BraceHolds { get; internal set; }
     }
 
     /// <summary>Morale per regiment, routing, rallying and wiping (spec S2, section 7): <c>data/rules/morale.json</c>.</summary>

@@ -25,3 +25,4 @@
 - [Pontoon and work fields](pattern_pontoon_work_fields.md) — FlowFieldSet growth from AI step, AfterRestore assign window, Surge chain, CI misses surge, probe recipe
 - [Marshals gates and open order](pattern_marshals_gates_open_order.md) — gate scratch same-step only, multi-marshal JobRef sharing, FallBack post, probe recipe
 - [Launches and ballistics](pattern_launches_ballistics.md) — spread seed keyed on cause-log index (edit instability), launched-only hash invariant, 2-chunk probe
+- [Herds, charges, lightning](pattern_herds_charges_lightning.md) — Timeline compares miss new plan fields (again), hash queried after trample despawn, 1-chunk tests

@@ -1,0 +1,151 @@
+{
+  "name": "T_terrain_grass_a",
+  "kind": "tile",
+  "method": "roll",
+  "size": [
+    1024,
+    1024
+  ],
+  "prompt": "stylized hand-painted game texture, meadow turf with short green grass blades, tiny clover patches and warm olive earth specks, evenly distributed small details, seen from directly above, flat orthographic top-down, no horizon, no perspective, soft even daylight, no cast shadows",
+  "seed": 101,
+  "steps": 20,
+  "model": "Z-Image Turbo bf16",
+  "model_license": "Apache-2.0",
+  "seams": {
+    "seam_x": 1.06,
+    "seam_y": 1.39
+  },
+  "created": "2026-11-15",
+  "workflow": {
+    "unet": {
+      "class_type": "UNETLoader",
+      "inputs": {
+        "unet_name": "z_image_turbo_bf16.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    "clip": {
+      "class_type": "CLIPLoader",
+      "inputs": {
+        "clip_name": "qwen_3_4b.safetensors",
+        "type": "lumina2",
+        "device": "default"
+      }
+    },
+    "vae": {
+      "class_type": "VAELoader",
+      "inputs": {
+        "vae_name": "ae.safetensors"
+      }
+    },
+    "tile_vae": {
+      "class_type": "MakeCircularVAEDiT",
+      "inputs": {
+        "vae": [
+          "vae",
+          0
+        ],
+        "tiling": "enable",
+        "copy_vae": "Modify in place"
+      }
+    },
+    "shift": {
+      "class_type": "ModelSamplingAuraFlow",
+      "inputs": {
+        "model": [
+          "unet",
+          0
+        ],
+        "shift": 3
+      }
+    },
+    "positive": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "stylized hand-painted game texture, meadow turf with short green grass blades, tiny clover patches and warm olive earth specks, evenly distributed small details, seen from directly above, flat orthographic top-down, no horizon, no perspective, soft even daylight, no cast shadows",
+        "clip": [
+          "clip",
+          0
+        ]
+      }
+    },
+    "negative": {
+      "class_type": "ConditioningZeroOut",
+      "inputs": {
+        "conditioning": [
+          "positive",
+          0
+        ]
+      }
+    },
+    "sampler": {
+      "class_type": "KSampler",
+      "inputs": {
+        "seed": 101,
+        "steps": 20,
+        "cfg": 1.0,
+        "sampler_name": "res_multistep",
+        "scheduler": "simple",
+        "denoise": 1.0,
+        "model": [
+          "tile_model",
+          0
+        ],
+        "positive": [
+          "positive",
+          0
+        ],
+        "negative": [
+          "negative",
+          0
+        ],
+        "latent_image": [
+          "latent",
+          0
+        ]
+      }
+    },
+    "decode": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "sampler",
+          0
+        ],
+        "vae": [
+          "tile_vae",
+          0
+        ]
+      }
+    },
+    "save": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": [
+          "decode",
+          0
+        ],
+        "filename_prefix": "texture-gen/T_terrain_grass_a"
+      }
+    },
+    "latent": {
+      "class_type": "EmptySD3LatentImage",
+      "inputs": {
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1
+      }
+    },
+    "tile_model": {
+      "class_type": "SeamlessTileModelDiT",
+      "inputs": {
+        "model": [
+          "shift",
+          0
+        ],
+        "tiling": "enable",
+        "seed": 101
+      }
+    }
+  }
+}

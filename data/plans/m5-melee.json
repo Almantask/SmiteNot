@@ -1,5 +1,5 @@
 {
-  "$comment": "M5 combat plan: six attacking regiments of 200 (infantry, cavalry, archers) against six defending (infantry and archers) on m5-field, 2,400 soldiers. Volleys first, then melee, routs, rallies and flight off the map within three minutes. For the combat golden.",
+  "$comment": "M5 combat plan: six attacking regiments of 200 (infantry and archers; the cavalry 120, S2's 30-120) against six defending (infantry and archers) on m5-field, 2,320 soldiers. Volleys first, then melee, routs, rallies and flight off the map within three minutes. For the combat golden.",
   "version": 0,
   "map": "m5-field",
   "army": [
@@ -43,7 +43,7 @@
       "id": "a02",
       "side": "attacker",
       "unitType": "cavalry",
-      "soldiers": 200,
+      "soldiers": 120,
       "xMm": 120000,
       "yMm": 128000,
       "facingCentiDegrees": 0

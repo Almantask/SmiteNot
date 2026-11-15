@@ -1,5 +1,5 @@
 {
-  "$comment": "Projectiles (ruleset v0; spec S2 section 6.1, settled 2026-11-07; numbers are proposals). Range on flat ground in calm air; flight time scales with distance; windPermillePerMPerS of range per m/s of wind along the shot, clamped; heightGainPerMm of range per mm the shooter stands above the target, capped; hit chance near (up to the close share of range) falling linearly to far; damage before the target's arrowTakenPermille; reload and ammunition per regiment volley. The crossbow bolt and siege stone join with their users (M5 item 6).",
+  "$comment": "Projectiles (ruleset v0; spec S2 section 6.1, settled 2026-11-07; numbers are proposals). Range on flat ground in calm air; flight time scales with distance; windPermillePerMPerS of range per m/s of wind along the shot, clamped; heightGainPerMm of range per mm the shooter stands above the target, capped; hit chance near (up to the close share of range) falling linearly to far; damage before the target's arrowTakenPermille; reload and ammunition per regiment volley. The siege stone joined with the engines (M5 item 6); the crossbow bolt waits for its user (Pavise Crossbowmen).",
   "version": 0,
   "status": "placeholder",
   "projectiles": [
@@ -17,6 +17,27 @@
       "damage": 35,
       "reloadTicks": 160,
       "ammo": 20
+    },
+    {
+      "$comment": "Spec S2 6.4: a stone thrower's stone. Fires at a target regiment whose outline is between minRangeMm and the range (after wind and height); ammo is per engine; each crewed engine of the regiment throws one stone a reload. A stone lands at the aim point plus a seeded scatter growing from scatterNearMm at minRangeMm to scatterFarMm at full range; soldiers within crushRadiusMm die (combat, crushed), those out to launchRadiusMm are launched away from it (launches.json siege-stone); engines and animals stand. hitNear, hitFar and damage are unused by stones. The stone is gone after landing (rolling stones wait for M6).",
+      "id": "siege-stone",
+      "rangeMm": 250000,
+      "minRangeMm": 60000,
+      "flightTicksAtRange": 80,
+      "windPermillePerMPerS": 3,
+      "windClampMinPermille": 950,
+      "windClampMaxPermille": 1050,
+      "heightGainPerMm": 2,
+      "heightGainCapMm": 30000,
+      "hitNearPermille": 0,
+      "hitFarPermille": 0,
+      "damage": 0,
+      "scatterNearMm": 2000,
+      "scatterFarMm": 8000,
+      "crushRadiusMm": 1000,
+      "launchRadiusMm": 4000,
+      "reloadTicks": 300,
+      "ammo": 30
     }
   ]
 }

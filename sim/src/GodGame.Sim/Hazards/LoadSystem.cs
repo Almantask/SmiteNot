@@ -361,7 +361,15 @@ namespace GodGame.Sim
                     flow = IntMath.Sqrt((ulong)((long)east * east + (long)north * north));
                 }
                 var flags = world.Flags[u] & ~(UnitFlags.Teetering | UnitFlags.Stunned);
-                if (ice || (sweepsAll && depthMm > 0) || response.Sweeps(depthMm, flow))
+                if (
+                    ice
+                    || (sweepsAll && depthMm > 0)
+                    || response.Sweeps(
+                        depthMm,
+                        flow,
+                        _rules.UnitTypes[world.UnitType[u]].SweptDepthSpeedPermille
+                    )
+                )
                 {
                     world.Flags[u] = flags | UnitFlags.Swept;
                     world.HazardTimer[u] =

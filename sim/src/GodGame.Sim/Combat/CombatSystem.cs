@@ -61,6 +61,10 @@ namespace GodGame.Sim
         public const int SwingSystemId = 7_001;
         public const int VolleySystemId = 7_002;
         public const int VolleyLandSystemId = 7_003;
+        public const int StoneLandSystemId = 7_004;
+
+        /// <summary>A stone's launch key: regiment slot × this + the stone's number in the regiment's ammunition.</summary>
+        public const int StoneKeyStride = 512;
         public const int ChunkSize = 512;
 
         /// <summary>The swing search keeps at most this many neighbours (a fixed buffer; contact range is a metre or two).</summary>
@@ -69,6 +73,9 @@ namespace GodGame.Sim
         private readonly Ruleset _rules;
         private readonly MapData _map;
         private readonly Terrain _terrain;
+        private readonly Navigation? _navigation;
+        private readonly EngineCrews _crews;
+        private int[] _crushedBy = new int[0];
         private readonly RegimentSummary _summary = new RegimentSummary();
         private readonly long[] _typeRadiusRaw;
         private readonly long[] _typeReachRaw;
@@ -95,10 +102,24 @@ namespace GodGame.Sim
         private readonly long _contactMm;
 
         public CombatSystem(Ruleset rules, MapData map, Terrain terrain)
+            : this(rules, map, terrain, null) { }
+
+        /// <summary>With navigation, a smashed engine leaves a wreck stamped on the ground (spec S2 2.1, 13.2).</summary>
+        public CombatSystem(Ruleset rules, Navigation navigation)
+            : this(
+                rules,
+                (navigation ?? throw new ArgumentNullException(nameof(navigation))).Map,
+                navigation.Terrain,
+                navigation
+            ) { }
+
+        private CombatSystem(Ruleset rules, MapData map, Terrain terrain, Navigation? navigation)
         {
             _rules = rules ?? throw new ArgumentNullException(nameof(rules));
             _map = map ?? throw new ArgumentNullException(nameof(map));
             _terrain = terrain ?? throw new ArgumentNullException(nameof(terrain));
+            _navigation = navigation;
+            _crews = new EngineCrews(rules);
             var types = rules.UnitTypes;
             _typeRadiusRaw = new long[types.Count];
             _typeReachRaw = new long[types.Count];
@@ -138,6 +159,7 @@ namespace GodGame.Sim
                 _strikeDamage = new int[capacity];
                 _engaged = new bool[capacity];
                 _killer = new int[capacity];
+                _crushedBy = new int[capacity];
                 _candidates = new int[capacity];
             }
             if (_hash == null)
@@ -183,6 +205,7 @@ namespace GodGame.Sim
             for (int u = 0; u < highWater; u++)
             {
                 _killer[u] = -1;
+                _crushedBy[u] = CauseLog.None;
             }
             for (int u = 0; u < highWater; u++)
             {
@@ -201,11 +224,61 @@ namespace GodGame.Sim
                     continue;
                 }
                 int r = world.UnitRegiment[u];
-                log?.Add(CauseKind.SoldierKilled, context.Tick, r, _killer[u], CauseLog.None);
+                if (EngineCrews.IsEngine(world, _rules, u))
+                {
+                    Wreck(world, context, u, CauseKind.EngineWrecked);
+                    continue;
+                }
+                if (_crushedBy[u] != CauseLog.None)
+                {
+                    log?.Add(CauseKind.SoldierCrushed, context.Tick, r, u, _crushedBy[u]);
+                }
+                else
+                {
+                    log?.Add(CauseKind.SoldierKilled, context.Tick, r, _killer[u], CauseLog.None);
+                }
                 world.DespawnUnit(world.Units.IdOf(u));
                 world.Counters.Killed++;
             }
         }
+
+        /// <summary>
+        /// An engine becomes a wreck (spec S2 2.1, 13.2): logged, despawned, and its body's cells stamped as a battle-made
+        /// blocker (when this step has navigation). Serial; callers go in unit slot order.
+        /// </summary>
+        public static void Wreck(
+            World world,
+            Navigation? navigation,
+            TickContext context,
+            int u,
+            CauseKind kind
+        )
+        {
+            int r = world.UnitRegiment[u];
+            var position = world.Position[u];
+            int radiusMm = navigation?.Rules.UnitTypes[world.UnitType[u]].RadiusMm ?? 0;
+            // Detail: the wreck's blocker index, the one the blocker list hands out next.
+            int logged =
+                world.Causes?.Add(kind, context.Tick, r, world.Blockers.Count, CauseLog.None)
+                ?? CauseLog.None;
+            world.DespawnUnit(world.Units.IdOf(u));
+            world.Counters.Killed++;
+            if (navigation == null || navigation.Rules.Terrain.Wreck == null)
+            {
+                return;
+            }
+            var cells = EngineCrews.WreckCells(navigation.Terrain, position, radiusMm);
+            navigation.AddBlocker(
+                context,
+                BlockerKind.Wreck,
+                cells,
+                new byte[cells.Length],
+                logged
+            );
+        }
+
+        private void Wreck(World world, TickContext context, int u, CauseKind kind) =>
+            Wreck(world, _navigation, context, u, kind);
 
         /// <summary>Whether a volley lands this tick or a regiment is ready to shoot.</summary>
         private bool AnyVolley(World world, int tick)
@@ -279,16 +352,46 @@ namespace GodGame.Sim
                 _shooters = new int[world.Regiments.Capacity];
             }
             Array.Clear(_shooters, 0, _shooters.Length);
+            bool stones = false;
             for (int u = 0; u < world.Units.HighWater; u++)
             {
-                if (
-                    world.Units.IsAlive(u)
-                    && !_engaged[u]
-                    && OnFeet(world.Flags[u])
-                    && world.Health[u] > 0
-                )
+                if (!world.Units.IsAlive(u))
+                {
+                    continue;
+                }
+                var shooterType = _rules.UnitTypes[world.RegimentUnitType[world.UnitRegiment[u]]];
+                if (shooterType.Projectile != null && shooterType.Projectile.IsStone)
+                {
+                    stones = true; // engines throw, not soldiers: counted below
+                    continue;
+                }
+                if (!_engaged[u] && OnFeet(world.Flags[u]) && world.Health[u] > 0)
                 {
                     _shooters[world.UnitRegiment[u]]++;
+                }
+            }
+            if (stones)
+            {
+                // A siege engine throws with enough crew beside it (S2 6.4).
+                _crews.Gather(world);
+                for (int u = 0; u < world.Units.HighWater; u++)
+                {
+                    if (!world.Units.IsAlive(u) || !EngineCrews.IsEngine(world, _rules, u))
+                    {
+                        continue;
+                    }
+                    var engine = _rules.UnitTypes[world.UnitType[u]].Engine!;
+                    var projectile = _rules.UnitTypes[world.UnitType[u]].Projectile;
+                    if (
+                        projectile != null
+                        && projectile.IsStone
+                        && engine.CrewToFire > 0
+                        && _crews.CrewNear(u) >= engine.CrewToFire
+                        && OnFeet(world.Flags[u])
+                    )
+                    {
+                        _shooters[world.UnitRegiment[u]]++;
+                    }
                 }
             }
             for (int r = 0; r < world.Regiments.HighWater; r++)
@@ -332,7 +435,7 @@ namespace GodGame.Sim
             var from = _summary.Centroid[r];
             long range = Volleys.RangeMm(p, _map, _terrain, from, _summary.Centroid[target]);
             long gap = _summary.GapFrom(from, target);
-            if (range == 0 || gap > range)
+            if (range == 0 || gap > range || gap < p.MinRangeMm)
             {
                 return; // out of reach this moment: wait for the next tick rather than waste the volley
             }
@@ -367,6 +470,19 @@ namespace GodGame.Sim
             {
                 hits++;
             }
+            int scatter = 0;
+            if (p.IsStone)
+            {
+                // A salvo: one stone per crewed engine (S2 6.4), each scattered by the range at landing.
+                hits = System.Math.Min(shooters, army.Ammo[r]);
+                long span = System.Math.Max(1, range - p.MinRangeMm);
+                long beyond = System.Math.Max(0, System.Math.Min(span, gap - p.MinRangeMm));
+                scatter = (int)(
+                    p.ScatterNearMm + (p.ScatterFarMm - p.ScatterNearMm) * beyond / span
+                );
+                army.Ammo[r] -= hits - 1; // the line below takes the last
+            }
+            army.VolleyScatter[r] = scatter;
             army.Ammo[r]--;
             army.ReloadReady[r] = context.Tick + p.ReloadTicks;
             army.VolleyLands[r] = context.Tick + flight;
@@ -381,13 +497,20 @@ namespace GodGame.Sim
             int target = army.VolleyTarget[r];
             int hits = army.VolleyHits[r];
             var aim = army.VolleyAim[r];
+            int scatter = army.VolleyScatter[r];
             army.VolleyLands[r] = 0;
             army.VolleyTarget[r] = -1;
             army.VolleyAim[r] = FixVec2.Zero;
             army.VolleyHits[r] = 0;
+            army.VolleyScatter[r] = 0;
             var p = _rules.UnitTypes[world.RegimentUnitType[r]].Projectile;
             if (p == null || target < 0 || hits == 0)
             {
+                return;
+            }
+            if (p.IsStone)
+            {
+                LandStones(world, r, p, aim, hits, scatter, context);
                 return;
             }
             int found = _hash!.QueryRadius(
@@ -419,6 +542,93 @@ namespace GodGame.Sim
                 int u = _candidates[rng.NextUInt((uint)count)];
                 var taken = _rules.UnitTypes[world.UnitType[u]].ArrowTakenPermille;
                 Hurt(world, u, (int)((long)p.Damage * taken / 1000), r);
+            }
+        }
+
+        /// <summary>
+        /// A siege salvo comes down (spec S2 6.4): each stone at the aim point plus a seeded scatter, in stone order. Soldiers
+        /// of either side within the crush radius die (combat; crushed), those out to the launch radius are launched away
+        /// from it (the siege-stone source, keyed by the regiment and the stone's number); engines and the airborne stand.
+        /// </summary>
+        private void LandStones(
+            World world,
+            int r,
+            ProjectileRules p,
+            FixVec2 aim,
+            int stones,
+            int scatterMm,
+            TickContext context
+        )
+        {
+            var type = _rules.UnitTypes[world.RegimentUnitType[r]];
+            int engines = type.EnginesIn(world.RegimentStartingSize[r]);
+            int first = System.Math.Max(0, p.Ammo * engines - world.Army.Ammo[r] - stones);
+            var source = _rules.Launches.Source("siege-stone");
+            var rng = SimRandom.Stream(context.Seed, StoneLandSystemId, r, context.Tick);
+            Fix maxX = _map.Width - Fix.FromRaw(1);
+            Fix maxY = _map.Depth - Fix.FromRaw(1);
+            long crush = Fix.FromRatio(p.CrushRadiusMm, 1000).Raw;
+            long reach = Fix.FromRatio(p.LaunchRadiusMm, 1000).Raw;
+            var log = world.Causes;
+            for (int k = 0; k < stones; k++)
+            {
+                var angle = Angle.FromUnits((int)rng.NextUInt(Angle.UnitsPerTurn));
+                int off = (int)rng.NextUInt((uint)scatterMm + 1);
+                var at = aim + FixVec2.FromAngle(angle, Fix.FromRatio(off, 1000));
+                at = new FixVec2(Fix.Clamp(at.X, Fix.Zero, maxX), Fix.Clamp(at.Y, Fix.Zero, maxY));
+                _terrain.CellOf(at, out int cx, out int cy);
+                int landed =
+                    log?.Add(
+                        CauseKind.StoneLanded,
+                        context.Tick,
+                        r,
+                        _terrain.Index(cx, cy),
+                        CauseLog.None
+                    )
+                    ?? CauseLog.None;
+                int found = _hash!.QueryRadius(world, at, Fix.FromRaw(reach), _candidates);
+                int count = System.Math.Min(found, _candidates.Length);
+                for (int i = 0; i < count; i++)
+                {
+                    int u = _candidates[i];
+                    if (
+                        !world.Units.IsAlive(u)
+                        || world.Health[u] <= 0
+                        || (world.Flags[u] & UnitFlags.Launched) != 0
+                        || EngineCrews.IsEngine(world, _rules, u)
+                    )
+                    {
+                        continue;
+                    }
+                    long dx = world.Position[u].X.Raw - at.X.Raw;
+                    long dy = world.Position[u].Y.Raw - at.Y.Raw;
+                    long dSq = dx * dx + dy * dy; // within the query radius: far inside a long
+                    if (dSq <= crush * crush)
+                    {
+                        world.Health[u] = 0;
+                        _killer[u] = r;
+                        _crushedBy[u] = landed;
+                        continue;
+                    }
+                    if (dSq > reach * reach || source == null)
+                    {
+                        continue;
+                    }
+                    var away = world.Position[u] - at;
+                    _terrain.CellOf(world.Position[u], out int ux, out int uy);
+                    Ballistics.Launch(
+                        world,
+                        _rules.Launches,
+                        u,
+                        source,
+                        r * StoneKeyStride + (first + k) % StoneKeyStride,
+                        away.Direction,
+                        landed,
+                        context.Tick,
+                        context.Seed,
+                        Ballistics.SurfaceMm(_terrain, world, ux, uy)
+                    );
+                }
             }
         }
 

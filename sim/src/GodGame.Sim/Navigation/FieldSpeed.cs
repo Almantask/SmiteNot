@@ -104,7 +104,8 @@ namespace GodGame.Sim
         public static int CodeFor(MovementClassRules rules, long depthMm, long flowMmPerS, int mud)
         {
             var water = rules.Water;
-            if (water.Sweeps(depthMm, flowMmPerS))
+            // At the class's most heavily armoured type's threshold (S2 2.1), so nobody walks into water that sweeps him.
+            if (water.Sweeps(depthMm, flowMmPerS, rules.StrictestSweptPermille))
             {
                 return Swept;
             }

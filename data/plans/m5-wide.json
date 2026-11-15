@@ -1,5 +1,5 @@
 {
-  "$comment": "M5 wide plan for the planning player: the m5-melee armies (six attacking regiments of 200 infantry, cavalry and archers against six defending infantry and archers, 2,400 soldiers) on m5-wide, 455 m apart in the middle of the map's depth (y 340-560 m), leaving room between and beside them for casts more than 100 m from both armies. The attackers need about five minutes to reach the defenders.",
+  "$comment": "M5 wide plan for the planning player: the m5-melee armies (six attacking regiments of infantry, cavalry and archers, 200 each but 120 cavalry, against six defending infantry and archers, 2,320 soldiers) on m5-wide, 455 m apart in the middle of the map's depth (y 340-560 m), leaving room between and beside them for casts more than 100 m from both armies. The attackers need about five minutes to reach the defenders.",
   "version": 0,
   "map": "m5-wide",
   "army": [
@@ -43,7 +43,7 @@
       "id": "a02",
       "side": "attacker",
       "unitType": "cavalry",
-      "soldiers": 200,
+      "soldiers": 120,
       "xMm": 120000,
       "yMm": 428000,
       "facingCentiDegrees": 0

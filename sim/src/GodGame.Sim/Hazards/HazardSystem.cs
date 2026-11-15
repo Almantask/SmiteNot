@@ -81,13 +81,14 @@ namespace GodGame.Sim
                         flowMmPerS = IntMath.Sqrt((ulong)((long)east * east + (long)north * north));
                     }
                 }
-                var response = _rules
-                    .Movement(_rules.UnitTypes[world.UnitType[u]].MovementClass)
-                    .Water;
+                var unitType = _rules.UnitTypes[world.UnitType[u]];
+                var response = _rules.Movement(unitType.MovementClass).Water;
+                // Heavy armour loses footing sooner (S2 2.1: infantry at 900 permille of the class's depth x speed).
+                int armour = unitType.SweptDepthSpeedPermille;
 
                 if ((flags & UnitFlags.Swept) != 0)
                 {
-                    if (response.RegainsFooting(depthMm, flowMmPerS))
+                    if (response.RegainsFooting(depthMm, flowMmPerS, armour))
                     {
                         flags &= ~UnitFlags.Swept;
                         world.HazardTimer[u] = hazards.BankExitStunTicks;
@@ -114,7 +115,7 @@ namespace GodGame.Sim
                     continue;
                 }
 
-                if (depthMm > 0 && response.Sweeps(depthMm, flowMmPerS))
+                if (depthMm > 0 && response.Sweeps(depthMm, flowMmPerS, armour))
                 {
                     int pushed = CauseLog.None;
                     if ((flags & UnitFlags.Teetering) != 0 && world.HazardTimer[u] == 0)

@@ -26,6 +26,7 @@ namespace GodGame.Sim
             CellSizeMm = map.CellSizeMm;
             _heightMm = (int[])map.HeightMm.Clone();
             _blocked = map.Blocked == null ? null : (bool[])map.Blocked.Clone();
+            _mapPieceSpeed = map.PieceSpeed;
             _pieceSpeed = map.PieceSpeed == null ? null : (int[])map.PieceSpeed.Clone();
             _map = map;
             ResetDecks();
@@ -69,8 +70,8 @@ namespace GodGame.Sim
                 }
             }
             _staticSegments = _segments.Count;
-            // Only clearing writes blocked cells at runtime today; battle-made blockers (felled trees, wrecks: M5 item 7)
-            // must be re-applied from world state after this reset, or a restore would lose them.
+            // Only clearing writes blocked cells at runtime; battle-made blockers (wrecks, felled trees) live on the piece
+            // codes and are re-stamped from world state after a restore (Navigation.RebuildFromWorld).
             if (_blocked != null && _map.Blocked != null)
             {
                 Array.Copy(_map.Blocked, _blocked, _blocked.Length);
@@ -169,9 +170,47 @@ namespace GodGame.Sim
             }
         }
 
-        private readonly int[]? _pieceSpeed;
+        private readonly int[]? _mapPieceSpeed; // the played map's line pieces, never changed
+        private int[]? _pieceSpeed; // those plus the battle-made blockers stamped on them
 
-        /// <summary>The cell's crossing speed codes from line pieces (<see cref="FieldSpeed"/> packing; all dry where there is none).</summary>
+        /// <summary>Back to the played map's line pieces, with no battle-made blocker (before a restore re-stamps them).</summary>
+        public void ResetBlockers()
+        {
+            if (_mapPieceSpeed == null)
+            {
+                _pieceSpeed = null;
+            }
+            else
+            {
+                _pieceSpeed = (int[])_mapPieceSpeed.Clone();
+            }
+        }
+
+        /// <summary>Stamps a battle-made blocker's codes on a cell (spec S2 13.2), combined with what is there (the slower wins).</summary>
+        public void StampBlocker(int index, int codes)
+        {
+            if (_pieceSpeed == null)
+            {
+                _pieceSpeed = new int[Columns * Rows];
+                for (int i = 0; i < _pieceSpeed.Length; i++)
+                {
+                    _pieceSpeed[i] = FieldSpeed.AllDry;
+                }
+            }
+            _pieceSpeed[index] = FieldSpeed.Combine(_pieceSpeed[index], codes);
+        }
+
+        /// <summary>A cell's piece codes back to the played map's (a blocker was cleared; the caller re-stamps any others on it).</summary>
+        public void UnstampBlocker(int index)
+        {
+            if (_pieceSpeed != null)
+            {
+                _pieceSpeed[index] =
+                    _mapPieceSpeed == null ? FieldSpeed.AllDry : _mapPieceSpeed[index];
+            }
+        }
+
+        /// <summary>The cell's crossing speed codes from line pieces and battle-made blockers (<see cref="FieldSpeed"/> packing; all dry where there is none).</summary>
         public int PieceCodes(int index) =>
             _pieceSpeed == null ? FieldSpeed.AllDry : _pieceSpeed[index];
 

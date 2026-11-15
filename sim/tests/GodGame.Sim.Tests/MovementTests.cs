@@ -184,7 +184,13 @@ public class MovementCrowdTests
         var regiments = Enumerable
             .Range(0, 60)
             .Select(i =>
-                ("attacker", types[i % types.Length], 50, 4.0 + (i % 3) * 4.0, 5.0 + (i / 3) * 4.0)
+                (
+                    "attacker",
+                    types[i % types.Length],
+                    types[i % types.Length] == "siege" ? 4 : 50,
+                    4.0 + (i % 3) * 4.0,
+                    5.0 + (i / 3) * 4.0
+                )
             );
         var battle = TestBattles.Battle(map, regiments);
 

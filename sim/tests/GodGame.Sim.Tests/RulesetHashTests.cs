@@ -174,6 +174,7 @@ public class RulesetLoaderTests
                     "engineers",
                     "pontoon-train",
                     "crossing-marshals",
+                    "crew",
                 }
             )
         );
@@ -187,6 +188,22 @@ public class RulesetLoaderTests
         );
         Assert.That(rules.UnitType("cavalry").MovementClass, Is.EqualTo(MovementClass.Horse));
         Assert.That(rules.UnitType("siege").Index, Is.EqualTo(3));
+        // S2 2.1, D4: engines bring their crews, who can't be fielded alone; cavalry regiments are 30-120.
+        var siege = rules.UnitType("siege").Engine!;
+        Assert.That(siege.CrewType.Id, Is.EqualTo("crew"));
+        Assert.That(siege.CrewPerEngine, Is.EqualTo(8));
+        Assert.That(rules.UnitType("siege").UnitsFor(4), Is.EqualTo(36));
+        Assert.That(rules.UnitType("pontoon-train").Engine!.CrewPerEngine, Is.EqualTo(5));
+        Assert.That(
+            rules.UnitType("crew").AttackerMay || rules.UnitType("crew").DefenderMay,
+            Is.False
+        );
+        Assert.That(rules.UnitType("siege").Projectile!.IsStone, Is.True);
+        Assert.That(rules.UnitType("cavalry").Formation.MaxSoldiers, Is.EqualTo(120));
+        // Heavy armour is swept sooner, and the foot codes sweep at it (S2 2.1).
+        Assert.That(rules.UnitType("infantry").SweptDepthSpeedPermille, Is.EqualTo(900));
+        Assert.That(rules.Movement(MovementClass.Foot).StrictestSweptPermille, Is.EqualTo(900));
+        Assert.That(rules.Movement(MovementClass.Horse).StrictestSweptPermille, Is.EqualTo(1000));
         Assert.That(rules.HasPlaceholders, Is.True, "health and morale wait for spec pass S2");
     }
 

@@ -6,21 +6,21 @@ namespace GodGame.Sim.Tests;
 /// </summary>
 internal static class PinnedHashes
 {
-    public const ulong PlaceholderSeed1Units8After60s = 10901919013153004723UL; // SimVersion 19 (the hash includes it)
+    public const ulong PlaceholderSeed1Units8After60s = 12951622642780267287UL; // SimVersion 20 (the hash includes it)
 
     /// <summary>Every sine value plus atan2 over a 129 × 129 grid (TrigTests). Pinned 2026-11-01.</summary>
     public const ulong TrigTables = 0xFA3751819458DAD5UL;
 
-    /// <summary>World.AppendTo after WorldTests' seed-7 battle with despawns and a reused slot. Re-pinned 2026-11-14 (SimVersion 19: the landing-death counters).</summary>
-    public const ulong WorldBattleSeed7 = 12521713278640581762UL;
+    /// <summary>World.AppendTo after WorldTests' seed-7 battle with despawns and a reused slot. Re-pinned 2026-11-15 (SimVersion 20: battle-made blockers and the salvo scatter in the hashed state).</summary>
+    public const ulong WorldBattleSeed7 = 18287983882260778221UL;
 
-    /// <summary>RulesetHash of every file in data/rules (v0, placeholder values; canonical form without $comment), launches.json included. Re-pinned 2026-11-14 (SimVersion 19).</summary>
-    public const ulong RulesV0 = 2235604655286372495UL;
+    /// <summary>RulesetHash of every file in data/rules (v0, placeholder values; canonical form without $comment), launches.json included. Re-pinned 2026-11-15 (SimVersion 20: the base types, crews, the siege stone, the wreck stamp).</summary>
+    public const ulong RulesV0 = 2073062663848916077UL;
 
-    /// <summary>data/maps/m1-flat (map hash), data/plans/m1-ten-thousand.json (plan hash) and the world it deploys. Pinned 2026-11-01; the world re-pinned 2026-11-14 (SimVersion 19: the landing-death counters).</summary>
+    /// <summary>data/maps/m1-flat (map hash), data/plans/m1-ten-thousand.json (plan hash) and the world it deploys. Pinned 2026-11-01; the plan and world re-pinned 2026-11-15 (SimVersion 20: siege regiments of 4 engines with their crews, infantry of 132).</summary>
     public const ulong MapM1Flat = 0x59885A55C9609ABBUL;
-    public const ulong PlanM1TenThousand = 0xE6CC8D05245963B5UL;
-    public const ulong WorldM1TenThousandDeployed = 6391096676937832013UL;
+    public const ulong PlanM1TenThousand = 1782868495505118719UL;
+    public const ulong WorldM1TenThousandDeployed = 12247956400407247675UL;
 
     /// <summary>All four cost fields over a seeded 64 × 48 terrain with the repo's movement classes (TerrainCostTests). Pinned 2026-11-02.</summary>
     public const ulong CostFieldsSeed6 = 0x6DB36691903731AFUL;

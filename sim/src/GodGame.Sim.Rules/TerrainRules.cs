@@ -125,6 +125,36 @@ namespace GodGame.Sim.Rules
         public int[] CrossingPermille { get; internal set; } = new int[3];
     }
 
+    /// <summary>
+    /// A battle-made blocker (spec S2 13.2: a wreck, a felled tree): how each land class crosses its cells, and how long
+    /// clearing it takes Engineers, or any foot regiment when it closes its army's last route (D14). Battle-made blockers
+    /// skip the lock-in route check (brief, 2026-10-09).
+    /// </summary>
+    public sealed class BlockerRules
+    {
+        public BlockerRules(
+            int[] crossingPermille,
+            int engineerClearTicks,
+            int footRegimentClearTicks
+        )
+        {
+            if (crossingPermille == null || crossingPermille.Length != 3)
+            {
+                throw new ArgumentException("Foot, horse and wheeled.", nameof(crossingPermille));
+            }
+            CrossingPermille = crossingPermille;
+            EngineerClearTicks = engineerClearTicks;
+            FootRegimentClearTicks = footRegimentClearTicks;
+        }
+
+        /// <summary>Crossing speed per land class (foot, horse, wheeled), ‰ of the class's speed; 0 is closed.</summary>
+        public int[] CrossingPermille { get; }
+
+        public int EngineerClearTicks { get; }
+
+        public int FootRegimentClearTicks { get; }
+    }
+
     /// <summary>The terrain pieces and the rules every placement shares (spec S1, section 9.1).</summary>
     public sealed class TerrainRules
     {
@@ -138,6 +168,9 @@ namespace GodGame.Sim.Rules
         public int BufferFromDeploymentMm { get; }
 
         public IReadOnlyList<PieceRules> Pieces { get; }
+
+        /// <summary>A wrecked or abandoned engine's stamp (spec S2 13.2), or null in rules without one.</summary>
+        public BlockerRules? Wreck { get; internal set; }
 
         /// <summary>The piece with this id, or null.</summary>
         public PieceRules? Piece(string id)

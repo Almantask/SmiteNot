@@ -273,8 +273,8 @@ public class LinePieceSlowTests
                     "{\"id\":\"a"
                     + i
                     + "\",\"side\":\"attacker\",\"unitType\":\""
-                    + (i == 3 ? "cavalry" : "infantry")
-                    + "\",\"soldiers\":200,\"xMm\":40000,\"yMm\":"
+                    + (i == 3 ? "cavalry\",\"soldiers\":120" : "infantry\",\"soldiers\":200")
+                    + ",\"xMm\":40000,\"yMm\":"
                     + (20000 + i * 35000)
                     + ",\"facingCentiDegrees\":0}"
                 )

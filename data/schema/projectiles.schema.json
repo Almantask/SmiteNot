@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Projectiles, ruleset v0",
-  "description": "Read by GodGame.Sim.Rules.RulesetLoader, which rejects unknown keys; integers only, units in the file's $comment (spec S2).",
+  "description": "Read by GodGame.Sim.Rules.RulesetLoader, which rejects unknown keys; integers only, units in the file's $comment (spec S2). A stone (crushRadiusMm or launchRadiusMm) also takes minRangeMm, scatterNearMm, scatterFarMm, crushRadiusMm and launchRadiusMm (spec S2 6.4), all mm.",
   "type": "object",
   "required": [
     "version",

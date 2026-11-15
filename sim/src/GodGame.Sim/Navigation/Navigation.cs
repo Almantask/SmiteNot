@@ -168,6 +168,16 @@ namespace GodGame.Sim
                     Terrain.Unblock(cell);
                 }
             }
+            // Battle-made blockers (S2 13.2), in the order they were made; cleared ones stay off.
+            Terrain.ResetBlockers();
+            var blockers = world.Blockers;
+            for (int b = 0; b < blockers.Count; b++)
+            {
+                if (!blockers.IsCleared(b))
+                {
+                    Stamp(blockers, b);
+                }
+            }
             var ground = world.Ground;
             for (int i = 0; i < ground.Count; i++)
             {
@@ -366,6 +376,95 @@ namespace GodGame.Sim
             if (added != s)
             {
                 throw new InvalidOperationException("Battle-made decks were laid out of order.");
+            }
+        }
+
+        /// <summary>
+        /// A battle-made blocker (spec S2 13.2: a wreck, a felled tree): recorded in the world and stamped on its cells at
+        /// once, so every later step of this tick reads the same navigation a restore would rebuild. Battle-made, so it
+        /// skips the route check (brief, 2026-10-09). Its index, or -1 when the battle has made as many as it may.
+        /// </summary>
+        public int AddBlocker(
+            TickContext context,
+            BlockerKind kind,
+            int[] cells,
+            byte[] profile,
+            int causeEvent
+        )
+        {
+            var blockers = context.World.Blockers;
+            int b = blockers.Add(kind, cells, profile, causeEvent);
+            if (b < 0)
+            {
+                return -1;
+            }
+            Stamp(blockers, b);
+            RefreshCells(context, cells);
+            return b;
+        }
+
+        /// <summary>Clears a battle-made blocker (spec S2 13.2, D14): its cells go back to the map's, with any other blocker on them.</summary>
+        public void ClearBlocker(TickContext context, int b)
+        {
+            var blockers = context.World.Blockers;
+            if (blockers.IsCleared(b))
+            {
+                return;
+            }
+            blockers.Clear(b);
+            var cells = blockers.Cells(b);
+            foreach (int cell in cells)
+            {
+                Terrain.UnstampBlocker(cell);
+            }
+            // Re-stamp the others that share a cell, in the order they were made (a few blockers: a linear scan).
+            for (int other = 0; other < blockers.Count; other++)
+            {
+                if (blockers.IsCleared(other))
+                {
+                    continue;
+                }
+                var theirs = blockers.Cells(other);
+                var profile = blockers.Profile(other);
+                for (int k = 0; k < theirs.Length; k++)
+                {
+                    if (Array.IndexOf(cells, theirs[k]) >= 0)
+                    {
+                        Terrain.StampBlocker(
+                            theirs[k],
+                            BlockerCodes(blockers.Kind(other), profile[k])
+                        );
+                    }
+                }
+            }
+            RefreshCells(context, cells);
+        }
+
+        /// <summary>The packed crossing codes of a blocker's cell (<see cref="FieldSpeed"/>), from terrain.json's battle-made blockers.</summary>
+        public int BlockerCodes(BlockerKind kind, byte profile)
+        {
+            var rules = BlockerRulesFor(kind, profile);
+            if (rules == null)
+            {
+                return FieldSpeed.Closed | FieldSpeed.Closed << 8 | FieldSpeed.Closed << 16;
+            }
+            var crossing = rules.CrossingPermille;
+            return FieldSpeed.CodeForPermille(crossing[0])
+                | FieldSpeed.CodeForPermille(crossing[1]) << 8
+                | FieldSpeed.CodeForPermille(crossing[2]) << 16;
+        }
+
+        /// <summary>The rules of a blocker's cell profile, or null (closed to every class) where the rules set none.</summary>
+        public BlockerRules? BlockerRulesFor(BlockerKind kind, byte profile) =>
+            kind == BlockerKind.Wreck ? Rules.Terrain.Wreck : null;
+
+        private void Stamp(Blockers blockers, int b)
+        {
+            var cells = blockers.Cells(b);
+            var profile = blockers.Profile(b);
+            for (int k = 0; k < cells.Length; k++)
+            {
+                Terrain.StampBlocker(cells[k], BlockerCodes(blockers.Kind(b), profile[k]));
             }
         }
 

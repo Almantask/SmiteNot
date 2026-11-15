@@ -17,10 +17,12 @@ namespace GodGame.Sim
             int xMm,
             int yMm,
             int facingCentiDegrees,
-            int[]? ditchMm = null
+            int[]? ditchMm = null,
+            bool open = false
         )
         {
             DitchMm = ditchMm;
+            Open = open;
             Id = id;
             Side = side;
             UnitType = unitType;
@@ -37,7 +39,14 @@ namespace GodGame.Sim
 
         public string UnitType { get; }
 
+        /// <summary>Soldiers, or for an engine type (siege, the Pontoon Train) its engines or boats; their crews come with them.</summary>
         public int Soldiers { get; }
+
+        /// <summary>
+        /// The order flag (spec S2 2.2, D1): open order doubles file and rank spacing (a quarter of the load per m², half
+        /// the arrows, a longer column, no bracing); close order, the default, braces. Set only at deployment.
+        /// </summary>
+        public bool Open { get; }
 
         /// <summary>The regiment's centre.</summary>
         public int XMm { get; }
@@ -272,7 +281,8 @@ namespace GodGame.Sim
                     "xMm",
                     "yMm",
                     "facingCentiDegrees",
-                    "ditch"
+                    "ditch",
+                    "order"
                 );
                 string id = DataIds.Require(item["id"]);
                 if (!ids.Add(id))
@@ -308,6 +318,19 @@ namespace GodGame.Sim
                 int[]? ditch = item.Has("ditch")
                     ? ReadDitch(item, type, rules, map, side, x, y, soldierCount)
                     : null;
+                bool open = false;
+                if (item.Has("order"))
+                {
+                    string order = item.Str("order");
+                    if (string.Equals(order, "open", StringComparison.Ordinal))
+                    {
+                        open = true;
+                    }
+                    else if (!string.Equals(order, "close", StringComparison.Ordinal))
+                    {
+                        throw new DataFormatException(item.Path + ".order: close or open.");
+                    }
+                }
                 army.Add(
                     new PlannedRegiment(
                         id,
@@ -317,14 +340,16 @@ namespace GodGame.Sim
                         x,
                         y,
                         item.Int("facingCentiDegrees", 0, 35_999),
-                        ditch
+                        ditch,
+                        open
                     )
                 );
             }
             long soldiers = 0;
             foreach (var regiment in army)
             {
-                soldiers += regiment.Soldiers;
+                // Engines count with their crews (S2 2.1, D4).
+                soldiers += rules.UnitType(regiment.UnitType).UnitsFor(regiment.Soldiers);
             }
             if (soldiers > MaxSoldiers)
             {

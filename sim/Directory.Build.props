@@ -3,8 +3,10 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
-    <!-- Keep build output out of sim/src, which Unity imports as a package. -->
-    <BaseOutputPath>$(MSBuildThisFileDirectory).build/bin/$(MSBuildProjectName)/</BaseOutputPath>
-    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory).build/obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+    <!-- Keep build output out of sim/src, which Unity imports as a package. SimBuildRoot (-p:SimBuildRoot=<dir>) moves
+         it elsewhere, so two sessions can build the same checkout without locking each other's files. -->
+    <SimBuildRoot Condition="'$(SimBuildRoot)' == ''">$(MSBuildThisFileDirectory).build</SimBuildRoot>
+    <BaseOutputPath>$(SimBuildRoot)/bin/$(MSBuildProjectName)/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(SimBuildRoot)/obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
   </PropertyGroup>
 </Project>

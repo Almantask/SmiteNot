@@ -63,6 +63,7 @@ namespace GodGame.Sim
             VolleyTarget = new int[regimentCapacity];
             VolleyAim = new FixVec2[regimentCapacity];
             VolleyHits = new int[regimentCapacity];
+            VolleyScatter = new int[regimentCapacity];
             LossesSeen = new int[regimentCapacity];
             LastLoss = new int[regimentCapacity];
             RalliesLeft = new int[regimentCapacity];
@@ -114,6 +115,9 @@ namespace GodGame.Sim
         public FixVec2[] VolleyAim { get; }
 
         public int[] VolleyHits { get; }
+
+        /// <summary>A siege salvo in flight: each stone's scatter radius, mm (S2 6.4); 0 for arrows.</summary>
+        public int[] VolleyScatter { get; }
 
         /// <summary>Losses the morale step has already charged, in half soldiers (a swept soldier counts as half a loss).</summary>
         public int[] LossesSeen { get; }
@@ -181,6 +185,7 @@ namespace GodGame.Sim
             VolleyTarget[r] = -1;
             VolleyAim[r] = FixVec2.Zero;
             VolleyHits[r] = 0;
+            VolleyScatter[r] = 0;
             LossesSeen[r] = 0;
             LastLoss[r] = 0;
             RalliesLeft[r] = 0;
@@ -211,6 +216,7 @@ namespace GodGame.Sim
             && VolleyTarget[r] == -1
             && VolleyAim[r] == FixVec2.Zero
             && VolleyHits[r] == 0
+            && VolleyScatter[r] == 0
             && LossesSeen[r] == 0
             && LastLoss[r] == 0
             && RalliesLeft[r] == 0
@@ -245,6 +251,7 @@ namespace GodGame.Sim
                 writer.WriteInt64(VolleyAim[r].X.Raw);
                 writer.WriteInt64(VolleyAim[r].Y.Raw);
                 writer.WriteInt32(VolleyHits[r]);
+                writer.WriteInt32(VolleyScatter[r]);
                 writer.WriteInt32(LossesSeen[r]);
                 writer.WriteInt32(LastLoss[r]);
                 writer.WriteInt32(RalliesLeft[r]);
@@ -293,6 +300,7 @@ namespace GodGame.Sim
                     Fix.FromRaw(reader.ReadInt64())
                 );
                 VolleyHits[r] = NonNegative(reader.ReadInt32());
+                VolleyScatter[r] = NonNegative(reader.ReadInt32());
                 LossesSeen[r] = NonNegative(reader.ReadInt32());
                 LastLoss[r] = reader.ReadInt32();
                 RalliesLeft[r] = NonNegative(reader.ReadInt32());
@@ -438,6 +446,7 @@ namespace GodGame.Sim
                 hash.AppendInt64(VolleyAim[r].X.Raw);
                 hash.AppendInt64(VolleyAim[r].Y.Raw);
                 hash.AppendInt32(VolleyHits[r]);
+                hash.AppendInt32(VolleyScatter[r]);
                 hash.AppendInt32(LossesSeen[r]);
                 hash.AppendInt32(LastLoss[r]);
                 hash.AppendInt32(RalliesLeft[r]);

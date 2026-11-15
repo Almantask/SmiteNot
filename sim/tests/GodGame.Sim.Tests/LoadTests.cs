@@ -264,7 +264,7 @@ public class LoadSlowTests
                     + ",\"facingCentiDegrees\":0}"
                 )
                 .Append(
-                    "{\"id\":\"j\",\"side\":\"attacker\",\"unitType\":\"siege\",\"soldiers\":50,\"xMm\":8000,\"yMm\":145000,\"facingCentiDegrees\":0}"
+                    "{\"id\":\"j\",\"side\":\"attacker\",\"unitType\":\"siege\",\"soldiers\":4,\"xMm\":8000,\"yMm\":145000,\"facingCentiDegrees\":0}"
                 )
         );
         string plan =

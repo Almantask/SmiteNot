@@ -270,12 +270,32 @@ public class PontoonTests
         int infantry = battle.Rules.UnitType("infantry").Index;
         var onDeck = new List<int>();
         bool flooded = false;
+        bool trainGone = false;
         while (
             simulation.Tick < 150 * SimConstants.TicksPerSecond
             && world.Counters.SegmentsFailed == 0
         )
         {
             var states = world.Structures!;
+            if (
+                !trainGone
+                && world.Causes!.Events.Any(e =>
+                    e.Kind == CauseKind.SpecialistEnded
+                    && e.Detail == SpecialistExecutor.PontoonAction
+                )
+            )
+            {
+                // The deck is laid: the train leaves. Its boats and crews rolling over their own deck among the queue
+                // would load a segment past its strength first (S2 8.1: a boat and its crew are 2 t on a 3.4 t segment).
+                trainGone = true;
+                foreach (int u in TestBattles.LiveUnits(world).ToList())
+                {
+                    if (world.UnitRegiment[u] == 0)
+                    {
+                        world.DespawnUnit(world.Units.IdOf(u));
+                    }
+                }
+            }
             onDeck.Clear();
             foreach (int u in TestBattles.LiveUnits(world))
             {
@@ -284,7 +304,9 @@ public class PontoonTests
                 bool deck = Enumerable
                     .Range(0, states.Count)
                     .Any(s => !states.Broken[s] && states.BattleCells[s]!.Contains(cell));
-                if (world.UnitType[u] == infantry && deck && InLake(x))
+                // Over the lake beyond its edge cell: a soldier dropped into the edge's slow 0.7 m regains his footing at
+                // once and lies stunned, like those on the bank cell.
+                if (world.UnitType[u] == infantry && deck && InLake(x) && InLake(x - 1))
                 {
                     onDeck.Add(u);
                 }

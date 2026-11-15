@@ -233,6 +233,19 @@ namespace GodGame.Sim.Rules
             }
             var launches = ReadLaunches(launchesJson, ref placeholders);
             ResolveUnitTypes(unitTypesJson, unitTypes, combat, specialists);
+            foreach (var movementClass in movement)
+            {
+                // The class's codes sweep at its most heavily armoured type's threshold (S2 2.1; brief 2026-10-09).
+                int strictest = 1000;
+                foreach (var type in unitTypes)
+                {
+                    if (type.MovementClass == movementClass.MovementClass)
+                    {
+                        strictest = System.Math.Min(strictest, type.SweptDepthSpeedPermille);
+                    }
+                }
+                movementClass.StrictestSweptPermille = strictest;
+            }
             return new Ruleset(
                 unitTypes,
                 movement,
@@ -409,6 +422,14 @@ namespace GodGame.Sim.Rules
                     "meleeTakenPermille",
                     "arrowTakenPermille",
                     "projectile",
+                    "sweptDepthSpeedPermille",
+                    "crewType",
+                    "crewPerEngine",
+                    "crewToMove",
+                    "crewToFire",
+                    "crawlPermille",
+                    "crewRadiusMm",
+                    "slotRadiusMm",
                     "formation"
                 );
                 string id = DataIds.Require(item["id"]);
@@ -537,8 +558,87 @@ namespace GodGame.Sim.Rules
                             item.Path + ": no projectile \"" + id + "\" in projectiles.json."
                         );
                 }
+                if (item.Has("sweptDepthSpeedPermille"))
+                {
+                    type.SweptDepthSpeedPermille = item.Int("sweptDepthSpeedPermille", 1, 10_000);
+                }
+                if (item.Has("slotRadiusMm"))
+                {
+                    type.SlotRadiusMm = item.Int("slotRadiusMm", 0, 100_000);
+                }
+            }
+            // Engines and their crews (S2 2.1, D4), once every type is known.
+            for (int i = 0; i < types.Count; i++)
+            {
+                var item = items[i];
+                var type = types[i];
+                bool any =
+                    item.Has("crewType")
+                    || item.Has("crewPerEngine")
+                    || item.Has("crewToMove")
+                    || item.Has("crewToFire")
+                    || item.Has("crawlPermille")
+                    || item.Has("crewRadiusMm");
+                if (!any)
+                {
+                    continue;
+                }
+                string crewId = item.Str("crewType");
+                UnitTypeRules? crew = null;
+                foreach (var other in types)
+                {
+                    if (string.Equals(other.Id, crewId, StringComparison.Ordinal))
+                    {
+                        crew = other;
+                    }
+                }
+                if (
+                    crew == null
+                    || crew == type
+                    || crew.MovementClass != MovementClass.Foot
+                    || crew.Action != null
+                )
+                {
+                    throw new DataFormatException(
+                        item.Path
+                            + ".crewType: another unit type, on foot, with no action (\""
+                            + crewId
+                            + "\")."
+                    );
+                }
+                int perEngine = item.Int("crewPerEngine", 1, 64);
+                int toMove = item.Int("crewToMove", 1, perEngine);
+                type.Engine = new EngineRules(
+                    crew,
+                    perEngine,
+                    toMove,
+                    item.Has("crewToFire") ? item.Int("crewToFire", 1, perEngine) : 0,
+                    item.Int("crawlPermille", 0, 1_000),
+                    item.Int("crewRadiusMm", 1, 100_000)
+                );
+                if (type.Formation.MaxSoldiers > MaxEngines)
+                {
+                    throw new DataFormatException(
+                        item.Path
+                            + ".formation.maxSoldiers: an engine regiment has at most "
+                            + MaxEngines
+                            + " engines."
+                    );
+                }
+            }
+            foreach (var type in types)
+            {
+                if (type.Engine != null && type.Engine.CrewType.Engine != null)
+                {
+                    throw new DataFormatException(
+                        root.Path + ": " + type.Id + "'s crew is itself an engine type."
+                    );
+                }
             }
         }
+
+        /// <summary>An engine regiment's most engines or boats (the Pontoon Train's 8).</summary>
+        public const int MaxEngines = 8;
 
         private static CombatRules ReadCombat(
             JsonValue root,
@@ -600,7 +700,12 @@ namespace GodGame.Sim.Rules
                     "hitFarPermille",
                     "damage",
                     "reloadTicks",
-                    "ammo"
+                    "ammo",
+                    "minRangeMm",
+                    "scatterNearMm",
+                    "scatterFarMm",
+                    "crushRadiusMm",
+                    "launchRadiusMm"
                 );
                 string id = DataIds.Require(p["id"]);
                 if (!ids.Add(id))
@@ -625,6 +730,24 @@ namespace GodGame.Sim.Rules
                         p.Int("ammo", 0, 10_000)
                     )
                 );
+                var added = projectiles[projectiles.Count - 1];
+                if (p.Has("minRangeMm"))
+                {
+                    added.MinRangeMm = p.Int("minRangeMm", 0, added.RangeMm);
+                }
+                if (p.Has("crushRadiusMm") || p.Has("launchRadiusMm"))
+                {
+                    // S2 6.4: a stone crushes and launches where it lands instead of hitting soldiers.
+                    added.ScatterNearMm = p.Int("scatterNearMm", 0, 1_000_000);
+                    added.ScatterFarMm = p.Int("scatterFarMm", added.ScatterNearMm, 1_000_000);
+                    added.CrushRadiusMm = p.Int("crushRadiusMm", 0, 100_000);
+                    added.LaunchRadiusMm = p.Int("launchRadiusMm", added.CrushRadiusMm, 100_000);
+                    added.IsStone = true;
+                }
+                else if (p.Has("scatterNearMm") || p.Has("scatterFarMm"))
+                {
+                    throw new DataFormatException(p.Path + ": scatter belongs to a stone.");
+                }
             }
             var combat = new CombatRules(
                 melee.Int("engagedSpeedPermille", 0, 1_000),
@@ -1540,7 +1663,14 @@ namespace GodGame.Sim.Rules
             ref bool placeholders
         )
         {
-            root.OnlyKeys("$comment", "version", "status", "bufferFromDeploymentMm", "pieces");
+            root.OnlyKeys(
+                "$comment",
+                "version",
+                "status",
+                "bufferFromDeploymentMm",
+                "pieces",
+                "battleMadeBlockers"
+            );
             if (root.Int("version") != TerrainVersion)
             {
                 throw new DataFormatException(root.Path + ": version must be 0.");
@@ -1722,7 +1852,40 @@ namespace GodGame.Sim.Rules
                 }
                 list.Add(piece);
             }
-            return new TerrainRules(buffer, list.AsReadOnly());
+            var terrain = new TerrainRules(buffer, list.AsReadOnly());
+            if (root.Has("battleMadeBlockers"))
+            {
+                var blockers = root["battleMadeBlockers"];
+                blockers.OnlyKeys("$comment", "wreck");
+                if (blockers.Has("wreck"))
+                {
+                    terrain.Wreck = ReadBlocker(blockers["wreck"]);
+                }
+            }
+            return terrain;
+        }
+
+        /// <summary>A battle-made blocker's stamp (spec S2 13.2): per-class crossing speeds and clearing times.</summary>
+        private static BlockerRules ReadBlocker(JsonValue item)
+        {
+            item.OnlyKeys(
+                "$comment",
+                "crossingPermille",
+                "engineerClearTicks",
+                "footRegimentClearTicks"
+            );
+            var crossing = item["crossingPermille"];
+            crossing.OnlyKeys("foot", "horse", "wheeled");
+            return new BlockerRules(
+                new[]
+                {
+                    crossing.Int("foot", 0, 1_000),
+                    crossing.Int("horse", 0, 1_000),
+                    crossing.Int("wheeled", 0, 1_000),
+                },
+                item.Int("engineerClearTicks", 1, 72_000),
+                item.Int("footRegimentClearTicks", 1, 72_000)
+            );
         }
 
         private static PieceRules Polyline(JsonValue item, string id, PieceKind kind)

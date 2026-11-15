@@ -486,7 +486,15 @@ namespace GodGame.Sim
                     out int north
                 );
                 long flow = IntMath.Sqrt((ulong)((long)east * east + (long)north * north));
-                if (_rules.Movement(cls).Water.Sweeps(depthMm, flow))
+                if (
+                    _rules
+                        .Movement(cls)
+                        .Water.Sweeps(
+                            depthMm,
+                            flow,
+                            _rules.UnitTypes[world.UnitType[u]].SweptDepthSpeedPermille
+                        )
+                )
                 {
                     if (Nearest(world, cls, p, x, y, rules.FringeMm, true, out FixVec2 footing))
                     {

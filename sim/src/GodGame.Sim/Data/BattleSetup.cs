@@ -63,7 +63,7 @@ namespace GodGame.Sim
             int soldiers = 0;
             foreach (var regiment in plan.Army)
             {
-                soldiers += regiment.Soldiers;
+                soldiers += rules.UnitType(regiment.UnitType).UnitsFor(regiment.Soldiers);
             }
             var world = new World(
                 soldiers + extraUnitCapacity,
@@ -98,13 +98,17 @@ namespace GodGame.Sim
                     files,
                     facing
                 );
+                // Stones are per engine (S2 6.1): the regiment carries its engines' ammunition as one pool.
                 world.Army.Init(
                     regiment.Index,
-                    type.Projectile?.Ammo ?? 0,
+                    (type.Projectile?.Ammo ?? 0) * (type.Engine == null ? 1 : planned.Soldiers),
                     rules.Morale.RallyTimes
                 );
-                Fix fileSpacing = Fix.FromRatio(formation.FileSpacingMm, 1000);
-                Fix rankSpacing = Fix.FromRatio(formation.RankSpacingMm, 1000);
+                world.Army.Open[regiment.Index] = planned.Open;
+                // Open order (S2 2.2) doubles both spacings from the start.
+                int open = planned.Open ? rules.Combat.OpenSpacingPermille : 1000;
+                Fix fileSpacing = Fix.FromRatio((long)formation.FileSpacingMm * open, 1_000_000);
+                Fix rankSpacing = Fix.FromRatio((long)formation.RankSpacingMm * open, 1_000_000);
                 // The plan point is the middle of the block, from the officer to the last rank.
                 var centre = new FixVec2(
                     Fix.FromRatio(planned.XMm, 1000),
@@ -120,6 +124,28 @@ namespace GodGame.Sim
                         Fix.Clamp(p.Y, Fix.Zero, maxY)
                     );
                     world.SpawnUnit(regiment, clamped, type.Health, type.Morale);
+                }
+                var engine = type.Engine;
+                if (engine == null)
+                {
+                    continue;
+                }
+                // Each engine's crew, in engine order, around it (S2 2.1, D4): formation slots after the engines.
+                var crew = engine.CrewType;
+                Fix ring = Fix.FromRatio(crew.SlotRadiusMm, 1000);
+                for (int e = 0; e < planned.Soldiers; e++)
+                {
+                    var at =
+                        officer + Formation.SlotOffset(e, files, fileSpacing, rankSpacing, facing);
+                    for (int j = 0; j < engine.CrewPerEngine; j++)
+                    {
+                        var p = at + EngineCrews.CrewOffset(j, engine.CrewPerEngine, ring, facing);
+                        var clamped = new FixVec2(
+                            Fix.Clamp(p.X, Fix.Zero, maxX),
+                            Fix.Clamp(p.Y, Fix.Zero, maxY)
+                        );
+                        world.SpawnUnit(regiment, clamped, crew.Health, crew.Morale, crew.Index);
+                    }
                 }
             }
             return world;

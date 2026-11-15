@@ -82,6 +82,11 @@ namespace GodGame.Sim
                 }
                 var type = _rules.UnitTypes[world.RegimentUnitType[r]];
                 var side = world.RegimentSide[r];
+                if (type.Projectile != null && type.Projectile.IsStone)
+                {
+                    DecideSiege(world, r, type.Projectile);
+                    continue;
+                }
                 if (type.Projectile != null)
                 {
                     DecideRanged(world, r, type.Projectile, combat, tick);
@@ -203,6 +208,43 @@ namespace GodGame.Sim
                 }
                 long gap = _summary.Gap(r, e);
                 if (gap < bestGap)
+                {
+                    best = e;
+                    bestGap = gap; // ascending slots: ties keep the lower one
+                }
+            }
+            army.Order[r] = best >= 0 ? RegimentOrder.Shoot : RegimentOrder.March;
+            army.Target[r] = best;
+        }
+
+        /// <summary>
+        /// Siege engines (spec S2 6.4, S2 5's targeting default): throw at the nearest enemy regiment whose outline is
+        /// between the stone's minimum range and its range (after wind and height), keeping the current target within the
+        /// hysteresis; march otherwise. Engines never fall back: they are too slow to.
+        /// </summary>
+        private void DecideSiege(World world, int r, ProjectileRules projectile)
+        {
+            var army = world.Army;
+            int current = army.Order[r] == RegimentOrder.Shoot ? army.Target[r] : -1;
+            if (
+                current >= 0
+                && Targetable(world, r, current)
+                && InRange(world, r, current, projectile, HysteresisMm)
+                && _summary.Gap(r, current) + HysteresisMm >= projectile.MinRangeMm
+            )
+            {
+                return;
+            }
+            int best = -1;
+            long bestGap = long.MaxValue;
+            for (int e = 0; e < world.Regiments.HighWater; e++)
+            {
+                if (!Targetable(world, r, e) || !InRange(world, r, e, projectile, 0))
+                {
+                    continue;
+                }
+                long gap = _summary.Gap(r, e);
+                if (gap >= projectile.MinRangeMm && gap < bestGap)
                 {
                     best = e;
                     bestGap = gap; // ascending slots: ties keep the lower one

@@ -61,7 +61,7 @@ public class EngineerTests
         string army =
             Regiment("e", "attacker", "engineers", 40, 8_000, 40_000)
             + ","
-            + Regiment("g", "attacker", "siege", 50, 8_000, 60_000);
+            + Regiment("g", "attacker", "siege", 4, 8_000, 60_000);
         var battle = Load(TestBattles.Map((_, _) => 0, Columns, 200), army, channel);
         var simulation = battle.Start(new SerialRunner());
         var world = simulation.World;
@@ -105,12 +105,12 @@ public class EngineerTests
             battle.Rules.Structures.Kinds[world.Structures.BattleKind[0]].Id,
             Is.EqualTo("trestle")
         );
-        // The stand-in siege regiment is 50 engines in a column 60 m deep (real ones are 1–4 with crews, item 6): its
-        // tail may already be committed to the far gap when the trestle opens, but the engines that turn cross by it.
+        // A siege regiment of 4 engines with their crews (S2 2.1): every engine crosses by the trestle.
+        Assert.That(crossedAt, Has.Count.EqualTo(4), "all four engines crossed");
         Assert.That(
             crossedAt.Values.Count(y => y < 100),
-            Is.GreaterThan(10),
-            "engines crossed by the trestle"
+            Is.EqualTo(4),
+            "by the trestle, not the far gap"
         );
     }
 
@@ -217,7 +217,7 @@ public class EngineerSlowTests
         string plan =
             "{\"version\":0,\"map\":\"test\",\"army\":["
             + "{\"id\":\"e\",\"side\":\"attacker\",\"unitType\":\"engineers\",\"soldiers\":40,\"xMm\":8000,\"yMm\":40000,\"facingCentiDegrees\":0},"
-            + "{\"id\":\"g\",\"side\":\"attacker\",\"unitType\":\"siege\",\"soldiers\":50,\"xMm\":8000,\"yMm\":60000,\"facingCentiDegrees\":0}],"
+            + "{\"id\":\"g\",\"side\":\"attacker\",\"unitType\":\"siege\",\"soldiers\":4,\"xMm\":8000,\"yMm\":60000,\"facingCentiDegrees\":0}],"
             + "\"terrain\":[{\"id\":\"b\",\"piece\":\"boulder\",\"xMm\":130000,\"yMm\":40000},"
             + "{\"id\":\"c\",\"piece\":\"channel\",\"points\":[[180750,0],[180750,140000]],\"widthMm\":6000,\"depthMm\":2000},"
             + "{\"id\":\"c2\",\"piece\":\"channel\",\"points\":[[180750,135000],[180750,270000]],\"widthMm\":6000,\"depthMm\":2000}],"

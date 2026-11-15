@@ -80,9 +80,11 @@ public sealed class Goldens
 
     /// <summary>
     /// Re-runs a golden's plan and seed with the current rules, map and SimVersion and rewrites the file. Only the
-    /// golden-replay skill calls this, after it has bumped SimVersion and written the changelog line.
+    /// golden-replay skill calls this, after it has bumped SimVersion and written the changelog line. With
+    /// <paramref name="planJson"/>, the golden is re-recorded with that plan instead of its own (same map, seed and
+    /// length): for a plan the rules no longer accept, rewritten in data/plans.
     /// </summary>
-    public void Regenerate(string name, IParallelRunner runner)
+    public void Regenerate(string name, IParallelRunner runner, string? planJson = null)
     {
         var replay = Load(name);
         var rules = RepoFiles.LoadRepoRules(Root);
@@ -90,7 +92,7 @@ public sealed class Goldens
         var battle = new Battle(
             rules,
             map,
-            BattlePlan.Load(replay.PlanJson, map, rules),
+            BattlePlan.Load(planJson ?? replay.PlanJson, map, rules),
             replay.Seed
         );
         Write(name, battle, replay.Seconds, runner);

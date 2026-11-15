@@ -55,7 +55,8 @@
           "soldiers": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 10000
+            "maximum": 10000,
+            "description": "Soldiers; for an engine type (siege, pontoon-train) its engines or boats, whose crews the loader adds (spec S2 2.1, D4)"
           },
           "xMm": {
             "type": "integer",
@@ -69,6 +70,26 @@
             "minimum": 0,
             "maximum": 35999,
             "description": "0 faces east, counter-clockwise"
+          },
+          "order": {
+            "enum": [
+              "close",
+              "open"
+            ],
+            "description": "Spec S2 2.2, D1: open order doubles file and rank spacing; close (the default) braces"
+          },
+          "ditch": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "description": "Spademen only (S2 14.3, D5): the ditch line, [xMm, yMm] points"
           }
         }
       }

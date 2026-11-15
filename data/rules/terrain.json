@@ -113,5 +113,13 @@
       "bankMinAboveWaterMm": 5,
       "footprintEndCells": 1
     }
-  ]
+  ],
+  "battleMadeBlockers": {
+    "$comment": "Spec S2 13.2 (battle-made blockers: exempt from the lock-in route check, clearable; brief 2026-10-09, D14). wreck: a siege engine smashed to 0 structure, or abandoned once its regiment has no crew left (S2 2.1; the same stamp as a felled trunk), over the cells under the engine's body: foot climbs over at crossingPermille, horse and wheeled closed. Engineers clear one in engineerClearTicks; any foot regiment in footRegimentClearTicks, only when it closes its army's last route for some class (D14; M5 item 7).",
+    "wreck": {
+      "crossingPermille": { "foot": 300, "horse": 0, "wheeled": 0 },
+      "engineerClearTicks": 900,
+      "footRegimentClearTicks": 2400
+    }
+  }
 }

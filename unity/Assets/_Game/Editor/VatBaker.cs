@@ -23,8 +23,11 @@ namespace GodGame.Editor
             var rules = RepoLoader.LoadRules(RepoLoader.EditorRepoRoot);
             for (int i = 0; i < rules.UnitTypes.Count; i++)
             {
-                string cleanId = rules.UnitTypes[i].Id.Replace("-", string.Empty);
-                BakeOrLoadUnit(cleanId, forceBake: true);
+                if (UnitArt.AwaitsModel(rules.UnitTypes[i].Id))
+                {
+                    continue; // no model to bake yet
+                }
+                BakeOrLoadUnit(UnitArt.CleanId(rules.UnitTypes[i].Id), forceBake: true);
             }
             AssetDatabase.SaveAssets();
             Debug.Log($"GodGame: baked {rules.UnitTypes.Count} unit VAT assets.");

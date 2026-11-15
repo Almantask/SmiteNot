@@ -27,7 +27,7 @@ public static class Program
                                   settled rivers every battle on it starts with (spec S1, section 7).
           golden list|verify      List the goldens, or verify them all (exit 2 on any divergence).
           golden add <name>       Record a new golden from the battle options below.
-          golden regenerate --all|<name>
+          golden regenerate --all|<name> [--plan <file>]   (--plan: re-record one golden with that plan)
                                   Rewrite goldens with this build. Only /golden-replay does this, after it bumps
                                   SimVersion and writes sim/CHANGELOG-sim.md.
 
@@ -293,9 +293,19 @@ public static class Program
                 }
                 var options = Options.Parse(args.Skip(2).ToArray());
                 var names = args[1] == "--all" ? goldens.Names() : new[] { args[1] };
+                if (options.PlanFile != null && names.Count != 1)
+                {
+                    throw new ArgumentException(
+                        "golden regenerate <name> --plan <file>: one golden at a time."
+                    );
+                }
                 foreach (string name in names)
                 {
-                    goldens.Regenerate(name, options.Runner());
+                    goldens.Regenerate(
+                        name,
+                        options.Runner(),
+                        options.PlanFile == null ? null : File.ReadAllText(options.PlanFile)
+                    );
                     Console.WriteLine($"regenerated {name} (SimVersion {SimVersion.Current})");
                 }
                 return 0;

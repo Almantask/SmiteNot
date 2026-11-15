@@ -185,6 +185,9 @@ namespace GodGame.Sim
         /// <summary>The ground as soldiers changed it this battle (dug and filled cells, spec S2 section 14).</summary>
         public GroundEdits Ground { get; } = new GroundEdits();
 
+        /// <summary>Blockers the battle made (wrecks, felled trees: spec S2 13.2), in the order they were made.</summary>
+        public Blockers Blockers { get; } = new Blockers();
+
         /// <summary>Per-regiment orders, volleys and morale bookkeeping (spec S2, sections 5 to 7).</summary>
         public ArmyState Army { get; }
 
@@ -246,7 +249,20 @@ namespace GodGame.Sim
         /// A soldier of the regiment's unit type, standing still, with no flags, in the next formation slot; the
         /// regiment's first soldier is its officer and anchor.
         /// </summary>
-        public EntityId SpawnUnit(EntityId regiment, FixVec2 position, int health, int morale)
+        public EntityId SpawnUnit(EntityId regiment, FixVec2 position, int health, int morale) =>
+            SpawnUnit(regiment, position, health, morale, -1);
+
+        /// <summary>
+        /// As <see cref="SpawnUnit(EntityId, FixVec2, int, int)"/>, of unit type <paramref name="unitType"/> (an engine's
+        /// crew in its engine's regiment, S2 2.1), or of the regiment's type when it is -1.
+        /// </summary>
+        public EntityId SpawnUnit(
+            EntityId regiment,
+            FixVec2 position,
+            int health,
+            int morale,
+            int unitType
+        )
         {
             if (!Regiments.IsAlive(regiment))
             {
@@ -257,7 +273,7 @@ namespace GodGame.Sim
             int r = regiment.Index;
             Position[u] = position;
             Velocity[u] = FixVec2.Zero;
-            UnitType[u] = RegimentUnitType[r];
+            UnitType[u] = unitType < 0 ? RegimentUnitType[r] : unitType;
             UnitRegiment[u] = r;
             Health[u] = health;
             Morale[u] = morale;
@@ -378,6 +394,7 @@ namespace GodGame.Sim
             Counters.WriteTo(writer);
             Army.WriteTo(writer);
             Ground.WriteTo(writer);
+            Blockers.WriteTo(writer);
             writer.WriteByte(Structures == null ? (byte)0 : (byte)1);
             Structures?.WriteTo(writer);
             writer.WriteByte(Casts == null ? (byte)0 : (byte)1);
@@ -595,6 +612,10 @@ namespace GodGame.Sim
             Counters.ReadFrom(reader);
             Army.ReadFrom(reader);
             Ground.ReadFrom(reader, Fields == null ? MaxGroundCells : Fields.Columns * Fields.Rows);
+            Blockers.ReadFrom(
+                reader,
+                Fields == null ? MaxGroundCells : Fields.Columns * Fields.Rows
+            );
             if (reader.ReadByte() != (Structures == null ? 0 : 1))
             {
                 throw new FormatException("The snapshot's structures don't match this world's.");
@@ -664,6 +685,7 @@ namespace GodGame.Sim
             Counters.AppendTo(hash);
             Army.AppendTo(hash, Regiments);
             Ground.AppendTo(hash);
+            Blockers.AppendTo(hash);
             Structures?.AppendTo(hash);
             Casts?.AppendTo(hash);
             Causes?.AppendTo(hash);

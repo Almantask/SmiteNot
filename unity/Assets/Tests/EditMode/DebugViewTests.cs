@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using GodGame.Bridge;
 using GodGame.Editor;
@@ -203,9 +204,9 @@ namespace GodGame.Tests.EditMode
         public void UnitMeshes_AllNineUnitTypes_ImportWithPaletteUvsAndTeamMask()
         {
             var rules = RepoLoader.LoadRules(RepoLoader.EditorRepoRoot);
-            Assert.That(rules.UnitTypes.Count, Is.EqualTo(9));
+            Assert.That(rules.UnitTypes.Count(t => !UnitArt.AwaitsModel(t.Id)), Is.EqualTo(9));
 
-            foreach (var unitType in rules.UnitTypes)
+            foreach (var unitType in rules.UnitTypes.Where(t => !UnitArt.AwaitsModel(t.Id)))
             {
                 string cleanId = unitType.Id.Replace("-", string.Empty);
                 string assetPath =
@@ -284,9 +285,9 @@ namespace GodGame.Tests.EditMode
         public void UnitVats_AllNineUnitTypes_BakeWithMovingVerticesAcrossFrames()
         {
             var rules = RepoLoader.LoadRules(RepoLoader.EditorRepoRoot);
-            Assert.That(rules.UnitTypes.Count, Is.EqualTo(9));
+            Assert.That(rules.UnitTypes.Count(t => !UnitArt.AwaitsModel(t.Id)), Is.EqualTo(9));
 
-            foreach (var unitType in rules.UnitTypes)
+            foreach (var unitType in rules.UnitTypes.Where(t => !UnitArt.AwaitsModel(t.Id)))
             {
                 string cleanId = unitType.Id.Replace("-", string.Empty);
                 string meshPath =

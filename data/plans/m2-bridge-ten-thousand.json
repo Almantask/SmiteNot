@@ -1,5 +1,5 @@
 {
-  "$comment": "M2 exit plan: 10,000 attackers on m2-bridge (cavalry in front, then infantry, ranged, and siege at the rear: 12, 70, 15 and 6 regiments; siege regiments of 50, the rest of 100), to cross 1 km through the bridge. Six columns 30 m apart, 18 rows 42 m apart, all facing east; no defenders.",
+  "$comment": "M2 exit plan: 10,000 attackers on m2-bridge (cavalry in front, then infantry, ranged, and siege at the rear: 12, 70, 15 and 6 regiments; siege regiments of 4 engines with 8 crew each (S2 2.1), 12 infantry regiments of 107, the rest of 100: 10,000 units), to cross 1 km through the bridge. Six columns 30 m apart, 18 rows 42 m apart, all facing east; no defenders.",
   "version": 0,
   "map": "m2-bridge",
   "army": [
@@ -115,7 +115,7 @@
       "id": "a012",
       "side": "attacker",
       "unitType": "infantry",
-      "soldiers": 100,
+      "soldiers": 107,
       "xMm": 170000,
       "yMm": 526000,
       "facingCentiDegrees": 0
@@ -124,7 +124,7 @@
       "id": "a013",
       "side": "attacker",
       "unitType": "infantry",
-      "soldiers": 100,
+      "soldiers": 107,
       "xMm": 170000,
       "yMm": 568000,
       "facingCentiDegrees": 0
@@ -133,7 +133,7 @@
       "id": "a014",
       "side": "attacker",
       "unitType": "infantry",
-      "soldiers": 100,
+      "soldiers": 107,
       "xMm": 170000,
       "yMm": 610000,
       "facingCentiDegrees": 0
@@ -142,7 +142,7 @@
       "id": "a015",
       "side": "attacker",
       "unitType": "infantry",
-      "soldiers": 100,
+      "soldiers": 107,
       "xMm": 170000,
       "yMm": 652000,
       "facingCentiDegrees": 0
@@ -151,7 +151,7 @@
       "id": "a016",
       "side": "attacker",
       "unitType": "infantry",
-      "soldiers": 100,
+      "soldiers": 107,
       "xMm": 170000,
       "yMm": 694000,
       "facingCentiDegrees": 0
@@ -160,7 +160,7 @@
       "id": "a017",
       "side": "attacker",
       "unitType": "infantry",
-      "soldiers": 100,
+      "soldiers": 107,
       "xMm": 170000,
       "yMm": 736000,
       "facingCentiDegrees": 0
@@ -169,7 +169,7 @@
       "id": "a018",
       "side": "attacker",
       "unitType": "infantry",
-      "soldiers": 100,
+      "soldiers": 107,
       "xMm": 140000,
       "yMm": 22000,
       "facingCentiDegrees": 0
@@ -178,7 +178,7 @@
       "id": "a019",
       "side": "attacker",
       "unitType": "infantry",
-      "soldiers": 100,
+      "soldiers": 107,
       "xMm": 140000,
       "yMm": 64000,
       "facingCentiDegrees": 0
@@ -187,7 +187,7 @@
       "id": "a020",
       "side": "attacker",
       "unitType": "infantry",
-      "soldiers": 100,
+      "soldiers": 107,
       "xMm": 140000,
       "yMm": 106000,
       "facingCentiDegrees": 0
@@ -196,7 +196,7 @@
       "id": "a021",
       "side": "attacker",
       "unitType": "infantry",
-      "soldiers": 100,
+      "soldiers": 107,
       "xMm": 140000,
       "yMm": 148000,
       "facingCentiDegrees": 0
@@ -205,7 +205,7 @@
       "id": "a022",
       "side": "attacker",
       "unitType": "infantry",
-      "soldiers": 100,
+      "soldiers": 107,
       "xMm": 140000,
       "yMm": 190000,
       "facingCentiDegrees": 0
@@ -214,7 +214,7 @@
       "id": "a023",
       "side": "attacker",
       "unitType": "infantry",
-      "soldiers": 100,
+      "soldiers": 107,
       "xMm": 140000,
       "yMm": 232000,
       "facingCentiDegrees": 0
@@ -880,7 +880,7 @@
       "id": "a097",
       "side": "attacker",
       "unitType": "siege",
-      "soldiers": 50,
+      "soldiers": 4,
       "xMm": 20000,
       "yMm": 316000,
       "facingCentiDegrees": 0
@@ -889,7 +889,7 @@
       "id": "a098",
       "side": "attacker",
       "unitType": "siege",
-      "soldiers": 50,
+      "soldiers": 4,
       "xMm": 20000,
       "yMm": 358000,
       "facingCentiDegrees": 0
@@ -898,7 +898,7 @@
       "id": "a099",
       "side": "attacker",
       "unitType": "siege",
-      "soldiers": 50,
+      "soldiers": 4,
       "xMm": 20000,
       "yMm": 400000,
       "facingCentiDegrees": 0
@@ -907,7 +907,7 @@
       "id": "a100",
       "side": "attacker",
       "unitType": "siege",
-      "soldiers": 50,
+      "soldiers": 4,
       "xMm": 20000,
       "yMm": 442000,
       "facingCentiDegrees": 0
@@ -916,7 +916,7 @@
       "id": "a101",
       "side": "attacker",
       "unitType": "siege",
-      "soldiers": 50,
+      "soldiers": 4,
       "xMm": 20000,
       "yMm": 484000,
       "facingCentiDegrees": 0
@@ -925,7 +925,7 @@
       "id": "a102",
       "side": "attacker",
       "unitType": "siege",
-      "soldiers": 50,
+      "soldiers": 4,
       "xMm": 20000,
       "yMm": 526000,
       "facingCentiDegrees": 0

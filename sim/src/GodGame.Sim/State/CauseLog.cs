@@ -70,6 +70,30 @@ namespace GodGame.Sim
         /// Killed). Subject: his regiment; detail: his unit slot; cause: his landing, whose outcome tells which.
         /// </summary>
         SoldierFell = 18,
+
+        /// <summary>A siege stone came down (spec S2 6.4). Subject: the regiment whose engine threw it; detail: the cell.</summary>
+        StoneLanded = 19,
+
+        /// <summary>
+        /// A soldier was crushed (spec S2 6.4, 13.2; brief 2026-10-11: siege stones are combat, felled trees crush). Subject:
+        /// his regiment; detail: his unit slot; cause: the stone or tree that came down.
+        /// </summary>
+        SoldierCrushed = 20,
+
+        /// <summary>
+        /// A siege engine was smashed to 0 structure and left a wreck (spec S2 2.1, 13.2). Subject: its regiment; detail:
+        /// the wreck's blocker index.
+        /// </summary>
+        EngineWrecked = 21,
+
+        /// <summary>A siege engine whose regiment has no crew left was abandoned as a wreck. Subject: its regiment; detail: the blocker.</summary>
+        EngineAbandoned = 22,
+    }
+
+    /// <summary>The highest <see cref="CauseKind"/> (snapshots reject anything above it).</summary>
+    public static class CauseKinds
+    {
+        public const CauseKind Last = CauseKind.EngineAbandoned;
     }
 
     /// <summary>One entry in the cause log: what, when, and the (up to two) earlier events that caused it.</summary>
@@ -262,7 +286,7 @@ namespace GodGame.Sim
                 int cause2 = reader.ReadInt32();
                 if (
                     kind < (byte)CauseKind.CastFired
-                    || kind > (byte)CauseKind.SoldierFell
+                    || kind > (byte)CauseKinds.Last
                     || cause < None
                     || cause >= i
                     || cause2 < None

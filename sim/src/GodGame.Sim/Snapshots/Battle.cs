@@ -96,7 +96,7 @@ namespace GodGame.Sim
             systems[(int)TickStep.Navigation] = new NavigationSystem(navigation);
             systems[(int)TickStep.Movement] = new MovementSystem(navigation);
             systems[(int)TickStep.BallisticsAndImpacts] = new BallisticsSystem(Rules, navigation);
-            systems[(int)TickStep.Combat] = new CombatSystem(Rules, PlayedMap, navigation.Terrain);
+            systems[(int)TickStep.Combat] = new CombatSystem(Rules, navigation);
             systems[(int)TickStep.Hazards] = new HazardSystem(navigation);
             systems[(int)TickStep.Morale] = new MoraleSystem(Rules, navigation);
             systems[(int)TickStep.Bookkeeping] = new CauseSystem();

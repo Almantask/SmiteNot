@@ -88,6 +88,23 @@ namespace GodGame.Sim.Rules
 
         public int ReloadTicks { get; }
 
+        /// <summary>The nearest a target may be (a siege stone's 60 m); 0 for arrows.</summary>
+        public int MinRangeMm { get; internal set; }
+
+        /// <summary>A stone (spec S2 6.4): it crushes and launches where it lands instead of hitting soldiers.</summary>
+        public bool IsStone { get; internal set; }
+
+        /// <summary>A stone's seeded scatter radius at <see cref="MinRangeMm"/>, growing linearly to <see cref="ScatterFarMm"/> at full range.</summary>
+        public int ScatterNearMm { get; internal set; }
+
+        public int ScatterFarMm { get; internal set; }
+
+        /// <summary>Soldiers within this of a stone's landing point die (combat; crushed).</summary>
+        public int CrushRadiusMm { get; internal set; }
+
+        /// <summary>Soldiers beyond the crush radius and within this are launched away from the landing point.</summary>
+        public int LaunchRadiusMm { get; internal set; }
+
         /// <summary>Volleys a regiment carries.</summary>
         public int Ammo { get; }
     }

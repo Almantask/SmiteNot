@@ -77,15 +77,187 @@
           },
           "formation": {
             "type": "object",
-            "required": ["files", "fileSpacingMm", "rankSpacingMm", "minSoldiers", "maxSoldiers"],
+            "required": [
+              "files",
+              "fileSpacingMm",
+              "rankSpacingMm",
+              "minSoldiers",
+              "maxSoldiers"
+            ],
             "additionalProperties": false,
             "properties": {
-              "files": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Soldiers side by side in a rank" },
-              "fileSpacingMm": { "type": "integer", "minimum": 100, "maximum": 20000, "description": "Neighbours in a rank, centre to centre, mm" },
-              "rankSpacingMm": { "type": "integer", "minimum": 100, "maximum": 20000, "description": "One rank to the next, centre to centre, mm" },
-              "minSoldiers": { "type": "integer", "minimum": 1, "maximum": 10000, "description": "Smallest regiment a plan may field, officer included" },
-              "maxSoldiers": { "type": "integer", "minimum": 1, "maximum": 10000, "description": "Largest regiment a plan may field" }
+              "files": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000,
+                "description": "Soldiers side by side in a rank"
+              },
+              "fileSpacingMm": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 20000,
+                "description": "Neighbours in a rank, centre to centre, mm"
+              },
+              "rankSpacingMm": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 20000,
+                "description": "One rank to the next, centre to centre, mm"
+              },
+              "minSoldiers": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10000,
+                "description": "Smallest regiment a plan may field, officer included"
+              },
+              "maxSoldiers": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10000,
+                "description": "Largest regiment a plan may field"
+              }
             }
+          },
+          "$comment": {
+            "type": "string"
+          },
+          "seats": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "attacker",
+                "defender"
+              ]
+            },
+            "description": "Who may field it (S2 14.2 seat locks); [] for crews, which come only with their engines"
+          },
+          "action": {
+            "type": "string",
+            "description": "A specialists.json action"
+          },
+          "actions": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "type": "string"
+            },
+            "description": "At most two actions (brief 2026-10-10)"
+          },
+          "massKg": {
+            "type": "integer",
+            "description": "What it weighs on a bridge or ice, kg",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "runMmPerS": {
+            "type": "integer",
+            "description": "Running speed (a rout), mm per second",
+            "minimum": 1,
+            "maximum": 20000
+          },
+          "moraleShockPermille": {
+            "type": "integer",
+            "description": "Every morale loss is scaled by this; an engine regiment uses its crew's",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "melee": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "damage",
+              "hitPermille",
+              "intervalTicks",
+              "reachMm"
+            ],
+            "properties": {
+              "damage": {
+                "type": "integer",
+                "description": "Health points per hit",
+                "minimum": 0,
+                "maximum": 1000000
+              },
+              "hitPermille": {
+                "type": "integer",
+                "description": "Hit chance",
+                "minimum": 0,
+                "maximum": 1000
+              },
+              "intervalTicks": {
+                "type": "integer",
+                "description": "Ticks between swings",
+                "minimum": 1,
+                "maximum": 1200
+              },
+              "reachMm": {
+                "type": "integer",
+                "description": "Reach beyond body contact, mm",
+                "minimum": 0,
+                "maximum": 10000
+              }
+            }
+          },
+          "meleeTakenPermille": {
+            "type": "integer",
+            "description": "Melee damage taken",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "arrowTakenPermille": {
+            "type": "integer",
+            "description": "Arrow damage taken",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "projectile": {
+            "type": "string",
+            "description": "A projectiles.json id"
+          },
+          "sweptDepthSpeedPermille": {
+            "type": "integer",
+            "description": "Its depth x speed sweep threshold, permille of its class's (S2 2.1: infantry 900)",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "crewType": {
+            "type": "string",
+            "description": "Engine types (S2 2.1, D4): the foot type of its crew"
+          },
+          "crewPerEngine": {
+            "type": "integer",
+            "description": "Crew added per engine or boat",
+            "minimum": 1,
+            "maximum": 64
+          },
+          "crewToMove": {
+            "type": "integer",
+            "description": "Crew within crewRadiusMm for full speed",
+            "minimum": 1,
+            "maximum": 64
+          },
+          "crewToFire": {
+            "type": "integer",
+            "description": "Crew within crewRadiusMm to throw a stone",
+            "minimum": 1,
+            "maximum": 64
+          },
+          "crawlPermille": {
+            "type": "integer",
+            "description": "Speed with fewer crew than crewToMove (but some)",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "crewRadiusMm": {
+            "type": "integer",
+            "description": "How near crew must be to count, mm",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "slotRadiusMm": {
+            "type": "integer",
+            "description": "Crew types: the ring around the engine they walk on, mm",
+            "minimum": 0,
+            "maximum": 100000
           }
         }
       }

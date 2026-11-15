@@ -238,7 +238,9 @@ public class CombatDeterminismSlowTests
         for (int i = 0; i < 6; i++)
         {
             double y = 20 + i * 28;
-            regiments.Add(("attacker", i % 3 == 2 ? "cavalry" : "infantry", 200, 130.0, y));
+            regiments.Add(
+                ("attacker", i % 3 == 2 ? "cavalry" : "infantry", i % 3 == 2 ? 120 : 200, 130.0, y)
+            );
             regiments.Add(("defender", i % 3 == 1 ? "ranged" : "infantry", 200, 170.0, y));
         }
         return TestBattles.Battle(map, regiments, seed: 11);

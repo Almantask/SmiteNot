@@ -97,16 +97,30 @@ namespace GodGame.Sim.Rules
 
         /// <summary>Whether a swept soldier finds footing here: below <see cref="RegainPermille"/> of every threshold.</summary>
         public bool RegainsFooting(long depthMm, long flowMmPerS) =>
+            RegainsFooting(depthMm, flowMmPerS, 1000);
+
+        /// <summary>As <see cref="RegainsFooting(long, long)"/> for a unit whose depth × speed threshold is <paramref name="depthSpeedPermille"/> of the class's.</summary>
+        public bool RegainsFooting(long depthMm, long flowMmPerS, int depthSpeedPermille) =>
             depthMm * 1000 < (long)SweptDepthMm * RegainPermille
             && (
                 depthMm * 1000 < (long)SweptMinDepthMm * RegainPermille
-                || depthMm * flowMmPerS < (long)SweptDepthSpeed * RegainPermille
+                || depthMm * flowMmPerS * 1000
+                    < (long)SweptDepthSpeed * RegainPermille * depthSpeedPermille
             );
 
         /// <summary>Whether water this deep and this fast sweeps the class away.</summary>
-        public bool Sweeps(long depthMm, long flowMmPerS) =>
+        public bool Sweeps(long depthMm, long flowMmPerS) => Sweeps(depthMm, flowMmPerS, 1000);
+
+        /// <summary>
+        /// Whether water this deep and this fast sweeps a unit whose depth × speed threshold is
+        /// <paramref name="depthSpeedPermille"/> of the class's (<see cref="UnitTypeRules.SweptDepthSpeedPermille"/>).
+        /// </summary>
+        public bool Sweeps(long depthMm, long flowMmPerS, int depthSpeedPermille) =>
             depthMm >= SweptDepthMm
-            || (depthMm >= SweptMinDepthMm && depthMm * flowMmPerS / 1000 >= SweptDepthSpeed);
+            || (
+                depthMm >= SweptMinDepthMm
+                && depthMm * flowMmPerS >= (long)SweptDepthSpeed * depthSpeedPermille
+            );
     }
 
     /// <summary>
@@ -147,6 +161,13 @@ namespace GodGame.Sim.Rules
 
         /// <summary>Speed in ‰ by mud (0-65535; spec S1, section 6).</summary>
         public SpeedCurve MudSpeed { get; }
+
+        /// <summary>
+        /// The lowest <see cref="UnitTypeRules.SweptDepthSpeedPermille"/> among the class's unit types (1,000 when none
+        /// is lower): the class's speed codes sweep at it, so no soldier of the class walks into water that would sweep
+        /// him (brief, 2026-10-09), even the most heavily armoured.
+        /// </summary>
+        public int StrictestSweptPermille { get; internal set; } = 1000;
     }
 
     /// <summary>One unit type from <c>data/rules/unit-types.json</c>. Units are documented in data/schema/unit-types.schema.json.</summary>
@@ -228,6 +249,29 @@ namespace GodGame.Sim.Rules
         /// <summary>Every action it carries out, at most two (brief 2026-10-10): Engineers do bridgework and clearing.</summary>
         public IReadOnlyList<string> Actions { get; internal set; } = Array.Empty<string>();
 
+        /// <summary>
+        /// Swept sooner or later than its class (spec S2 2.1): its depth × speed threshold is the class's × this ‰
+        /// (infantry 900: shields and mail lose footing sooner; tech notes 5). Depth thresholds stay the class's.
+        /// </summary>
+        public int SweptDepthSpeedPermille { get; internal set; } = 1000;
+
+        /// <summary>An engine type's crew (spec S2 2.1, D4: siege engines, the Pontoon Train's boats), or null.</summary>
+        public EngineRules? Engine { get; internal set; }
+
+        /// <summary>A crew type: how far from its engine a crew soldier stands (S2 2.1: within 3 m), mm; 0 for others.</summary>
+        public int SlotRadiusMm { get; internal set; }
+
+        /// <summary>
+        /// Units a regiment of this type deploys for the plan's <paramref name="soldiers"/>: the soldiers themselves,
+        /// or for an engine type the engines plus their crews.
+        /// </summary>
+        public int UnitsFor(int soldiers) =>
+            Engine == null ? soldiers : soldiers * (1 + Engine.CrewPerEngine);
+
+        /// <summary>For an engine type, the engines a regiment deployed with, from its starting size; else the size.</summary>
+        public int EnginesIn(int startingSize) =>
+            Engine == null ? startingSize : startingSize / (1 + Engine.CrewPerEngine);
+
         public bool Does(string action)
         {
             foreach (var a in Actions)
@@ -239,6 +283,47 @@ namespace GodGame.Sim.Rules
             }
             return false;
         }
+    }
+
+    /// <summary>
+    /// An engine type's crew (spec S2 2.1, decision D4): every engine deploys with <see cref="CrewPerEngine"/> foot
+    /// soldiers of <see cref="CrewType"/> in its own regiment, who walk beside it. It moves at full speed with at least
+    /// <see cref="CrewToMove"/> of them within <see cref="CrewRadiusMm"/>, at <see cref="CrawlPermille"/> with fewer,
+    /// stands with none, and is abandoned once the regiment has no crew left; a siege engine throws a stone only with
+    /// <see cref="CrewToFire"/> crew beside it.
+    /// </summary>
+    public sealed class EngineRules
+    {
+        public EngineRules(
+            UnitTypeRules crewType,
+            int crewPerEngine,
+            int crewToMove,
+            int crewToFire,
+            int crawlPermille,
+            int crewRadiusMm
+        )
+        {
+            CrewType = crewType ?? throw new ArgumentNullException(nameof(crewType));
+            CrewPerEngine = crewPerEngine;
+            CrewToMove = crewToMove;
+            CrewToFire = crewToFire;
+            CrawlPermille = crawlPermille;
+            CrewRadiusMm = crewRadiusMm;
+        }
+
+        public UnitTypeRules CrewType { get; }
+
+        public int CrewPerEngine { get; }
+
+        public int CrewToMove { get; }
+
+        /// <summary>Crew needed beside a siege engine for it to throw (0 for an engine that throws nothing).</summary>
+        public int CrewToFire { get; }
+
+        /// <summary>Speed with some crew but fewer than <see cref="CrewToMove"/>, in ‰.</summary>
+        public int CrawlPermille { get; }
+
+        public int CrewRadiusMm { get; }
     }
 
     /// <summary>The guaranteed-route check, from <c>data/rules/routes.json</c>.</summary>

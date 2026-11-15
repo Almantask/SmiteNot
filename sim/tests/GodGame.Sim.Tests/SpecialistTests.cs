@@ -146,7 +146,7 @@ public class SpecialistTests
         string army = string.Join(
             ",",
             Regiment("f", "attacker", "fascine-carriers", 100, 8_000, 40_000),
-            Regiment("g", "attacker", "siege", 50, 8_000, 60_000)
+            Regiment("g", "attacker", "siege", 4, 8_000, 60_000)
         );
         var battle = Load(Flat(rows: 200), army, channel);
         var simulation = battle.Start(new SerialRunner());
@@ -317,7 +317,7 @@ public class SpecialistSlowTests
         string plan =
             "{\"version\":0,\"map\":\"test\",\"army\":["
             + "{\"id\":\"f\",\"side\":\"attacker\",\"unitType\":\"fascine-carriers\",\"soldiers\":100,\"xMm\":8000,\"yMm\":40000,\"facingCentiDegrees\":0},"
-            + "{\"id\":\"g\",\"side\":\"attacker\",\"unitType\":\"siege\",\"soldiers\":50,\"xMm\":8000,\"yMm\":60000,\"facingCentiDegrees\":0},"
+            + "{\"id\":\"g\",\"side\":\"attacker\",\"unitType\":\"siege\",\"soldiers\":4,\"xMm\":8000,\"yMm\":60000,\"facingCentiDegrees\":0},"
             + "{\"id\":\"s\",\"side\":\"defender\",\"unitType\":\"spademen\",\"soldiers\":100,\"xMm\":352000,\"yMm\":75000,\"facingCentiDegrees\":0,\"ditch\":[[300750,60000],[300750,90000]]}],"
             + "\"terrain\":[{\"id\":\"c\",\"piece\":\"channel\",\"points\":[[180750,0],[180750,140000]],\"widthMm\":6000,\"depthMm\":2000},"
             + "{\"id\":\"c2\",\"piece\":\"channel\",\"points\":[[180750,135000],[180750,270000]],\"widthMm\":6000,\"depthMm\":2000}],"

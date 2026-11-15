@@ -123,6 +123,24 @@ namespace GodGame.Sim
             return Fill(context, r);
         }
 
+        /// <summary>The engines (boats) of engine regiment <paramref name="r"/> still standing.</summary>
+        private int LivingEngines(World world, int r)
+        {
+            int n = 0;
+            for (int u = 0; u < world.Units.HighWater; u++)
+            {
+                if (
+                    world.Units.IsAlive(u)
+                    && world.UnitRegiment[u] == r
+                    && world.UnitType[u] == world.RegimentUnitType[r]
+                )
+                {
+                    n++;
+                }
+            }
+            return n;
+        }
+
         // ---- Engineers: bridgework and clearing (S2 14.7) ----
 
         public const int TrestleAction = 3;
@@ -146,7 +164,10 @@ namespace GodGame.Sim
             var army = world.Army;
             var rules = _rules.Specialists.LayPontoon!;
             var kind = _rules.Structures.Kind("pontoon");
-            int left = world.RegimentAlive[r] * rules.SegmentsPerBoat - army.Spent[r];
+            // Segments per living boat (S2 14.5); the crews walk beside them and don't count.
+            var trainType = _rules.UnitTypes[world.RegimentUnitType[r]];
+            int boats = trainType.Engine == null ? world.RegimentAlive[r] : LivingEngines(world, r);
+            int left = boats * rules.SegmentsPerBoat - army.Spent[r];
             if (kind == null || left <= 0)
             {
                 if (army.Job[r] == SpecialistJob.Active)

@@ -68,6 +68,9 @@ namespace GodGame.Editor
             serialized.FindProperty("_lineShader").objectReferenceValue = Shader.Find(
                 "Universal Render Pipeline/Unlit"
             );
+            serialized.FindProperty("_deckShader").objectReferenceValue = Shader.Find(
+                "GodGame/DebugDeck"
+            );
             serialized.FindProperty("_panelSettings").objectReferenceValue = PanelSettingsAsset();
             serialized.FindProperty("_camera").objectReferenceValue = strategic;
             AssignUnitMeshes(serialized, "Battle debug scene");
@@ -79,6 +82,7 @@ namespace GodGame.Editor
                     "_groundShader",
                     "_waterShader",
                     "_lineShader",
+                    "_deckShader",
                     "_panelSettings",
                 }
             )
@@ -110,7 +114,17 @@ namespace GodGame.Editor
             }
             for (int i = 0; i < rules.UnitTypes.Count; i++)
             {
-                string cleanId = rules.UnitTypes[i].Id.Replace("-", string.Empty);
+                if (UnitArt.AwaitsModel(rules.UnitTypes[i].Id))
+                {
+                    // No model yet: drawn as a capsule.
+                    meshesProp.GetArrayElementAtIndex(i).objectReferenceValue = null;
+                    if (vatsProp != null)
+                    {
+                        vatsProp.GetArrayElementAtIndex(i).objectReferenceValue = null;
+                    }
+                    continue;
+                }
+                string cleanId = UnitArt.CleanId(rules.UnitTypes[i].Id);
                 string path = $"Assets/_Game/Art/Generated/U_{cleanId}_a/U_{cleanId}_a_LOD0.fbx";
                 Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
                 if (mesh == null)

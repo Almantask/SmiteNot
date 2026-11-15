@@ -105,6 +105,10 @@ namespace GodGame.Sim
         private readonly MovementClass[] _typeClass;
         private readonly Fix[] _typeFileSpacing;
         private readonly Fix[] _typeRankSpacing;
+        private readonly EngineCrews _crews;
+        private readonly long[] _typeMass; // kg, for the mass-weighted push (S2 4.1)
+        private readonly EngineRules?[] _typeEngine; // an engine type's crew rules, or null
+        private readonly Fix[] _crewRing; // a crew type's ring around its engine
         private readonly Fix[] _openFileSpacing; // open order (S2 2.2): the type's spacing × the order's factor
         private readonly Fix[] _openRankSpacing;
         private readonly long _maxRadiusRaw;
@@ -159,6 +163,10 @@ namespace GodGame.Sim
             long w = navigation.Map.Width.Raw;
             long d = navigation.Map.Depth.Raw;
             _mapDiagonalRaw = IntMath.Sqrt((ulong)(w * w + d * d)) + 1; // sides at most 30 km: the square fits
+            _crews = new EngineCrews(navigation.Rules);
+            _typeMass = new long[types.Count];
+            _typeEngine = new EngineRules?[types.Count];
+            _crewRing = new Fix[types.Count];
             _typeFileSpacing = new Fix[types.Count];
             _typeRankSpacing = new Fix[types.Count];
             _openFileSpacing = new Fix[types.Count];
@@ -166,6 +174,9 @@ namespace GodGame.Sim
             int open = navigation.Rules.Combat.OpenSpacingPermille;
             for (int t = 0; t < types.Count; t++)
             {
+                _typeEngine[t] = types[t].Engine;
+                _typeMass[t] = System.Math.Max(1, types[t].MassKg);
+                _crewRing[t] = Fix.FromRatio(types[t].SlotRadiusMm, 1000);
                 _typeFileSpacing[t] = Fix.FromRatio(types[t].Formation.FileSpacingMm, 1000);
                 _typeRankSpacing[t] = Fix.FromRatio(types[t].Formation.RankSpacingMm, 1000);
                 _openFileSpacing[t] = Fix.FromRatio(
@@ -302,6 +313,8 @@ namespace GodGame.Sim
                 _officerWaits = new bool[regiments];
                 _stragglers = new int[regiments];
             }
+            // Engines and their crews (S2 2.1): who walks beside which engine, and how many crew each has beside it.
+            _crews.Gather(world);
             bool promote = false;
             for (int r = 0; r < regiments; r++)
             {
@@ -408,7 +421,14 @@ namespace GodGame.Sim
                     continue;
                 }
                 int type = world.RegimentUnitType[r];
-                int ranks = Formation.Ranks(world.RegimentStartingSize[r], world.RegimentFiles[r]);
+                if (_typeEngine[type] != null && world.UnitType[u] != type)
+                {
+                    continue; // crews keep to their engines, not to the formation
+                }
+                int ranks = Formation.Ranks(
+                    _navigation.Rules.UnitTypes[type].EnginesIn(world.RegimentStartingSize[r]),
+                    world.RegimentFiles[r]
+                );
                 // Clamped to the map's diagonal, so even a crafted snapshot's formation can't overflow the square.
                 long reach = System.Math.Min(
                     _mapDiagonalRaw,
@@ -585,6 +605,14 @@ namespace GodGame.Sim
                             run = Fix.FromRaw(run.Raw * permille / 1000);
                         }
                     }
+                    var engineRules = _s._typeEngine[type];
+                    if (engineRules != null)
+                    {
+                        // An engine moves at full speed with enough crew beside it, crawls with fewer, stands with none.
+                        int share = EngineCrews.SpeedPermille(engineRules, _s._crews.CrewNear(u));
+                        speed = Fix.FromRaw(speed.Raw * share / 1000);
+                        run = Fix.FromRaw(run.Raw * share / 1000);
+                    }
                     long radius = _s._typeRadiusRaw[type];
                     var directions = _s._regimentDirections[regiment];
                     var cls = _s._typeCosts[type];
@@ -635,19 +663,47 @@ namespace GodGame.Sim
                     }
                     else
                     {
-                        FixVec2 slot =
-                            _s._formationOrigin[regiment]
-                            + Formation.SlotOffset(
-                                _world.FormationSlot[u],
-                                _world.RegimentFiles[regiment],
-                                _world.Army.Open[regiment]
-                                    ? _s._openFileSpacing[type]
-                                    : _s._typeFileSpacing[type],
-                                _world.Army.Open[regiment]
-                                    ? _s._openRankSpacing[type]
-                                    : _s._typeRankSpacing[type],
-                                _world.RegimentFacing[regiment]
-                            );
+                        FixVec2 slot;
+                        FixVec2 slotVelocity = _s._anchorVelocity[regiment];
+                        bool hasSlot = true;
+                        int regimentType = _world.RegimentUnitType[regiment];
+                        var crewOf = _s._typeEngine[regimentType];
+                        bool crew = crewOf != null && type != regimentType;
+                        if (crew)
+                        {
+                            // A crew soldier: his place on the ring around his engine (S2 2.1, D4).
+                            int engine = _s._crews.EngineOf(_world, u);
+                            hasSlot = engine >= 0;
+                            slot = hasSlot
+                                ? position[engine]
+                                    + EngineCrews.CrewOffset(
+                                        _s._crews.CrewIndex(_world, u),
+                                        crewOf!.CrewPerEngine,
+                                        _s._crewRing[type],
+                                        _world.RegimentFacing[regiment]
+                                    )
+                                : p;
+                            if (hasSlot)
+                            {
+                                slotVelocity = velocity[engine];
+                            }
+                        }
+                        else
+                        {
+                            slot =
+                                _s._formationOrigin[regiment]
+                                + Formation.SlotOffset(
+                                    _world.FormationSlot[u],
+                                    _world.RegimentFiles[regiment],
+                                    _world.Army.Open[regiment]
+                                        ? _s._openFileSpacing[type]
+                                        : _s._typeFileSpacing[type],
+                                    _world.Army.Open[regiment]
+                                        ? _s._openRankSpacing[type]
+                                        : _s._typeRankSpacing[type],
+                                    _world.RegimentFacing[regiment]
+                                );
+                        }
                         long ox = slot.X.Raw - p.X.Raw;
                         long oy = slot.Y.Raw - p.Y.Raw;
                         long reform = ReformDistance.Raw;
@@ -659,11 +715,19 @@ namespace GodGame.Sim
                             && ox * ox + oy * oy <= reform * reform;
                         if (
                             directions == null
-                            || (inReach && Passable(cls, slot) && Direct(regiment, p, slot, ox, oy))
+                            || (
+                                hasSlot
+                                && inReach
+                                && Passable(cls, slot)
+                                && Direct(regiment, p, slot, ox, oy)
+                            )
+                            // A crew soldier left behind walks straight back to his engine when his own class can (the
+                            // engine's wheeled field may lead him into the jam he was left in).
+                            || (crew && hasSlot && Passable(cls, slot) && Clear(cls, p, slot))
                         )
                         {
                             FixVec2 seek =
-                                _s._anchorVelocity[regiment]
+                                slotVelocity
                                 + new FixVec2(Fix.FromRaw(ox), Fix.FromRaw(oy)) * SlotGain;
                             long seekSq = seek.X.Raw * seek.X.Raw + seek.Y.Raw * seek.Y.Raw;
                             if (seekSq == 0)
@@ -710,6 +774,10 @@ namespace GodGame.Sim
                         long dx = position[j].X.Raw - p.X.Raw;
                         long dy = position[j].Y.Raw - p.Y.Raw;
                         long contact = radius + _s._typeRadiusRaw[unitType[j]];
+                        // Weighted by mass (S2 4.1): 2 m_j / (m_u + m_j), exactly 1 between equals, so a cavalry
+                        // block shoves infantry hard and a crowd barely moves an engine.
+                        long massSelf = _s._typeMass[type];
+                        long massOther = _s._typeMass[unitType[j]];
                         long distSq = dx * dx + dy * dy; // within the query radius (a few metres), far inside a long
                         if (
                             swing >= 0
@@ -724,8 +792,12 @@ namespace GodGame.Sim
                         {
                             long dist = IntMath.Sqrt((ulong)distSq);
                             long overlap = contact - dist;
-                            pressure += overlap;
-                            long share = overlap * PushShare.Raw >> Fix.FractionalBits;
+                            pressure += overlap * 2 * massOther / (massSelf + massOther);
+                            long share =
+                                (overlap * PushShare.Raw >> Fix.FractionalBits)
+                                * 2
+                                * massOther
+                                / (massSelf + massOther);
                             if (dist == 0)
                             {
                                 // Standing on the same spot: split along one of eight directions picked from the pair's
@@ -746,8 +818,16 @@ namespace GodGame.Sim
                                 pushY -= dy * share / dist;
                             }
                         }
-                        if (heading != FixVec2.Zero)
+                        if (
+                            heading != FixVec2.Zero
+                            && !(
+                                engineRules != null
+                                && unitRegiment[j] == regiment
+                                && unitType[j] != type
+                            )
+                        )
                         {
+                            // (An engine doesn't wait for its own crew: they step aside, S2 4.1's weighted push.)
                             // Distance along the heading and across it, in raw metres (heading is a unit vector).
                             long along =
                                 (dx * heading.X.Raw + dy * heading.Y.Raw) >> Fix.FractionalBits;

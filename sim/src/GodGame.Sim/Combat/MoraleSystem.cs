@@ -21,6 +21,7 @@ namespace GodGame.Sim
         private readonly Ruleset _rules;
         private readonly Navigation _navigation;
         private readonly RegimentSummary _summary = new RegimentSummary();
+        private readonly EngineCrews _crews;
         private int[] _lost = new int[0];
         private bool[] _newlyWiped = new bool[0];
         private int[] _morale = new int[0];
@@ -30,6 +31,7 @@ namespace GodGame.Sim
         {
             _rules = rules ?? throw new ArgumentNullException(nameof(rules));
             _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
+            _crews = new EngineCrews(rules);
         }
 
         public TickStep Step => TickStep.Morale;
@@ -41,7 +43,40 @@ namespace GodGame.Sim
             Flee(context);
             if (TickOrder.RegimentAiRate.IsDue(context.Tick))
             {
+                Abandon(context);
                 Update(context);
+            }
+        }
+
+        /// <summary>
+        /// Engines whose regiment has no crew left are abandoned (spec S2 2.1, D4): each becomes a wreck, a battle-made
+        /// blocker (S2 13.2), in unit slot order.
+        /// </summary>
+        private void Abandon(TickContext context)
+        {
+            var world = context.World;
+            bool any = false;
+            for (int r = 0; r < world.Regiments.HighWater && !any; r++)
+            {
+                any =
+                    world.Regiments.IsAlive(r)
+                    && _rules.UnitTypes[world.RegimentUnitType[r]].Engine != null;
+            }
+            if (!any)
+            {
+                return;
+            }
+            _crews.Gather(world, countNear: false);
+            for (int u = 0; u < world.Units.HighWater; u++)
+            {
+                if (
+                    world.Units.IsAlive(u)
+                    && EngineCrews.IsEngine(world, _rules, u)
+                    && _crews.LivingCrew(world.UnitRegiment[u]) == 0
+                )
+                {
+                    CombatSystem.Wreck(world, _navigation, context, u, CauseKind.EngineAbandoned);
+                }
             }
         }
 
@@ -184,7 +219,9 @@ namespace GodGame.Sim
                         }
                     }
                 }
-                var shock = _rules.UnitTypes[world.RegimentUnitType[r]].MoraleShockPermille;
+                // An engine regiment's morale is its crew's (S2 2.1: "crew decides").
+                var regimentType = _rules.UnitTypes[world.RegimentUnitType[r]];
+                var shock = (regimentType.Engine?.CrewType ?? regimentType).MoraleShockPermille;
                 long morale = world.RegimentMorale[r] - loss * shock / 1000 + gain;
                 if (perSecond && tick - army.LastLoss[r] >= m.RecoveryQuietTicks)
                 {

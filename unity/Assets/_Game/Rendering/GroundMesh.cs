@@ -71,5 +71,38 @@ namespace GodGame.Rendering
             mesh.RecalculateBounds();
             return mesh;
         }
+
+        private static readonly (string Prop, string ResourcePath)[] TerrainTextureBindings =
+        {
+            ("_GrassTex", "Terrain/T_terrain_grass_a"),
+            ("_RoadTex", "Terrain/T_terrain_road_a"),
+            ("_MudTex", "Terrain/T_terrain_mud_a"),
+            ("_RiverbedTex", "Terrain/T_terrain_riverbed_a"),
+            ("_WoodlandTex", "Terrain/T_terrain_woodland_a"),
+        };
+
+        /// <summary>
+        /// Loads the seamless ground tile textures generated in Resources/Terrain and binds any available ones onto a
+        /// ground material using <c>GodGame/DebugGround</c>.
+        /// </summary>
+        public static void BindTerrainTextures(Material material)
+        {
+            if (material == null)
+            {
+                return;
+            }
+            for (int i = 0; i < TerrainTextureBindings.Length; i++)
+            {
+                var (prop, resourcePath) = TerrainTextureBindings[i];
+                if (material.HasProperty(prop))
+                {
+                    var tex = Resources.Load<Texture2D>(resourcePath);
+                    if (tex != null)
+                    {
+                        material.SetTexture(prop, tex);
+                    }
+                }
+            }
+        }
     }
 }

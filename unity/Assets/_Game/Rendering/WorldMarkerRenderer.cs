@@ -638,8 +638,32 @@ namespace GodGame.Rendering
             var tris = new List<int>();
 
             Color ring = new Color(0.85f, 0.75f, 0.45f, 0.45f);
+            Color dust = new Color(0.78f, 0.68f, 0.50f, 0.75f);
             Color chevron = new Color(0.98f, 0.45f, 0.15f, 1f);
             AddRing(verts, cols, tris, 0.92f, 1.00f, 0.14f, 24, ring);
+
+            // Billowing dust-cloud lobes around the flanks and trailing rear (-Z) of the herd ring;
+            // animated by DebugMarkers.shader (alpha ~ 0.75) during driven/agitated/stampede states.
+            for (int i = 0; i < 10; i++)
+            {
+                float t = i / 9f;
+                float angle = Mathf.Lerp(-MathF.PI * 0.85f, MathF.PI * 0.85f, t);
+                float r = 0.55f + 0.35f * ((i & 1) == 0 ? 1f : 0.4f);
+                float px = Mathf.Sin(angle) * r;
+                float pz = -0.35f - Mathf.Cos(angle) * r * 0.55f;
+                float py = 0.38f + 0.24f * (i % 3);
+                float s = 0.24f + 0.08f * ((i * 3) % 3);
+                AddBox(
+                    verts,
+                    cols,
+                    tris,
+                    new Vector3(px, py, pz),
+                    new Vector3(s, s * 0.82f, s * 1.15f),
+                    Quaternion.Euler(14f * (i % 3), i * 37f, -12f * ((i + 1) % 3)),
+                    dust
+                );
+            }
+
             AddBox(
                 verts,
                 cols,

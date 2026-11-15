@@ -47,6 +47,7 @@ Shader "GodGame/DebugMarkers"
                 float4 positionCS : SV_POSITION;
                 float3 normalWS : TEXCOORD0;
                 half4 color : TEXCOORD1;
+                float4 vfx : TEXCOORD2; // x: 0=default, 1=active fire, 2=herd dust; y: local height01; z: phase; w: intensity/mask
             };
 
             float3 RotateY(float3 v, float rad)
@@ -85,6 +86,7 @@ Shader "GodGame/DebugMarkers"
                 float3 n = input.normalOS;
                 half3 tint = (half3)input.color.rgb;
                 half selfLit = 0.0h;
+                float4 vfx = float4(0.0, 0.0, 0.0, 0.0);
 
                 if (_IsAuthoredFbx > 0.5)
                 {
@@ -183,7 +185,7 @@ Shader "GodGame/DebugMarkers"
                 }
                 else if (st.z < 5.5)
                 {
-                    // Fire patch cell: animated flame sway/flicker or charred embers once out.
+                    // Fire patch cell: turbulent flame licks + ember core glow, or charred ashes once extinguished.
                     uint cx;
                     uint cy;
                     tint = SamplePropAlbedo(input.uv, tint, cx, cy);
@@ -196,14 +198,30 @@ Shader "GodGame/DebugMarkers"
                     }
                     else
                     {
-                        float pulse = sin(_TimeSeconds * 11.0 + phase * 6.283185) * 0.16
-                            + sin(_TimeSeconds * 19.3 + phase * 12.56637) * 0.07;
-                        p.y *= max(0.35, 1.0 + pulse * saturate(p.y * 0.9));
-                        p.x += cos(_TimeSeconds * 8.5 + phase * 6.283185) * 0.06 * saturate(p.y);
-                        if ((_IsAuthoredFbx > 0.5 && cy == 1u && cx >= 5u && cx <= 7u)
-                            || (_IsAuthoredFbx <= 0.5 && input.color.r > 0.7))
+                        bool isFlameTongue = (_IsAuthoredFbx > 0.5 && cy == 1u && cx >= 6u && cx <= 7u)
+                            || (_IsAuthoredFbx <= 0.5 && input.color.g > 0.35);
+                        bool isEmber = (_IsAuthoredFbx > 0.5 && cy == 1u && cx == 5u)
+                            || (_IsAuthoredFbx <= 0.5 && !isFlameTongue);
+                        float flameH = saturate(p.y / max(0.01, st.x * 1.32));
+                        if (isFlameTongue)
                         {
-                            selfLit = 0.95h;
+                            float flicker = sin(_TimeSeconds * 11.0 + phase * 6.283185 + p.x * 4.5) * 0.16
+                                + sin(_TimeSeconds * 19.3 + phase * 12.56637 + p.z * 5.2) * 0.09
+                                + cos(_TimeSeconds * 27.1 + p.y * 6.0) * 0.05;
+                            float swirlA = _TimeSeconds * 7.2 + phase * 6.283185 + flameH * 2.4;
+                            p.y *= max(0.42, 1.0 + flicker * flameH);
+                            p.x += cos(swirlA) * 0.11 * flameH * st.x;
+                            p.z += sin(swirlA * 1.13) * 0.11 * flameH * st.x;
+                            selfLit = 1.0h;
+                            float isInnerCore = (_IsAuthoredFbx > 0.5 && cx == 7u) ? 1.0 : 0.65;
+                            vfx = float4(1.0, flameH, phase + p.y * 1.7 + p.x * 2.3, isInnerCore);
+                        }
+                        else if (isEmber)
+                        {
+                            float throb = 0.04 * sin(_TimeSeconds * 6.4 + phase * 6.283185);
+                            p *= (1.0 + throb);
+                            selfLit = 0.72h;
+                            vfx = float4(1.0, 0.05, phase + p.x * 3.1 + p.z * 2.7, 0.25);
                         }
                     }
                     p = RotateY(p, yaw);
@@ -242,21 +260,24 @@ Shader "GodGame/DebugMarkers"
                 }
                 else
                 {
-                    // Herd bounding ring and stampede/driving chevron.
+                    // Herd bounding ring, billowing hoof/stampede dust plumes, and driving chevron.
                     float mode = st.x;
                     float driven = st.y;
                     float herdYaw = st.w;
                     float radiusM = max(2.0, inst.w);
                     bool isRing = input.color.a < 0.6;
+                    bool isDust = input.color.a >= 0.6 && input.color.a < 0.9;
+                    bool isStampede = mode >= 1.5 && mode < 2.5;
+                    bool isAgitated = mode > 0.5 && mode < 1.5;
 
                     half3 ringColor = driven > 0.5
                         ? half3(0.58, 0.82, 0.42)
                         : half3(0.76, 0.68, 0.44);
-                    if (mode > 0.5 && mode < 1.5)
+                    if (isAgitated)
                     {
                         ringColor = half3(1.00, 0.78, 0.14);
                     }
-                    else if (mode >= 1.5 && mode < 2.5)
+                    else if (isStampede)
                     {
                         ringColor = half3(1.00, 0.28, 0.10);
                     }
@@ -270,19 +291,51 @@ Shader "GodGame/DebugMarkers"
                     if (isRing)
                     {
                         float pulse = 1.0;
-                        if (mode > 0.5 && mode < 1.5)
+                        if (isAgitated)
                         {
                             pulse = 1.0 + 0.04 * sin(_TimeSeconds * 7.5);
                         }
-                        else if (mode >= 1.5 && mode < 2.5)
+                        else if (isStampede)
                         {
                             pulse = 1.0 + 0.06 * sin(_TimeSeconds * 12.0);
                         }
                         p.xz *= radiusM * pulse;
                     }
+                    else if (isDust)
+                    {
+                        bool showDust = isStampede || isAgitated || driven > 0.5;
+                        if (!showDust || mode >= 2.5)
+                        {
+                            p = 0.0;
+                        }
+                        else
+                        {
+                            float puffHash = p.x * 3.7 + p.z * 5.3 + inst.x * 0.13 + inst.z * 0.17;
+                            float billow = 0.5 + 0.5 * sin(_TimeSeconds * (isStampede ? 8.5 : 4.2) + puffHash);
+                            float drift = cos(_TimeSeconds * (isStampede ? 6.8 : 3.4) + puffHash * 1.3);
+                            p.xz *= radiusM * (isStampede ? 1.05 : 0.92);
+                            if (isStampede)
+                            {
+                                p.z -= (0.45 + 0.35 * saturate(-p.z / max(1.0, radiusM))) * radiusM + billow * 0.85;
+                                p.x *= 1.15 + 0.22 * drift;
+                                p.y = p.y * (1.85 + 0.85 * billow) + 0.15;
+                            }
+                            else
+                            {
+                                p.x += drift * 0.45;
+                                p.z += cos(_TimeSeconds * 3.1 + puffHash) * 0.45;
+                                p.y = p.y * (1.05 + 0.45 * billow) + 0.05;
+                            }
+                            p = RotateY(p, herdYaw);
+                            n = RotateY(n, herdYaw);
+                            tint = isStampede ? half3(0.84, 0.72, 0.50) : half3(0.76, 0.68, 0.52);
+                            selfLit = 0.58h;
+                            vfx = float4(2.0, saturate(p.y / 2.2), puffHash + _TimeSeconds * 2.5, isStampede ? 1.0 : 0.55);
+                        }
+                    }
                     else
                     {
-                        bool showChevron = (mode > 0.5 && mode < 2.5) || driven > 0.5;
+                        bool showChevron = isAgitated || isStampede || driven > 0.5;
                         if (!showChevron)
                         {
                             p = 0.0;
@@ -300,14 +353,45 @@ Shader "GodGame/DebugMarkers"
                 output.positionCS = TransformWorldToHClip(inst.xyz + p);
                 output.normalWS = n;
                 output.color = half4(tint, selfLit);
+                output.vfx = vfx;
                 return output;
             }
 
             half4 Frag(Varyings input) : SV_Target
             {
+                half3 col = input.color.rgb;
+                if (input.vfx.x > 0.75 && input.vfx.x < 1.5)
+                {
+                    // Active fire: 3-band thermal gradient (white-yellow core -> orange mid -> soot tip) + pulsing embers.
+                    float flicker = 0.5 + 0.5 * sin(_TimeSeconds * 9.5 + input.vfx.z * 3.1);
+                    if (input.vfx.w < 0.4)
+                    {
+                        col = lerp(col * (half)0.45, half3(0.96, 0.28, 0.05), (half)(0.35 + 0.65 * flicker));
+                    }
+                    else
+                    {
+                        float h = saturate(input.vfx.y + (flicker - 0.5) * 0.14);
+                        half3 coreCol = input.vfx.w > 0.85 ? half3(1.00, 0.96, 0.68) : half3(1.00, 0.80, 0.30);
+                        half3 midCol = half3(0.98, 0.42, 0.08);
+                        half3 tipCol = half3(0.32, 0.12, 0.09);
+                        col = h < 0.52
+                            ? lerp(coreCol, midCol, (half)(h / 0.52))
+                            : lerp(midCol, tipCol, (half)((h - 0.52) / 0.48));
+                    }
+                }
+                else if (input.vfx.x >= 1.5)
+                {
+                    // Herd agitation / stampede dust cloud shading: dark churned soil at bottom, warm sunlit ochre crest above.
+                    float billowNoise = 0.5 + 0.5 * sin(input.vfx.z * 1.9);
+                    half3 earthBase = half3(0.38, 0.30, 0.21);
+                    half3 sunlitCrest = half3(0.90, 0.80, 0.58);
+                    col = lerp(earthBase, sunlitCrest, (half)saturate(input.vfx.y * 0.75 + billowNoise * 0.35));
+                    col = lerp(col, half3(0.95, 0.82, 0.54), (half)(input.vfx.w * 0.25));
+                }
+
                 float light = 0.45 + 0.55 * saturate(dot(normalize(input.normalWS), normalize(float3(0.4, 1.0, 0.3))));
                 float shade = max(light, (float)input.color.a);
-                return half4(input.color.rgb * (half)shade, 1.0h);
+                return half4(col * (half)shade, 1.0h);
             }
             ENDHLSL
         }

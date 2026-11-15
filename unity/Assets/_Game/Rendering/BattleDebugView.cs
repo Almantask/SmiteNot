@@ -346,6 +346,7 @@ namespace GodGame.Rendering
             };
             _pixels = new Color32[terrain.CellCount];
             _groundMaterial = new Material(_groundShader);
+            GroundMesh.BindTerrainTextures(_groundMaterial);
             _groundMaterial.SetTexture("_Overlay", _overlay);
             _groundMaterial.SetVector(
                 "_HeightRange",

@@ -307,6 +307,7 @@ namespace GodGame.Rendering
                 out float maxH
             );
             _groundMaterial = new Material(_groundShader);
+            GroundMesh.BindTerrainTextures(_groundMaterial);
             _overlayTexture = new Texture2D(_map.Columns, _map.Rows, TextureFormat.RGBA32, false)
             {
                 filterMode = FilterMode.Point,

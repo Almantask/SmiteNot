@@ -120,6 +120,15 @@ namespace GodGame.Bridge
         private PlaybackTrack _track;
         private CastResult[] _casts = Array.Empty<CastResult>();
         private CauseEvent[] _causes = Array.Empty<CauseEvent>();
+        private LandingSpread[] _landingSpreads = Array.Empty<LandingSpread>();
+        private BlockerSnapshot _blockers = new BlockerSnapshot(32);
+        private BlockerSnapshot _blockersSpare = new BlockerSnapshot(32);
+        private StrikeSnapshot _strikes = new StrikeSnapshot();
+        private StrikeSnapshot _strikesSpare = new StrikeSnapshot();
+        private HerdSnapshot _herds = new HerdSnapshot();
+        private HerdSnapshot _herdsSpare = new HerdSnapshot();
+        private BattleOutcomeResult _outcome;
+        private LevelOutcomeSpec _outcomeSpec;
         private BattlePlan _plan;
         private readonly object _gate = new object();
         private readonly AutoResetEvent _wake = new AutoResetEvent(false);
@@ -145,6 +154,7 @@ namespace GodGame.Bridge
             _timeline = new Timeline(battle, runner, keyframes);
             _track = _timeline.Track;
             _plan = battle.Plan;
+            _blockers.FillFrom(_timeline.Simulation.World, 0);
             _progress = new Progress(0, 0, 0, endTick, -1, -1);
             _editStarted = Stopwatch.GetTimestamp(); // the first fill is timed from here
         }
@@ -213,6 +223,8 @@ namespace GodGame.Bridge
         /// <summary>The playback track of the plan the worker is filling (replaced, never changed, by an edit).</summary>
         public PlaybackTrack Track => Volatile.Read(ref _track);
 
+        public Battle Battle => _timeline.Battle;
+
         /// <summary>The plan the published casts and causes belong to.</summary>
         public BattlePlan Plan
         {
@@ -240,6 +252,72 @@ namespace GodGame.Bridge
             lock (_gate)
             {
                 return _causes;
+            }
+        }
+
+        /// <summary>Sets the level outcome criteria used when publishing results.</summary>
+        public void SetOutcomeSpec(LevelOutcomeSpec spec)
+        {
+            lock (_gate)
+            {
+                _outcomeSpec = spec;
+            }
+        }
+
+        /// <summary>Latest evaluated battle outcome (S2 7.5) up to the currently filled tick.</summary>
+        public BattleOutcomeResult ReadOutcome()
+        {
+            lock (_gate)
+            {
+                return _outcome;
+            }
+        }
+
+        /// <summary>Landing-spread groups recorded in the cause log so far (stunned &amp; lethal cells).</summary>
+        public LandingSpread[] ReadLandingSpreads()
+        {
+            lock (_gate)
+            {
+                return _landingSpreads;
+            }
+        }
+
+        /// <summary>Copies the battle-made blockers recorded up to the filled frontier.</summary>
+        public void ReadBlockers(BlockerSnapshot into)
+        {
+            if (into == null)
+            {
+                throw new ArgumentNullException(nameof(into));
+            }
+            lock (_gate)
+            {
+                _blockers.CopyTo(into);
+            }
+        }
+
+        /// <summary>Copies the lightning, falling-tree, and fire state recorded up to the filled frontier.</summary>
+        public void ReadStrikes(StrikeSnapshot into)
+        {
+            if (into == null)
+            {
+                throw new ArgumentNullException(nameof(into));
+            }
+            lock (_gate)
+            {
+                _strikes.CopyTo(into);
+            }
+        }
+
+        /// <summary>Copies the herd state recorded up to the filled frontier.</summary>
+        public void ReadHerds(HerdSnapshot into)
+        {
+            if (into == null)
+            {
+                throw new ArgumentNullException(nameof(into));
+            }
+            lock (_gate)
+            {
+                _herds.CopyTo(into);
             }
         }
 
@@ -351,6 +429,7 @@ namespace GodGame.Bridge
             }
             var log = world.Causes;
             var causes = _causes;
+            var spreads = _landingSpreads;
             if (log != null && (causes.Length != log.Events.Count || !ReferenceEquals(plan, _plan)))
             {
                 causes = new CauseEvent[log.Events.Count];
@@ -358,12 +437,36 @@ namespace GodGame.Bridge
                 {
                     causes[i] = log.Events[i];
                 }
+                var map = _timeline.Battle.PlayedMap;
+                int previewCell = _timeline.Battle.Rules.Launches.PreviewCellMm;
+                var list = LandingSpread.FromLog(log, map.Columns, map.CellSizeMm, previewCell);
+                spreads = list.Count == 0 ? Array.Empty<LandingSpread>() : list.ToArray();
             }
+            LevelOutcomeSpec spec;
+            lock (_gate)
+            {
+                spec = _outcomeSpec;
+            }
+            var nextBlockers = _blockersSpare ?? new BlockerSnapshot(32);
+            nextBlockers.FillFrom(world, _timeline.Tick);
+            var nextStrikes = _strikesSpare ?? new StrikeSnapshot();
+            nextStrikes.FillFrom(world, _timeline.Tick);
+            var nextHerds = _herdsSpare ?? new HerdSnapshot();
+            nextHerds.FillFrom(world, _timeline.Tick);
+            var outcome = BattleOutcomeEvaluator.Evaluate(_timeline.Track, spec);
             lock (_gate)
             {
                 _progress = progress;
                 _casts = casts;
                 _causes = causes;
+                _landingSpreads = spreads;
+                _blockersSpare = _blockers;
+                _blockers = nextBlockers;
+                _strikesSpare = _strikes;
+                _strikes = nextStrikes;
+                _herdsSpare = _herds;
+                _herds = nextHerds;
+                _outcome = outcome;
                 _plan = plan;
             }
             Volatile.Write(ref _track, _timeline.Track);

@@ -71,9 +71,13 @@ namespace GodGame.Editor
             serialized.FindProperty("_deckShader").objectReferenceValue = Shader.Find(
                 "GodGame/DebugDeck"
             );
+            serialized.FindProperty("_markerShader").objectReferenceValue = Shader.Find(
+                "GodGame/DebugMarkers"
+            );
             serialized.FindProperty("_panelSettings").objectReferenceValue = PanelSettingsAsset();
             serialized.FindProperty("_camera").objectReferenceValue = strategic;
             AssignUnitMeshes(serialized, "Battle debug scene");
+            AssignWorldProps(serialized, "Battle debug scene");
             serialized.ApplyModifiedPropertiesWithoutUndo();
             foreach (
                 string name in new[]
@@ -83,6 +87,7 @@ namespace GodGame.Editor
                     "_waterShader",
                     "_lineShader",
                     "_deckShader",
+                    "_markerShader",
                     "_panelSettings",
                 }
             )
@@ -139,6 +144,36 @@ namespace GodGame.Editor
                     vatsProp.GetArrayElementAtIndex(i).objectReferenceValue =
                         VatBaker.BakeOrLoadUnit(cleanId, forceBake: true);
                 }
+            }
+        }
+
+        public static void AssignWorldProps(SerializedObject serialized, string context)
+        {
+            var mappings = new (string Property, string Path)[]
+            {
+                ("_wreckMesh", "Assets/_Game/Art/Generated/P_wreck_siege/P_wreck_siege_LOD0.fbx"),
+                ("_treeMesh", "Assets/_Game/Art/Generated/P_tree_grove/P_tree_grove_LOD0.fbx"),
+                (
+                    "_felledTrunkMesh",
+                    "Assets/_Game/Art/Generated/P_trunk_felled/P_trunk_felled_LOD0.fbx"
+                ),
+                ("_fireMesh", "Assets/_Game/Art/Generated/P_fire_small/P_fire_small_LOD0.fbx"),
+            };
+            foreach (var (property, path) in mappings)
+            {
+                SerializedProperty prop = serialized.FindProperty(property);
+                if (prop == null)
+                {
+                    continue;
+                }
+                Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+                if (mesh == null)
+                {
+                    throw new InvalidOperationException(
+                        $"{context}: prop mesh not found at {path}."
+                    );
+                }
+                prop.objectReferenceValue = mesh;
             }
         }
 

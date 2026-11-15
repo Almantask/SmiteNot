@@ -20,9 +20,23 @@ namespace GodGame.Tests.EditMode
         {
             var editor = RiverEditor(out var plan);
             Assert.That(editor.Commit(), Is.True);
-            Assert.That(editor.Plan.Hash, Is.EqualTo(plan.Hash), "the same layers give the same plan");
+            Assert.That(
+                editor.Plan.Hash,
+                Is.EqualTo(plan.Hash),
+                "the same layers give the same plan"
+            );
 
-            editor.Casts.Add(new PlanEditor.Cast { Id = editor.NewId("rain"), Power = "rain", Tick = 20, XMm = 180000, YMm = 200000, RadiusMm = 40000 });
+            editor.Casts.Add(
+                new PlanEditor.Cast
+                {
+                    Id = editor.NewId("rain"),
+                    Power = "rain",
+                    Tick = 20,
+                    XMm = 180000,
+                    YMm = 200000,
+                    RadiusMm = 40000,
+                }
+            );
             Assert.That(editor.Commit(), Is.True);
             Assert.That(editor.Plan.Casts.Count, Is.EqualTo(1));
         }
@@ -36,7 +50,11 @@ namespace GodGame.Tests.EditMode
             Assert.That(editor.Commit(), Is.False);
             Assert.That(editor.Error, Does.Contain("deployment zone"));
             Assert.That(editor.Plan, Is.SameAs(plan));
-            Assert.That(editor.Army[0].XMm, Is.EqualTo(plan.Army[0].XMm), "the lists go back to the valid plan");
+            Assert.That(
+                editor.Army[0].XMm,
+                Is.EqualTo(plan.Army[0].XMm),
+                "the lists go back to the valid plan"
+            );
         }
     }
 }

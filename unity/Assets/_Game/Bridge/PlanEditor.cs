@@ -25,6 +25,8 @@ namespace GodGame.Bridge
             public int XMm;
             public int YMm;
             public int FacingCentiDegrees;
+            public int[] DitchMm;
+            public bool OpenOrder;
         }
 
         public sealed class Piece
@@ -36,6 +38,8 @@ namespace GodGame.Bridge
             public int DepthMm;
             public int HeightMm;
             public int LitresPerSecond;
+            public int RadiusMm;
+            public int Animals;
         }
 
         public sealed class Cast
@@ -69,6 +73,8 @@ namespace GodGame.Bridge
                         XMm = r.XMm,
                         YMm = r.YMm,
                         FacingCentiDegrees = r.FacingCentiDegrees,
+                        DitchMm = r.DitchMm,
+                        OpenOrder = r.Open,
                     }
                 );
             }
@@ -82,6 +88,8 @@ namespace GodGame.Bridge
                     DepthMm = p.DepthMm,
                     HeightMm = p.HeightMm,
                     LitresPerSecond = p.LitresPerSecond,
+                    RadiusMm = p.RadiusMm,
+                    Animals = p.Animals,
                 };
                 for (int k = 0; k < p.PointCount; k++)
                 {
@@ -172,7 +180,7 @@ namespace GodGame.Bridge
                     .Append(
                         string.Format(
                             CultureInfo.InvariantCulture,
-                            "{{\"id\":\"{0}\",\"side\":\"{1}\",\"unitType\":\"{2}\",\"soldiers\":{3},\"xMm\":{4},\"yMm\":{5},\"facingCentiDegrees\":{6}}}",
+                            "{{\"id\":\"{0}\",\"side\":\"{1}\",\"unitType\":\"{2}\",\"soldiers\":{3},\"xMm\":{4},\"yMm\":{5},\"facingCentiDegrees\":{6}",
                             r.Id,
                             r.Side,
                             r.UnitType,
@@ -182,6 +190,28 @@ namespace GodGame.Bridge
                             r.FacingCentiDegrees
                         )
                     );
+                if (r.OpenOrder)
+                {
+                    json.Append(",\"order\":\"open\"");
+                }
+                if (r.DitchMm != null && r.DitchMm.Length >= 4)
+                {
+                    json.Append(",\"ditch\":[");
+                    for (int d = 0; d + 1 < r.DitchMm.Length; d += 2)
+                    {
+                        json.Append(d == 0 ? "" : ",")
+                            .Append(
+                                string.Format(
+                                    CultureInfo.InvariantCulture,
+                                    "[{0},{1}]",
+                                    r.DitchMm[d],
+                                    r.DitchMm[d + 1]
+                                )
+                            );
+                    }
+                    json.Append(']');
+                }
+                json.Append('}');
             }
             json.Append("],\"terrain\":[");
             for (int i = 0; i < Terrain.Count; i++)
@@ -193,7 +223,12 @@ namespace GodGame.Bridge
                     .Append("\",\"piece\":\"")
                     .Append(p.Kind)
                     .Append('"');
-                if (p.Kind == "spring" || p.Kind == "boulder")
+                if (
+                    p.Kind == "spring"
+                    || p.Kind == "boulder"
+                    || p.Kind == "grove"
+                    || p.Kind == "herd"
+                )
                 {
                     json.Append(
                         string.Format(
@@ -207,6 +242,16 @@ namespace GodGame.Bridge
                     {
                         json.Append(",\"litresPerSecond\":")
                             .Append(p.LitresPerSecond.ToString(CultureInfo.InvariantCulture));
+                    }
+                    else if (p.Kind == "grove" || p.Kind == "herd")
+                    {
+                        json.Append(",\"radiusMm\":")
+                            .Append(p.RadiusMm.ToString(CultureInfo.InvariantCulture));
+                        if (p.Kind == "herd")
+                        {
+                            json.Append(",\"animals\":")
+                                .Append(p.Animals.ToString(CultureInfo.InvariantCulture));
+                        }
                     }
                 }
                 else
@@ -241,7 +286,16 @@ namespace GodGame.Bridge
                         json.Append(",\"heightMm\":")
                             .Append(p.HeightMm.ToString(CultureInfo.InvariantCulture));
                     }
-                    else
+                    else if (p.Kind == "wooden-bridge" || p.Kind == "footbridge")
+                    {
+                        json.Append(",\"widthMm\":")
+                            .Append(p.WidthMm.ToString(CultureInfo.InvariantCulture));
+                    }
+                    else if (
+                        p.Kind != "hedgerow"
+                        && p.Kind != "drystone-wall"
+                        && p.Kind != "tree-row"
+                    )
                     {
                         json.Append(",\"depthMm\":")
                             .Append(p.DepthMm.ToString(CultureInfo.InvariantCulture));
@@ -295,7 +349,7 @@ namespace GodGame.Bridge
             return trace;
         }
 
-        /// <summary>One event in words: "rain 'storm' cast at 0:50", "regiment a003 swept at 2:31".</summary>
+        /// <summary>One event in words: handles known causes and unknown future <see cref="CauseKind"/> values gracefully.</summary>
         public static string Describe(CauseEvent e, BattlePlan plan)
         {
             string at = Clock(e.Tick);
@@ -303,8 +357,9 @@ namespace GodGame.Bridge
             {
                 case CauseKind.CastFired:
                 case CauseKind.CastFizzled:
+                {
                     string cast =
-                        e.Subject < plan.Casts.Count
+                        plan != null && e.Subject >= 0 && e.Subject < plan.Casts.Count
                             ? plan.Casts[e.Subject].Power.Id
                                 + " \""
                                 + plan.Casts[e.Subject].Id
@@ -313,22 +368,108 @@ namespace GodGame.Bridge
                     return e.Kind == CauseKind.CastFired
                         ? cast + " cast at " + at
                         : cast + " fizzled at " + at + " (" + (FizzleReasons)e.Detail + ")";
+                }
                 case CauseKind.RiverOverflowed:
                     return "the river overflowed (tile " + e.Subject + ") at " + at;
                 case CauseKind.RegimentSwept:
                     return Regiment(e.Subject, plan) + " swept at " + at;
                 case CauseKind.SoldierPushedOver:
-                    return "pushed over by the crowd at " + at;
+                    return "a soldier of "
+                        + Regiment(e.Subject, plan)
+                        + " was pushed over a cliff at "
+                        + at;
                 case CauseKind.SoldierDrowned:
                     return "a soldier of " + Regiment(e.Subject, plan) + " drowned at " + at;
+                case CauseKind.SoldierKilled:
+                    return "a soldier of "
+                        + Regiment(e.Subject, plan)
+                        + " fell in combat against "
+                        + Regiment(e.Detail, plan)
+                        + " at "
+                        + at;
+                case CauseKind.SoldierFled:
+                    return "a soldier of " + Regiment(e.Subject, plan) + " fled the field at " + at;
+                case CauseKind.RegimentRouted:
+                    return Regiment(e.Subject, plan)
+                        + (e.Detail >= 2 ? " permanently routed at " : " routed at ")
+                        + at;
+                case CauseKind.RegimentRallied:
+                    return Regiment(e.Subject, plan) + " rallied at " + at;
+                case CauseKind.RegimentWiped:
+                    return Regiment(e.Subject, plan) + " was wiped out at " + at;
+                case CauseKind.SpecialistStarted:
+                    return Regiment(e.Subject, plan) + " began specialist work at " + at;
+                case CauseKind.SpecialistEnded:
+                    return Regiment(e.Subject, plan) + " ended specialist work at " + at;
+                case CauseKind.SpecialistEditSkipped:
+                    return Regiment(e.Subject, plan) + " skipped an edit (route guard) at " + at;
+                case CauseKind.SegmentFailed:
+                    return (e.Detail == 2 ? "ice segment #" : "deck segment #")
+                        + e.Subject
+                        + " collapsed at "
+                        + at;
+                case CauseKind.SoldierLaunched:
+                    return "a soldier of " + Regiment(e.Subject, plan) + " was launched at " + at;
+                case CauseKind.SoldierLanded:
+                    return "a launched soldier of "
+                        + Regiment(e.Subject, plan)
+                        + " landed at "
+                        + at;
+                case CauseKind.SoldierFell:
+                    return "a launched soldier of "
+                        + Regiment(e.Subject, plan)
+                        + " died on landing at "
+                        + at;
+                case CauseKind.StoneLanded:
+                    return "a siege stone from " + Regiment(e.Subject, plan) + " landed at " + at;
+                case CauseKind.SoldierCrushed:
+                    return "a soldier of " + Regiment(e.Subject, plan) + " was crushed at " + at;
+                case CauseKind.EngineWrecked:
+                    return "a siege engine of "
+                        + Regiment(e.Subject, plan)
+                        + " was wrecked at "
+                        + at;
+                case CauseKind.EngineAbandoned:
+                    return "a siege engine of "
+                        + Regiment(e.Subject, plan)
+                        + " was abandoned at "
+                        + at;
+                case CauseKind.LightningStruck:
+                    return "lightning struck (cell " + e.Detail + ") at " + at;
+                case CauseKind.TreeFelled:
+                    return "a struck tree (#" + e.Subject + ") fell at " + at;
+                case CauseKind.FireStarted:
+                    return "lightning ignited dry fuel (fire #" + e.Subject + ") at " + at;
+                case CauseKind.HerdAgitated:
+                    return "herd #" + e.Subject + " became agitated at " + at;
+                case CauseKind.HerdStampeded:
+                    return "herd #" + e.Subject + " stampeded at " + at;
+                case CauseKind.HerdScattered:
+                    return "herd #" + e.Subject + " scattered at " + at;
+                case CauseKind.SoldierTrampled:
+                    return "a soldier of " + Regiment(e.Subject, plan) + " was trampled at " + at;
+                case CauseKind.SoldierBurned:
+                    return "a soldier of " + Regiment(e.Subject, plan) + " burned in fire at " + at;
+                case CauseKind.BlockerCleared:
+                    return Regiment(e.Subject, plan)
+                        + " cleared blocker #"
+                        + e.Detail
+                        + " at "
+                        + at;
                 default:
-                    return e.Kind + " at " + at;
+                    return CauseBreakdown.DisplayName(e.Kind)
+                        + " (subject "
+                        + e.Subject
+                        + ", detail "
+                        + e.Detail
+                        + ") at "
+                        + at;
             }
         }
 
         public static string Regiment(int slot, BattlePlan plan) =>
-            slot >= 0 && slot < plan.Army.Count
-                ? "regiment " + plan.Army[slot].Id
+            plan != null && slot >= 0 && slot < plan.Army.Count
+                ? "regiment " + plan.Army[slot].Id + " (" + plan.Army[slot].UnitType + ")"
                 : "regiment " + slot;
 
         public static string Clock(int tick)

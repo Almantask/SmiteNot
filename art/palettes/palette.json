@@ -14,6 +14,17 @@
     "brass": [8, 0],
     "cloth_cream": [9, 0],
     "stone": [10, 0],
+    "foliage_dark": [0, 1],
+    "foliage_mid": [1, 1],
+    "foliage_dry": [2, 1],
+    "bark_dark": [3, 1],
+    "charred": [4, 1],
+    "ember": [5, 1],
+    "flame_orange": [6, 1],
+    "flame_yellow": [7, 1],
+    "cattle_hide": [8, 1],
+    "cattle_dark": [9, 1],
+    "horn_bone": [10, 1],
     "team_tabard": [0, 15]
   },
   "colors": {
@@ -28,6 +39,17 @@
     "brass": "#D4A038",
     "cloth_cream": "#E6DEC8",
     "stone": "#787B80",
+    "foliage_dark": "#2F5928",
+    "foliage_mid": "#4B7B34",
+    "foliage_dry": "#9C8A3C",
+    "bark_dark": "#543B27",
+    "charred": "#2B2523",
+    "ember": "#B83214",
+    "flame_orange": "#EE6E1A",
+    "flame_yellow": "#F7C631",
+    "cattle_hide": "#8B4E2B",
+    "cattle_dark": "#3A271D",
+    "horn_bone": "#DCD3BE",
     "team_tabard": "#D94B2B"
   }
 }

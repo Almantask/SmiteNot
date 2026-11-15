@@ -23,7 +23,9 @@ namespace GodGame.Bridge
 
         public SimHost(PlaceholderSetup setup)
         {
-            _battle = new PlaceholderBattle(setup ?? throw new ArgumentNullException(nameof(setup)));
+            _battle = new PlaceholderBattle(
+                setup ?? throw new ArgumentNullException(nameof(setup))
+            );
             _previousXMm = _battle.PositionXMm.ToArray();
             _previousYMm = _battle.PositionYMm.ToArray();
         }

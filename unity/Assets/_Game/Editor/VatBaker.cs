@@ -236,15 +236,30 @@ namespace GodGame.Editor
             {
                 return 0;
             }
-            if (name.EndsWith("_strike") || name.EndsWith("_rear") || name.EndsWith("_fire"))
+            if (
+                name.EndsWith("_strike")
+                || name.EndsWith("_rear")
+                || name.EndsWith("_fire")
+                || name.EndsWith("_gore")
+            )
             {
                 return 1;
             }
-            if (name.EndsWith("_bash") || name.EndsWith("_slash") || name.EndsWith("_heave"))
+            if (
+                name.EndsWith("_bash")
+                || name.EndsWith("_slash")
+                || name.EndsWith("_heave")
+                || name.EndsWith("_kick")
+            )
             {
                 return 2;
             }
-            if (name.EndsWith("_flurry") || name.EndsWith("_charge") || name.EndsWith("_salvo"))
+            if (
+                name.EndsWith("_flurry")
+                || name.EndsWith("_charge")
+                || name.EndsWith("_salvo")
+                || name.EndsWith("_stampede")
+            )
             {
                 return 3;
             }

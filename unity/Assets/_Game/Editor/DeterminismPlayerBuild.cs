@@ -38,7 +38,9 @@ namespace GodGame.Editor
             BuildReport report = BuildPipeline.BuildPlayer(options);
             if (report.summary.result != BuildResult.Succeeded)
             {
-                throw new InvalidOperationException("Determinism player build " + report.summary.result + ".");
+                throw new InvalidOperationException(
+                    "Determinism player build " + report.summary.result + "."
+                );
             }
             Debug.Log("GodGame: determinism player built at " + Path.GetFullPath(OutputPath));
         }

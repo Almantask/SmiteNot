@@ -54,6 +54,12 @@ namespace GodGame.Rendering
         private Shader _lineShader;
 
         [SerializeField]
+        private Shader _deckShader;
+
+        [SerializeField]
+        private Shader _markerShader;
+
+        [SerializeField]
         private PanelSettings _panelSettings;
 
         [SerializeField]
@@ -65,8 +71,40 @@ namespace GodGame.Rendering
         [SerializeField]
         private UnitVatData[] _unitVats;
 
+        [SerializeField]
+        private Mesh _wreckMesh;
+
+        [SerializeField]
+        private Mesh _treeMesh;
+
+        [SerializeField]
+        private Mesh _felledTrunkMesh;
+
+        [SerializeField]
+        private Mesh _fireMesh;
+
+        private GodGame.Sim.Rules.Ruleset _rules;
         private BattleHost _host;
         private UnitCapsuleRenderer _units;
+        private DeckRenderer _deckRenderer;
+        private WorldMarkerRenderer _worldMarkers;
+        private StructureSnapshot _structures;
+        private RegimentSnapshot _regiments;
+        private BlockerSnapshot _blockers;
+        private StrikeSnapshot _strikes;
+        private HerdSnapshot _herds;
+        private readonly List<WreckCellInstance> _wreckInstances = new List<WreckCellInstance>();
+        private readonly List<StoneLandingInstance> _salvoInstances =
+            new List<StoneLandingInstance>();
+        private readonly List<TreePropInstance> _treeInstances = new List<TreePropInstance>();
+        private readonly List<FelledTreeInstance> _felledTreeInstances =
+            new List<FelledTreeInstance>();
+        private readonly List<FireCellInstance> _fireInstances = new List<FireCellInstance>();
+        private readonly List<LightningStrikeInstance> _strikeInstances =
+            new List<LightningStrikeInstance>();
+        private readonly List<HerdMarkerInstance> _herdInstances = new List<HerdMarkerInstance>();
+        private readonly Dictionary<int, int> _crushCountsScratch = new Dictionary<int, int>();
+        private MapData _map;
         private Navigation _navigation;
         private FlowField _attackerFlow;
         private Texture2D _overlay;
@@ -142,20 +180,34 @@ namespace GodGame.Rendering
                 _measureSeconds = seconds;
             }
 
-            var rules = RepoLoader.LoadRules(repo);
-            var map = RepoLoader.LoadMap(repo, _mapId);
-            var plan = RepoLoader.LoadPlan(repo, _planFile, map, rules);
-            var battle = new Battle(rules, map, plan, _seed);
+            _rules = RepoLoader.LoadRules(repo);
+            _map = RepoLoader.LoadMap(repo, _mapId);
+            var plan = RepoLoader.LoadPlan(repo, _planFile, _map, _rules);
+            var battle = new Battle(_rules, _map, plan, _seed);
             _host = new BattleHost(battle) { Speed = _speed };
             _units = new UnitCapsuleRenderer(_unitShader, _host, _unitMeshes, _unitVats);
-            _fields = new FieldUpload(map.Columns, map.Rows);
+            _deckRenderer = new DeckRenderer(
+                battle.PlayedMap,
+                _deckShader != null ? _deckShader : Shader.Find("GodGame/DebugDeck")
+            );
+            _worldMarkers = new WorldMarkerRenderer(
+                battle.PlayedMap,
+                _markerShader != null ? _markerShader : Shader.Find("GodGame/DebugMarkers"),
+                new WorldMarkerMeshes(_wreckMesh, _treeMesh, _felledTrunkMesh, _fireMesh)
+            );
+            _structures = new StructureSnapshot();
+            _regiments = new RegimentSnapshot();
+            _blockers = new BlockerSnapshot();
+            _strikes = new StrikeSnapshot();
+            _herds = new HerdSnapshot();
+            _fields = new FieldUpload(_map.Columns, _map.Rows);
 
             BuildNavigationViews(battle);
             BuildGround(battle.PlayedMap);
             BuildHud();
             if (_camera != null)
             {
-                _camera.Frame(map.WidthMm / 1000f, map.DepthMm / 1000f);
+                _camera.Frame(_map.WidthMm / 1000f, _map.DepthMm / 1000f);
                 if (
                     TryParseVec3(CommandLineValue("-cam-pos"), out Vector3 camPos)
                     && TryParseVec3(CommandLineValue("-cam-look"), out Vector3 camLook)
@@ -171,6 +223,10 @@ namespace GodGame.Rendering
         {
             _host?.Dispose();
             _units?.Dispose();
+            _deckRenderer?.Dispose();
+            _deckRenderer = null;
+            _worldMarkers?.Dispose();
+            _worldMarkers = null;
             foreach (var line in _lines)
             {
                 Destroy(line.GetComponent<LineRenderer>().sharedMaterial);
@@ -352,7 +408,103 @@ namespace GodGame.Rendering
             }
             HandleKeys();
             _fields.Update(_host);
+            _host.ReadStructures(_structures);
+            _host.ReadRegiments(_regiments);
+            _host.ReadStrikes(_strikes);
+            _host.ReadHerds(_herds);
+            _units.UpdateMoralePalette(
+                _regiments,
+                _camera != null ? _camera.Distance : 900f,
+                false,
+                _herds
+            );
             _units.Draw(_host);
+            _deckRenderer?.Draw(_structures, _host.Map, false);
+            _host.ReadBlockers(_blockers);
+            var causes = _host.ReadCauses();
+            _host.Read(out _, out var latestUnits, out _);
+            int markerTick = Math.Max(latestUnits.Tick, _blockers.Tick);
+            int fallTicks = _rules?.Power("lightning")?.Lightning?.FallTicks ?? 40;
+            SalvoAndBlockerProjection.CollectWrecks(
+                _blockers,
+                causes,
+                _host.Map,
+                _navigation?.Terrain,
+                markerTick,
+                filterByTime: false,
+                includeCleared: false,
+                _wreckInstances
+            );
+            SalvoAndBlockerProjection.CollectStoneLandings(
+                causes,
+                _host.Map,
+                _navigation?.Terrain,
+                markerTick,
+                windowSeconds: 12f,
+                _salvoInstances,
+                _crushCountsScratch
+            );
+            SalvoAndBlockerProjection.CollectTrees(
+                _host.Map,
+                _navigation?.Terrain,
+                _strikes,
+                causes,
+                markerTick,
+                filterByTime: false,
+                fallTicks,
+                _treeInstances
+            );
+            SalvoAndBlockerProjection.CollectFelledTrees(
+                _blockers,
+                _host.Map,
+                _navigation?.Terrain,
+                _strikes,
+                causes,
+                markerTick,
+                filterByTime: false,
+                includeCleared: false,
+                _felledTreeInstances
+            );
+            SalvoAndBlockerProjection.CollectFires(
+                _blockers,
+                _host.Map,
+                _navigation?.Terrain,
+                _strikes,
+                causes,
+                markerTick,
+                filterByTime: false,
+                includeExtinguished: false,
+                _fireInstances
+            );
+            SalvoAndBlockerProjection.CollectLightningStrikes(
+                _strikes,
+                causes,
+                _host.Map,
+                _navigation?.Terrain,
+                markerTick,
+                windowSeconds: 1.5f,
+                _strikeInstances
+            );
+            SalvoAndBlockerProjection.CollectHerdMarkers(
+                _herds,
+                latestUnits,
+                _host.Map,
+                _navigation?.Terrain,
+                causes,
+                markerTick,
+                filterByTime: false,
+                _herdInstances
+            );
+            _worldMarkers?.Draw(
+                _wreckInstances,
+                _salvoInstances,
+                _treeInstances,
+                _felledTreeInstances,
+                _fireInstances,
+                _strikeInstances,
+                _herdInstances,
+                Time.unscaledTime
+            );
             float ms = Time.unscaledDeltaTime * 1000f;
             _smoothedFrameMs = Mathf.Lerp(_smoothedFrameMs, ms, 0.05f);
             if (_hud != null && Time.unscaledTime >= _nextHud)

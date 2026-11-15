@@ -1,0 +1,29 @@
+{
+  "animations": null,
+  "asset": "P_trunk_felled",
+  "blender": "5.3.0",
+  "lods": [
+    {
+      "file": "P_trunk_felled_LOD0.fbx",
+      "lod": "LOD0",
+      "objects": [
+        "P_trunk_lod0"
+      ]
+    },
+    {
+      "file": "P_trunk_felled_LOD1.fbx",
+      "lod": "LOD1",
+      "objects": [
+        "P_trunk_lod1"
+      ]
+    },
+    {
+      "file": "P_trunk_felled_LOD2.fbx",
+      "lod": "LOD2",
+      "objects": [
+        "P_trunk_lod2"
+      ]
+    }
+  ],
+  "source": "art/source/P_trunk_felled.blend"
+}

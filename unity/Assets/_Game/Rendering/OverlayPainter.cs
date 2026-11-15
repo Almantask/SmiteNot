@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using GodGame.Bridge;
 using GodGame.Sim;
 using GodGame.Sim.Rules;
 using UnityEngine;
@@ -24,7 +26,7 @@ namespace GodGame.Rendering
     public static class OverlayPainter
     {
         private static readonly Color32 Closed = new Color32(20, 20, 20, 230);
-        private static readonly Color32 Clear = new Color32(0, 0, 0, 0);
+        public static readonly Color32 Clear = new Color32(0, 0, 0, 0);
 
         public static void Paint(
             OverlayMode mode,
@@ -117,6 +119,162 @@ namespace GodGame.Rendering
             {
                 float t = 1f - Mathf.Clamp01(distancesMm[i] / 20_000f);
                 pixels[i] = t <= 0 ? Clear : (Color32)new Color(0.9f, 0.1f, 0.15f, 0.7f * t);
+            }
+        }
+
+        /// <summary>
+        /// Paints deck/ice strain stages across structure cells (Quiet/Creak/Crack/Sag/Broken + Rot tint).
+        /// </summary>
+        public static void PaintStrain(
+            StructureSnapshot structures,
+            Color32[] pixels,
+            bool clearFirst = true
+        )
+        {
+            if (clearFirst)
+            {
+                Array.Fill(pixels, Clear);
+            }
+            if (structures == null || structures.Count == 0)
+            {
+                return;
+            }
+            for (int s = 0; s < structures.Count; s++)
+            {
+                int[] cells = structures.Cells[s];
+                if (cells == null || cells.Length == 0)
+                {
+                    continue;
+                }
+                Color32 col = StrainColor(
+                    structures.Stage[s],
+                    structures.LoadPermille[s],
+                    structures.StrengthPermille[s],
+                    structures.Broken[s]
+                );
+                if (col.a == 0)
+                {
+                    continue;
+                }
+                for (int i = 0; i < cells.Length; i++)
+                {
+                    int cell = cells[i];
+                    if ((uint)cell < (uint)pixels.Length && col.a >= pixels[cell].a)
+                    {
+                        pixels[cell] = col;
+                    }
+                }
+            }
+        }
+
+        /// <summary>Canonical ground-overlay color for a deck/ice strain state.</summary>
+        public static Color32 StrainColor(
+            StrainStage stage,
+            ushort loadPermille,
+            ushort strengthPermille,
+            bool broken
+        )
+        {
+            if (broken)
+            {
+                return new Color32(48, 20, 20, 225);
+            }
+            switch (stage)
+            {
+                case StrainStage.Sag:
+                    return new Color32(235, 36, 28, 225);
+                case StrainStage.Crack:
+                    return new Color32(246, 126, 24, 215);
+                case StrainStage.Creak:
+                    return new Color32(235, 192, 42, 195);
+                default:
+                    if (strengthPermille < 1000)
+                    {
+                        float rot = 1f - Mathf.Clamp01(strengthPermille / 1000f);
+                        byte a = (byte)(60 + 110 * rot);
+                        return new Color32(150, 148, 138, a);
+                    }
+                    if (loadPermille > 100)
+                    {
+                        float t = Mathf.Clamp01(loadPermille / 700f);
+                        return new Color32(180, 210, 68, (byte)(50 + 110 * t));
+                    }
+                    return Clear;
+            }
+        }
+
+        /// <summary>
+        /// Paints the landing-spread hazard zone: amber where landings stun and red where any landing kills.
+        /// Red overrides amber when spreads overlap a cell.
+        /// </summary>
+        public static void PaintLandingSpread(
+            IReadOnlyList<LandingSpread> spreads,
+            MapData map,
+            int previewCellMm,
+            Color32[] pixels,
+            bool clearFirst = true
+        )
+        {
+            if (clearFirst)
+            {
+                Array.Fill(pixels, Clear);
+            }
+            if (spreads == null || spreads.Count == 0 || map == null || previewCellMm <= 0)
+            {
+                return;
+            }
+            int mapCell = Math.Max(1, map.CellSizeMm);
+            int cols = map.Columns;
+            int rows = map.Rows;
+
+            for (int i = 0; i < spreads.Count; i++)
+            {
+                var spread = spreads[i];
+                if (spread == null || spread.Cells == null)
+                {
+                    continue;
+                }
+                for (int c = 0; c < spread.Cells.Count; c++)
+                {
+                    var cell = spread.Cells[c];
+                    bool lethal = cell.Lethal > 0;
+                    bool stunned = cell.Stunned > 0;
+                    if (!lethal && !stunned)
+                    {
+                        continue;
+                    }
+                    long minXMm = (long)cell.X * previewCellMm;
+                    long maxXMm = minXMm + previewCellMm - 1;
+                    long minYMm = (long)cell.Y * previewCellMm;
+                    long maxYMm = minYMm + previewCellMm - 1;
+
+                    int c0 = Math.Max(0, (int)(minXMm / mapCell));
+                    int c1 = Math.Min(cols - 1, (int)(maxXMm / mapCell));
+                    int r0 = Math.Max(0, (int)(minYMm / mapCell));
+                    int r1 = Math.Min(rows - 1, (int)(maxYMm / mapCell));
+
+                    Color32 color = lethal
+                        ? new Color32(236, 36, 36, 220)
+                        : new Color32(245, 178, 38, 175);
+
+                    for (int mr = r0; mr <= r1; mr++)
+                    {
+                        int rowOffset = mr * cols;
+                        for (int mc = c0; mc <= c1; mc++)
+                        {
+                            int idx = rowOffset + mc;
+                            if ((uint)idx >= (uint)pixels.Length)
+                            {
+                                continue;
+                            }
+                            // Red always wins over amber/empty.
+                            if (lethal || pixels[idx].a < color.a)
+                            {
+                                pixels[idx] = color;
+                            }
+                        }
+                    }
+                }
             }
         }
     }

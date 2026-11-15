@@ -15,6 +15,7 @@ namespace GodGame.Rendering
     {
         private static readonly int UnitsId = Shader.PropertyToID("_Units");
         private static readonly int ShapesId = Shader.PropertyToID("_Shapes");
+        private static readonly int ExtrasId = Shader.PropertyToID("_UnitExtras");
         private static readonly int PaletteId = Shader.PropertyToID("_Palette");
         private static readonly int CellColorsId = Shader.PropertyToID("_CellColors");
         private static readonly int VatPositionsId = Shader.PropertyToID("_VatPositions");
@@ -36,14 +37,21 @@ namespace GodGame.Rendering
         private readonly Material _material;
         private readonly GraphicsBuffer _units;
         private readonly GraphicsBuffer _shapes;
+        private readonly GraphicsBuffer _extras;
         private readonly GraphicsBuffer _palette;
         private readonly GraphicsBuffer _cellColors;
         private readonly GraphicsBuffer _args;
         private readonly GraphicsBuffer.IndirectDrawIndexedArgs[] _argsData;
         private readonly Vector4[] _unitData;
         private readonly Vector4[] _shapeData;
+        private readonly Vector4[] _extraData;
         private readonly Vector4[] _scratchUnits;
         private readonly Vector4[] _scratchShapes;
+        private readonly Vector4[] _scratchExtras;
+        private readonly Color[] _basePaletteGamma;
+        private readonly Color[] _displayPaletteGamma;
+        private readonly Vector4[] _livePaletteLinear;
+        private bool _paletteDirty;
         private readonly int[] _scratchTypes;
         private readonly Vector4[] _typeShapes;
         private readonly int[] _typeCounts;
@@ -65,6 +73,7 @@ namespace GodGame.Rendering
         private readonly int[] _deathClip;
         private readonly bool[] _rangedType;
         private readonly bool[] _siegeType;
+        private readonly bool[] _crewType;
         private readonly float[] _regMinX;
         private readonly float[] _regMaxX;
         private readonly float[] _regMinZ;
@@ -206,8 +215,10 @@ namespace GodGame.Rendering
 
             _unitData = new Vector4[safeCapacity];
             _shapeData = new Vector4[safeCapacity];
+            _extraData = new Vector4[safeCapacity];
             _scratchUnits = new Vector4[safeCapacity];
             _scratchShapes = new Vector4[safeCapacity];
+            _scratchExtras = new Vector4[safeCapacity];
             _scratchTypes = new int[safeCapacity];
             _facingX = new float[safeCapacity];
             _facingZ = new float[safeCapacity];
@@ -232,6 +243,7 @@ namespace GodGame.Rendering
 
             _units = new GraphicsBuffer(GraphicsBuffer.Target.Structured, safeCapacity, 16);
             _shapes = new GraphicsBuffer(GraphicsBuffer.Target.Structured, safeCapacity, 16);
+            _extras = new GraphicsBuffer(GraphicsBuffer.Target.Structured, safeCapacity, 16);
 
             _typeCounts = new int[typeCount];
             _typeOffsets = new int[typeCount];
@@ -251,103 +263,242 @@ namespace GodGame.Rendering
 
             _rangedType = new bool[typeCount];
             _siegeType = new bool[typeCount];
+            _crewType = new bool[typeCount];
             _typeShapes = new Vector4[typeCount];
             for (int t = 0; t < rules.UnitTypes.Count; t++)
             {
                 string uid = rules.UnitTypes[t].Id;
+                bool isCrew = string.Equals(uid, "crew", StringComparison.OrdinalIgnoreCase);
                 _rangedType[t] = string.Equals(uid, "ranged", StringComparison.OrdinalIgnoreCase);
                 _siegeType[t] = string.Equals(uid, "siege", StringComparison.OrdinalIgnoreCase);
+                _crewType[t] = isCrew;
+                float radiusM = rules.UnitTypes[t].RadiusMm / 1000f;
                 _typeShapes[t] = new Vector4(
-                    rules.UnitTypes[t].RadiusMm / 1000f,
+                    isCrew ? Math.Max(0.42f, radiusM) : radiusM,
                     HeightOf(uid),
-                    0,
-                    0
+                    isCrew ? 1f : 0f,
+                    0f
                 );
             }
 
-            var palette = new Vector4[Math.Max(1, _sides.Length)];
+            int palCount = Math.Max(1, _sides.Length);
+            _basePaletteGamma = new Color[palCount];
+            _displayPaletteGamma = new Color[palCount];
+            _livePaletteLinear = new Vector4[palCount];
             for (int r = 0; r < _sides.Length; r++)
             {
                 // Golden-ratio steps through a narrow band of each side's hue, so neighbouring regiments differ.
                 float step = (r * 0.618034f) % 1f;
-                float hue =
-                    _sides[r] == Side.Attacker ? 0.03f + 0.07f * step : 0.55f + 0.08f * step;
-                Color c = tint ?? Color.HSVToRGB(hue, 0.75f, 0.55f + 0.4f * ((r * 0.381966f) % 1f));
+                Color c;
+                if (tint.HasValue)
+                {
+                    c = tint.Value;
+                }
+                else if (_sides[r] == Side.Neutral)
+                {
+                    c = Color.HSVToRGB(
+                        0.11f + 0.03f * step,
+                        0.55f,
+                        0.65f + 0.25f * ((r * 0.381966f) % 1f)
+                    );
+                }
+                else
+                {
+                    float hue =
+                        _sides[r] == Side.Attacker ? 0.03f + 0.07f * step : 0.55f + 0.08f * step;
+                    c = Color.HSVToRGB(hue, 0.75f, 0.55f + 0.4f * ((r * 0.381966f) % 1f));
+                }
+                _basePaletteGamma[r] = c;
+                _displayPaletteGamma[r] = c;
                 Color linear = c.linear;
-                palette[r] = new Vector4(linear.r, linear.g, linear.b, 1f);
+                _livePaletteLinear[r] = new Vector4(linear.r, linear.g, linear.b, 1f);
             }
             if (_sides.Length == 0)
             {
-                Color fallback = (tint ?? Color.white).linear;
-                palette[0] = new Vector4(fallback.r, fallback.g, fallback.b, 1f);
+                Color baseFallback = tint ?? Color.white;
+                _basePaletteGamma[0] = baseFallback;
+                _displayPaletteGamma[0] = baseFallback;
+                Color fallback = baseFallback.linear;
+                _livePaletteLinear[0] = new Vector4(fallback.r, fallback.g, fallback.b, 1f);
             }
-            _palette = new GraphicsBuffer(GraphicsBuffer.Target.Structured, palette.Length, 16);
-            _palette.SetData(palette);
+            _palette = new GraphicsBuffer(
+                GraphicsBuffer.Target.Structured,
+                _livePaletteLinear.Length,
+                16
+            );
+            _palette.SetData(_livePaletteLinear);
 
-            _cellColors = new GraphicsBuffer(GraphicsBuffer.Target.Structured, 256, 16);
-            _cellColors.SetData(BuildPaletteCells());
+            _cellColors = PaletteCells.CreateBuffer();
 
             var size = new Vector3(map.WidthMm / 1000f, 200f, map.DepthMm / 1000f);
             _bounds = new Bounds(size * 0.5f, size + Vector3.one * 50f);
         }
 
-        private static Vector4[] BuildPaletteCells()
-        {
-            var cells = new Vector4[256];
-            Color fallback = Color.gray.linear;
-            for (int i = 0; i < cells.Length; i++)
-            {
-                cells[i] = new Vector4(fallback.r, fallback.g, fallback.b, 1f);
-            }
-            // Mirrors art/palettes/palette.json (cy * 16 + cx, v=0 at cy=0).
-            SetCell(cells, 0, 0, "#E8B48A"); // skin
-            SetCell(cells, 1, 0, "#6E4E37"); // cloth_brown
-            SetCell(cells, 2, 0, "#8C96A0"); // metal
-            SetCell(cells, 3, 0, "#9C6B3B"); // wood
-            SetCell(cells, 4, 0, "#4A3222"); // leather
-            SetCell(cells, 5, 0, "#7A3E24"); // horse_bay
-            SetCell(cells, 6, 0, "#26201D"); // horse_mane
-            SetCell(cells, 7, 0, "#D9B45B"); // straw
-            SetCell(cells, 8, 0, "#D4A038"); // brass
-            SetCell(cells, 9, 0, "#E6DEC8"); // cloth_cream
-            SetCell(cells, 10, 0, "#787B80"); // stone
-            SetCell(cells, 0, 15, "#D94B2B"); // team_tabard
-            return cells;
-        }
-
-        private static void SetCell(Vector4[] cells, int cx, int cy, string hex)
-        {
-            if (ColorUtility.TryParseHtmlString(hex, out Color c))
-            {
-                Color linear = c.linear;
-                cells[cy * 16 + cx] = new Vector4(linear.r, linear.g, linear.b, 1f);
-            }
-        }
-
-        /// <summary>Presentation-only body heights: a soldier, a rider, an engine.</summary>
+        /// <summary>Presentation-only body heights: a soldier, a crew member, a rider, an engine.</summary>
         private static float HeightOf(string unitType) =>
             unitType switch
             {
                 "cavalry" => 2.4f,
                 "siege" => 3.0f,
+                "crew" => 1.55f,
+                "cattle" => 1.50f,
                 _ => 1.8f,
             };
 
         public int DrawnLastFrame { get; private set; }
 
+        /// <summary>Gets the configured capsule/shape metadata for unit type <paramref name="typeIndex"/>.</summary>
+        public Vector4 GetTypeShape(int typeIndex) =>
+            (uint)typeIndex < (uint)_typeShapes.Length ? _typeShapes[typeIndex] : Vector4.zero;
+
+        /// <summary>True when unit type <paramref name="typeIndex"/> renders with the distinct crew capsule style.</summary>
+        public bool UsesCrewCapsuleStyle(int typeIndex) =>
+            (uint)typeIndex < (uint)_crewType.Length
+            && _crewType[typeIndex]
+            && _typeMeshes[typeIndex] == null;
+
+        /// <summary>Gets the current gamma-space display tint for regiment <paramref name="regiment"/>.</summary>
+        public Color GetDisplayColor(int regiment) =>
+            (uint)regiment < (uint)_displayPaletteGamma.Length
+                ? _displayPaletteGamma[regiment]
+                : _displayPaletteGamma[0];
+
+        /// <summary>
+        /// Updates the per-regiment palette for strategic-zoom morale and routing tints while keeping attacker
+        /// orange and defender blue colour-blind-safe.
+        /// </summary>
+        public void UpdateMoralePalette(
+            RegimentSnapshot regiments,
+            float cameraDistance,
+            bool boostStrategic = false,
+            HerdSnapshot herds = null
+        )
+        {
+            if (_isGhost)
+            {
+                return;
+            }
+            float zoomWeight = boostStrategic
+                ? 1f
+                : Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(60f, 240f, cameraDistance));
+            bool changed = false;
+            int regCount = _sides.Length;
+            for (int r = 0; r < regCount; r++)
+            {
+                Color baseCol = _basePaletteGamma[r];
+                Color target = baseCol;
+                float weight = zoomWeight;
+                if (
+                    zoomWeight > 0.001f
+                    && regiments != null
+                    && r < regiments.Count
+                    && (regiments.Wiped[r] || !regiments.Alive[r])
+                )
+                {
+                    target = Color.Lerp(baseCol, new Color(0.24f, 0.24f, 0.26f), 0.72f);
+                }
+                else if (TryFindHerdForRegiment(herds, r, out int herdIdx))
+                {
+                    HerdMode mode = herds.Mode[herdIdx];
+                    bool driven = herds.DrivenBy[herdIdx] >= 0;
+                    target = mode switch
+                    {
+                        HerdMode.Agitated => new Color(1.00f, 0.78f, 0.14f),
+                        HerdMode.Stampede => new Color(1.00f, 0.28f, 0.10f),
+                        HerdMode.Scattered => new Color(0.58f, 0.56f, 0.50f),
+                        _ => driven ? new Color(0.58f, 0.78f, 0.42f) : baseCol,
+                    };
+                    if (mode != HerdMode.Grazing || driven)
+                    {
+                        weight = Mathf.Max(zoomWeight, 0.85f);
+                    }
+                }
+                else if (regiments != null && r < regiments.Count && zoomWeight > 0.001f)
+                {
+                    if (regiments.Routing[r] || regiments.Order[r] == RegimentOrder.Rout)
+                    {
+                        // Bright high-contrast washed side hue so routing columns pop immediately at strategic zoom.
+                        target =
+                            _sides[r] == Side.Attacker
+                                ? new Color(1.00f, 0.86f, 0.65f)
+                                : new Color(0.68f, 0.90f, 1.00f);
+                    }
+                    else
+                    {
+                        float morale01 = Mathf.Clamp01(regiments.Morale[r] / 1000f);
+                        if (morale01 < 0.85f)
+                        {
+                            float t = morale01 / 0.85f;
+                            target = Color.Lerp(
+                                new Color(0.54f, 0.53f, 0.51f),
+                                baseCol,
+                                Mathf.Lerp(0.32f, 1f, t)
+                            );
+                        }
+                    }
+                }
+                Color finalGamma = Color.Lerp(baseCol, target, weight);
+                _displayPaletteGamma[r] = finalGamma;
+                Color linear = finalGamma.linear;
+                Vector4 next = new Vector4(linear.r, linear.g, linear.b, 1f);
+                Vector4 prev = _livePaletteLinear[r];
+                if (
+                    Mathf.Abs(next.x - prev.x) > 0.002f
+                    || Mathf.Abs(next.y - prev.y) > 0.002f
+                    || Mathf.Abs(next.z - prev.z) > 0.002f
+                )
+                {
+                    _livePaletteLinear[r] = next;
+                    changed = true;
+                }
+            }
+            if (changed || _paletteDirty)
+            {
+                _palette.SetData(_livePaletteLinear);
+                _paletteDirty = false;
+            }
+        }
+
+        private static bool TryFindHerdForRegiment(
+            HerdSnapshot herds,
+            int regiment,
+            out int herdIndex
+        )
+        {
+            if (herds != null)
+            {
+                for (int h = 0; h < herds.Count; h++)
+                {
+                    if (herds.Regiment[h] == regiment)
+                    {
+                        herdIndex = h;
+                        return true;
+                    }
+                }
+            }
+            herdIndex = -1;
+            return false;
+        }
+
         public void Draw(BattleHost host)
         {
             host.Read(out var previous, out var current, out float alpha);
-            Draw(previous, current, alpha);
+            Draw(previous, current, alpha, null, null, 0f);
         }
 
         /// <summary>Draws every live soldier of <paramref name="current"/>, blended from <paramref name="previous"/> by <paramref name="alpha"/>.</summary>
         public void Draw(
             BattleHost.UnitSnapshot previous,
             BattleHost.UnitSnapshot current,
-            float alpha
+            float alpha,
+            TrackReader reader = null,
+            PlaybackTrack track = null,
+            float scrubSeconds = 0f
         )
         {
+            float exactTick = scrubSeconds * SimConstants.TicksPerSecond;
+            bool checkContinuousLaunches =
+                reader != null && track != null && reader.HasAnyActiveLaunchAt(track, exactTick);
             int typeCount = _typeCounts.Length;
             Array.Clear(_typeCounts, 0, typeCount);
             bool tickChanged = current.Tick != _lastTick;
@@ -446,6 +597,7 @@ namespace GodGame.Rendering
                             ? _deathClip[u]
                             : Math.Max(0, _vatClipCounts[type] - 1);
                     _scratchUnits[count] = new Vector4(dx, dy, dz, reg);
+                    _scratchExtras[count] = Vector4.zero;
                     bool useMeshD = _typeMeshes[type] != null;
                     bool useVatD = useMeshD && _vatFrameCounts[type] > 0;
                     if (useVatD)
@@ -483,6 +635,29 @@ namespace GodGame.Rendering
                 float z = blend
                     ? Mathf.LerpUnclamped(previous.Z[u], current.Z[u], alpha)
                     : current.Z[u];
+                float spinRad = blend
+                    ? Mathf.LerpUnclamped(previous.SpinRad[u], current.SpinRad[u], alpha)
+                    : current.SpinRad[u];
+                bool airborne = (current.Flags[u] & (byte)UnitFlags.Launched) != 0;
+                if (
+                    checkContinuousLaunches
+                    && reader.TryEvaluateActiveLaunch(
+                        track,
+                        u,
+                        exactTick,
+                        out float lx,
+                        out float ly,
+                        out float lz,
+                        out float lSpin
+                    )
+                )
+                {
+                    x = lx;
+                    y = ly;
+                    z = lz;
+                    spinRad = lSpin;
+                    airborne = true;
+                }
 
                 float nearestDistSq = float.MaxValue;
                 float enemyDirX = side == Side.Attacker ? 1f : -1f;
@@ -647,6 +822,7 @@ namespace GodGame.Rendering
                 _animPhase[u] = nextPhase;
 
                 _scratchUnits[count] = new Vector4(x, y, z, reg);
+                _scratchExtras[count] = new Vector4(spinRad, airborne ? 1f : 0f, 0f, 0f);
                 bool useMesh = _typeMeshes[type] != null;
                 bool useVat = useMesh && _vatFrameCounts[type] > 0;
                 if (useVat)
@@ -692,10 +868,12 @@ namespace GodGame.Rendering
                 int dst = _typeCursors[_scratchTypes[i]]++;
                 _unitData[dst] = _scratchUnits[i];
                 _shapeData[dst] = _scratchShapes[i];
+                _extraData[dst] = _scratchExtras[i];
             }
 
             _units.SetData(_unitData, 0, 0, count);
             _shapes.SetData(_shapeData, 0, 0, count);
+            _extras.SetData(_extraData, 0, 0, count);
 
             for (int t = 0; t < typeCount; t++)
             {
@@ -724,6 +902,7 @@ namespace GodGame.Rendering
                 MaterialPropertyBlock props = _typeProperties[t];
                 props.SetBuffer(UnitsId, _units);
                 props.SetBuffer(ShapesId, _shapes);
+                props.SetBuffer(ExtrasId, _extras);
                 props.SetBuffer(PaletteId, _palette);
                 props.SetBuffer(CellColorsId, _cellColors);
                 props.SetBuffer(
@@ -752,6 +931,7 @@ namespace GodGame.Rendering
         {
             _units.Dispose();
             _shapes.Dispose();
+            _extras.Dispose();
             _palette.Dispose();
             _cellColors.Dispose();
             _args.Dispose();
@@ -761,8 +941,16 @@ namespace GodGame.Rendering
                 _vatPositions[t]?.Dispose();
                 _vatNormals[t]?.Dispose();
             }
-            UnityEngine.Object.DestroyImmediate(_capsule);
-            UnityEngine.Object.Destroy(_material);
+            if (Application.isPlaying)
+            {
+                UnityEngine.Object.Destroy(_capsule);
+                UnityEngine.Object.Destroy(_material);
+            }
+            else
+            {
+                UnityEngine.Object.DestroyImmediate(_capsule);
+                UnityEngine.Object.DestroyImmediate(_material);
+            }
         }
     }
 }

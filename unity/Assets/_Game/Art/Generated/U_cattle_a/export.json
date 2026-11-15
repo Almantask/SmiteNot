@@ -1,0 +1,42 @@
+{
+  "animations": {
+    "clips": [
+      "A_quadruped_collapse",
+      "A_quadruped_death",
+      "A_quadruped_gore",
+      "A_quadruped_kick",
+      "A_quadruped_stampede",
+      "A_quadruped_walk"
+    ],
+    "file": "U_cattle_a_Anims.fbx"
+  },
+  "asset": "U_cattle_a",
+  "blender": "5.3.0",
+  "lods": [
+    {
+      "file": "U_cattle_a_LOD0.fbx",
+      "lod": "LOD0",
+      "objects": [
+        "RIG_quadruped",
+        "U_cattle_a_LOD0"
+      ]
+    },
+    {
+      "file": "U_cattle_a_LOD1.fbx",
+      "lod": "LOD1",
+      "objects": [
+        "RIG_quadruped",
+        "U_cattle_a_LOD1"
+      ]
+    },
+    {
+      "file": "U_cattle_a_LOD2.fbx",
+      "lod": "LOD2",
+      "objects": [
+        "RIG_quadruped",
+        "U_cattle_a_LOD2"
+      ]
+    }
+  ],
+  "source": "art/source/U_cattle_a.blend"
+}

@@ -31,7 +31,9 @@ namespace GodGame.Editor
             ApplyRenderPipeline();
             CreateBootstrapScene();
             AssetDatabase.SaveAssets();
-            Debug.Log("GodGame: project settings applied. Commit ProjectSettings/ and the new .meta files.");
+            Debug.Log(
+                "GodGame: project settings applied. Commit ProjectSettings/ and the new .meta files."
+            );
         }
 
         public static void ApplyFromCommandLine()
@@ -67,7 +69,9 @@ namespace GodGame.Editor
         {
 #if GODGAME_URP
             EnsureFolder(SettingsFolder);
-            var pipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(PipelinePath);
+            var pipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(
+                PipelinePath
+            );
             if (pipeline == null)
             {
                 var renderer = ScriptableObject.CreateInstance<UniversalRendererData>();
@@ -78,7 +82,9 @@ namespace GodGame.Editor
             // Quality levels leave their own pipeline empty, so every level uses this one.
             GraphicsSettings.defaultRenderPipeline = pipeline;
 #else
-            Debug.LogWarning("GodGame: URP (com.unity.render-pipelines.universal) is not installed; skipped the pipeline asset.");
+            Debug.LogWarning(
+                "GodGame: URP (com.unity.render-pipelines.universal) is not installed; skipped the pipeline asset."
+            );
 #endif
         }
 
@@ -87,12 +93,18 @@ namespace GodGame.Editor
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(BootstrapScenePath) == null)
             {
                 EnsureFolder("Assets/_Game/Scenes");
-                var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+                var scene = EditorSceneManager.NewScene(
+                    NewSceneSetup.DefaultGameObjects,
+                    NewSceneMode.Single
+                );
 
                 var camera = Camera.main;
                 if (camera != null)
                 {
-                    camera.transform.SetPositionAndRotation(new Vector3(10f, 18f, -6f), Quaternion.Euler(60f, 0f, 0f));
+                    camera.transform.SetPositionAndRotation(
+                        new Vector3(10f, 18f, -6f),
+                        Quaternion.Euler(60f, 0f, 0f)
+                    );
                 }
 
                 var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);

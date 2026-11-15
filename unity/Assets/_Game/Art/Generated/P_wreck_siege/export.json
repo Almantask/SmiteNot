@@ -1,0 +1,29 @@
+{
+  "animations": null,
+  "asset": "P_wreck_siege",
+  "blender": "5.3.0",
+  "lods": [
+    {
+      "file": "P_wreck_siege_LOD0.fbx",
+      "lod": "LOD0",
+      "objects": [
+        "P_wreck_lod0"
+      ]
+    },
+    {
+      "file": "P_wreck_siege_LOD1.fbx",
+      "lod": "LOD1",
+      "objects": [
+        "P_wreck_lod1"
+      ]
+    },
+    {
+      "file": "P_wreck_siege_LOD2.fbx",
+      "lod": "LOD2",
+      "objects": [
+        "P_wreck_lod2"
+      ]
+    }
+  ],
+  "source": "art/source/P_wreck_siege.blend"
+}

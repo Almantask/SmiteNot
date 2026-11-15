@@ -23,11 +23,16 @@ namespace GodGame.Bridge
         /// <summary>One tick's worth of drawing data, in Unity units (metres; y up, the map's y is Unity's z).</summary>
         public sealed class UnitSnapshot
         {
+            public readonly float[] SpinRad;
+            public readonly byte[] Flags;
+
             public UnitSnapshot(int capacity)
             {
                 X = new float[capacity];
                 Y = new float[capacity];
                 Z = new float[capacity];
+                SpinRad = new float[capacity];
+                Flags = new byte[capacity];
                 Regiment = new int[capacity];
                 UnitType = new int[capacity];
                 Alive = new bool[capacity];
@@ -71,6 +76,15 @@ namespace GodGame.Bridge
             _fields = new FieldUpload.Snapshot(battle.Map.Columns, battle.Map.Rows);
             _spareFields = new FieldUpload.Snapshot(battle.Map.Columns, battle.Map.Rows);
             _fields.Fill(_simulation.World, 0, battle.Map.CellSizeMm);
+            _blockersSnap = new BlockerSnapshot(32);
+            _blockersSpare = new BlockerSnapshot(32);
+            _blockersSnap.FillFrom(_simulation.World, 0);
+            _strikesSnap = new StrikeSnapshot();
+            _strikesSpare = new StrikeSnapshot();
+            _strikesSnap.FillFrom(_simulation.World, 0);
+            _herdsSnap = new HerdSnapshot();
+            _herdsSpare = new HerdSnapshot();
+            _herdsSnap.FillFrom(_simulation.World, 0);
             RegimentSides = new Side[_simulation.World.Regiments.Capacity];
             for (int r = 0; r < RegimentSides.Length; r++)
             {
@@ -169,10 +183,105 @@ namespace GodGame.Bridge
             }
         }
 
+        /// <summary>Copies the latest deck/ice segment strain snapshot.</summary>
+        public void ReadStructures(StructureSnapshot into)
+        {
+            if (into == null)
+            {
+                throw new ArgumentNullException(nameof(into));
+            }
+            lock (_gate)
+            {
+                if (_structuresSnap == null)
+                {
+                    into.Count = 0;
+                    return;
+                }
+                _structuresSnap.CopyTo(into);
+            }
+        }
+
+        /// <summary>Copies the latest regiment morale/order snapshot.</summary>
+        public void ReadRegiments(RegimentSnapshot into)
+        {
+            if (into == null)
+            {
+                throw new ArgumentNullException(nameof(into));
+            }
+            lock (_gate)
+            {
+                if (_regimentsSnap == null)
+                {
+                    into.Count = 0;
+                    return;
+                }
+                _regimentsSnap.CopyTo(into);
+            }
+        }
+
+        /// <summary>Copies the simulation's cause log thread-safely.</summary>
+        public CauseEvent[] ReadCauses()
+        {
+            lock (_gate)
+            {
+                return _causesSnap;
+            }
+        }
+
+        /// <summary>Copies the latest battle-made blocker snapshot thread-safely.</summary>
+        public void ReadBlockers(BlockerSnapshot into)
+        {
+            if (into == null)
+            {
+                throw new ArgumentNullException(nameof(into));
+            }
+            lock (_gate)
+            {
+                _blockersSnap?.CopyTo(into);
+            }
+        }
+
+        /// <summary>Copies the latest lightning, felled-tree, and fire state snapshot thread-safely.</summary>
+        public void ReadStrikes(StrikeSnapshot into)
+        {
+            if (into == null)
+            {
+                throw new ArgumentNullException(nameof(into));
+            }
+            lock (_gate)
+            {
+                _strikesSnap?.CopyTo(into);
+            }
+        }
+
+        /// <summary>Copies the latest herd mood and stampede snapshot thread-safely.</summary>
+        public void ReadHerds(HerdSnapshot into)
+        {
+            if (into == null)
+            {
+                throw new ArgumentNullException(nameof(into));
+            }
+            lock (_gate)
+            {
+                _herdsSnap?.CopyTo(into);
+            }
+        }
+
         /// <summary>The exception that stopped the worker, if any (shown by the debug view).</summary>
         public Exception Failure => Volatile.Read(ref _failure);
 
         private Exception _failure;
+        private StructureSnapshot _structuresSnap;
+        private StructureSnapshot _structuresSpare;
+        private RegimentSnapshot _regimentsSnap;
+        private RegimentSnapshot _regimentsSpare;
+        private BlockerSnapshot _blockersSnap;
+        private BlockerSnapshot _blockersSpare;
+        private StrikeSnapshot _strikesSnap;
+        private StrikeSnapshot _strikesSpare;
+        private HerdSnapshot _herdsSnap;
+        private HerdSnapshot _herdsSpare;
+        private CauseEvent[] _causesSnap = Array.Empty<CauseEvent>();
 
         private void Run()
         {
@@ -220,6 +329,17 @@ namespace GodGame.Bridge
             );
             var next = _spare;
             Fill(next);
+            var nextStructs = _structuresSpare ?? new StructureSnapshot(64);
+            FillStructures(nextStructs);
+            var nextRegs = _regimentsSpare ?? new RegimentSnapshot(32);
+            FillRegiments(nextRegs);
+            var nextBlockers = _blockersSpare ?? new BlockerSnapshot(32);
+            nextBlockers.FillFrom(_simulation.World, _simulation.Tick);
+            var nextStrikes = _strikesSpare ?? new StrikeSnapshot();
+            nextStrikes.FillFrom(_simulation.World, _simulation.Tick);
+            var nextHerds = _herdsSpare ?? new HerdSnapshot();
+            nextHerds.FillFrom(_simulation.World, _simulation.Tick);
+            var causes = CopyCauses();
             lock (_gate)
             {
                 // The oldest snapshot becomes the spare. A main-thread frame longer than a tick may still be
@@ -227,6 +347,17 @@ namespace GodGame.Bridge
                 _spare = _previous;
                 _previous = _current;
                 _current = next;
+                _structuresSpare = _structuresSnap;
+                _structuresSnap = nextStructs;
+                _regimentsSpare = _regimentsSnap;
+                _regimentsSnap = nextRegs;
+                _blockersSpare = _blockersSnap;
+                _blockersSnap = nextBlockers;
+                _strikesSpare = _strikesSnap;
+                _strikesSnap = nextStrikes;
+                _herdsSpare = _herdsSnap;
+                _herdsSnap = nextHerds;
+                _causesSnap = causes;
             }
             if (fieldStep)
             {
@@ -243,6 +374,9 @@ namespace GodGame.Bridge
         private void Fill(UnitSnapshot s)
         {
             var world = _simulation.World;
+            var map = Battle.PlayedMap;
+            var structs = world.Structures;
+            var ballistic = world.Ballistic;
             int count = world.Units.HighWater;
             s.Tick = _simulation.Tick;
             s.Count = count;
@@ -250,14 +384,407 @@ namespace GodGame.Bridge
             {
                 bool alive = world.Units.IsAlive(u);
                 s.Alive[u] = alive;
+                byte flags = (byte)world.Flags[u];
+                s.Flags[u] = flags;
                 FixVec2 p = world.Position[u];
                 s.X[u] = p.X.Raw / (float)Fix.OneRaw;
                 s.Z[u] = p.Y.Raw / (float)Fix.OneRaw;
-                s.Y[u] = _terrain.HeightMmAt(p) / 1000f;
+                float groundY = _terrain.HeightMmAt(p) / 1000f;
+                if (alive && (flags & (byte)UnitFlags.Launched) != 0 && ballistic != null)
+                {
+                    s.Y[u] = groundY + ballistic.HeightMm[u] / 1000f;
+                    float elapsedS = ballistic.Ticks[u] / (float)SimConstants.TicksPerSecond;
+                    s.SpinRad[u] =
+                        (ballistic.SpinCdPerS[u] / 100f) * (float)(Math.PI / 180.0) * elapsedS;
+                }
+                else
+                {
+                    float y = groundY;
+                    if (alive && structs != null && map != null)
+                    {
+                        int cell = CellIndexAt(map, p);
+                        int deckSeg =
+                            cell >= 0 && map.Decks != null ? map.Decks.SegmentOfCell[cell] : -1;
+                        if (deckSeg >= 0 && deckSeg < structs.Count && !structs.Broken[deckSeg])
+                        {
+                            float deckY = map.Decks.Segments[deckSeg].DeckHeightMm / 1000f;
+                            if (deckY > y)
+                            {
+                                y = deckY;
+                            }
+                        }
+                        else if (cell >= 0 && structs.Count > structs.StaticCount)
+                        {
+                            for (int ds = structs.StaticCount; ds < structs.Count; ds++)
+                            {
+                                if (structs.Broken[ds] || structs.BattleCells[ds] == null)
+                                {
+                                    continue;
+                                }
+                                var bCells = structs.BattleCells[ds];
+                                for (int k = 0; k < bCells.Length; k++)
+                                {
+                                    if (bCells[k] == cell)
+                                    {
+                                        float dy = structs.BattleDeckHeight[ds] / 1000f;
+                                        if (dy > y)
+                                        {
+                                            y = dy;
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    s.Y[u] = y;
+                    s.SpinRad[u] = 0f;
+                }
                 s.Regiment[u] = world.UnitRegiment[u];
                 s.UnitType[u] = world.UnitType[u];
             }
             s.PublishedTicks = Stopwatch.GetTimestamp();
+        }
+
+        private void FillStructures(StructureSnapshot into)
+        {
+            var world = _simulation.World;
+            var structs = world.Structures;
+            var map = Battle.PlayedMap;
+            var rules = Battle.Rules;
+            into.Tick = _simulation.Tick;
+            if (structs == null || structs.Count == 0)
+            {
+                into.Count = 0;
+                return;
+            }
+            into.EnsureCapacity(structs.Count);
+            into.Count = structs.Count;
+            int staticCount = map?.Decks != null ? map.Decks.Segments.Count : 0;
+            for (int s = 0; s < structs.Count; s++)
+            {
+                into.LoadPermille[s] = (ushort)
+                    Math.Max(0, Math.Min(ushort.MaxValue, structs.LoadPermille[s]));
+                into.StrengthPermille[s] = (ushort)
+                    Math.Max(0, Math.Min(ushort.MaxValue, structs.Strength[s]));
+                into.Stage[s] = structs.Stage[s];
+                into.Broken[s] = structs.Broken[s];
+                if (s < staticCount)
+                {
+                    var seg = map.Decks.Segments[s];
+                    into.DeckHeightM[s] = seg.DeckHeightMm / 1000f;
+                    into.KindIndex[s] = seg.Kind != null ? seg.Kind.Index : -1;
+                    into.KindIds[s] = seg.Kind != null ? seg.Kind.Id : string.Empty;
+                    into.Cells[s] = seg.Cells;
+                }
+                else
+                {
+                    int kindIdx = structs.BattleKind[s];
+                    into.DeckHeightM[s] = structs.BattleDeckHeight[s] / 1000f;
+                    into.KindIndex[s] = kindIdx;
+                    into.KindIds[s] =
+                        kindIdx >= 0 && kindIdx < rules.Structures.Kinds.Count
+                            ? rules.Structures.Kinds[kindIdx].Id
+                            : string.Empty;
+                    into.Cells[s] = structs.BattleCells[s] ?? Array.Empty<int>();
+                }
+            }
+        }
+
+        private void FillRegiments(RegimentSnapshot into)
+        {
+            var world = _simulation.World;
+            int count = world.Regiments.HighWater;
+            into.Tick = _simulation.Tick;
+            into.EnsureCapacity(count);
+            into.Count = count;
+            for (int r = 0; r < count; r++)
+            {
+                into.Morale[r] = (ushort)
+                    Math.Max(0, Math.Min(ushort.MaxValue, world.RegimentMorale[r]));
+                into.Order[r] = world.Army.Order[r];
+                into.Alive[r] = world.Regiments.IsAlive(r);
+                into.Wiped[r] = world.Army.Wiped[r];
+                into.Routing[r] = world.Army.Order[r] == RegimentOrder.Rout;
+                into.AliveCount[r] = world.RegimentAlive[r];
+                into.StartingSize[r] = world.RegimentStartingSize[r];
+                into.Side[r] = world.RegimentSide[r];
+            }
+        }
+
+        private CauseEvent[] CopyCauses()
+        {
+            var log = _simulation.World.Causes;
+            if (log == null || log.Events.Count == 0)
+            {
+                return Array.Empty<CauseEvent>();
+            }
+            var arr = new CauseEvent[log.Events.Count];
+            for (int i = 0; i < arr.Length; i++)
+            {
+                arr[i] = log.Events[i];
+            }
+            return arr;
+        }
+
+        private static int CellIndexAt(MapData map, FixVec2 p)
+        {
+            long xMm = (p.X.Raw * 1000L) >> Fix.FractionalBits;
+            long yMm = (p.Y.Raw * 1000L) >> Fix.FractionalBits;
+            if (xMm < 0 || yMm < 0)
+            {
+                return -1;
+            }
+            int col = (int)(xMm / map.CellSizeMm);
+            int row = (int)(yMm / map.CellSizeMm);
+            if ((uint)col >= (uint)map.Columns || (uint)row >= (uint)map.Rows)
+            {
+                return -1;
+            }
+            return row * map.Columns + col;
+        }
+    }
+
+    /// <summary>Snapshot of deck/ice segments' load, strain stage, strength and broken state for Unity rendering.</summary>
+    public sealed class StructureSnapshot
+    {
+        public int Tick;
+        public int Count;
+        public ushort[] LoadPermille;
+        public ushort[] StrengthPermille;
+        public StrainStage[] Stage;
+        public bool[] Broken;
+        public float[] DeckHeightM;
+        public int[] KindIndex;
+        public string[] KindIds;
+        public int[][] Cells;
+
+        public StructureSnapshot(int capacity = 64)
+        {
+            int cap = Math.Max(16, capacity);
+            LoadPermille = new ushort[cap];
+            StrengthPermille = new ushort[cap];
+            Stage = new StrainStage[cap];
+            Broken = new bool[cap];
+            DeckHeightM = new float[cap];
+            KindIndex = new int[cap];
+            KindIds = new string[cap];
+            Cells = new int[cap][];
+        }
+
+        public void EnsureCapacity(int required)
+        {
+            if (required <= LoadPermille.Length)
+            {
+                return;
+            }
+            int cap = Math.Max(required, LoadPermille.Length * 2);
+            LoadPermille = new ushort[cap];
+            StrengthPermille = new ushort[cap];
+            Stage = new StrainStage[cap];
+            Broken = new bool[cap];
+            DeckHeightM = new float[cap];
+            KindIndex = new int[cap];
+            KindIds = new string[cap];
+            Cells = new int[cap][];
+        }
+
+        public void CopyTo(StructureSnapshot target)
+        {
+            target.EnsureCapacity(Count);
+            target.Tick = Tick;
+            target.Count = Count;
+            Array.Copy(LoadPermille, target.LoadPermille, Count);
+            Array.Copy(StrengthPermille, target.StrengthPermille, Count);
+            Array.Copy(Stage, target.Stage, Count);
+            Array.Copy(Broken, target.Broken, Count);
+            Array.Copy(DeckHeightM, target.DeckHeightM, Count);
+            Array.Copy(KindIndex, target.KindIndex, Count);
+            Array.Copy(KindIds, target.KindIds, Count);
+            Array.Copy(Cells, target.Cells, Count);
+        }
+    }
+
+    /// <summary>Snapshot of regiment morale, order and casualty state for strategic-zoom tinting and HUDs.</summary>
+    public sealed class RegimentSnapshot
+    {
+        public int Tick;
+        public int Count;
+        public ushort[] Morale;
+        public RegimentOrder[] Order;
+        public bool[] Alive;
+        public bool[] Wiped;
+        public bool[] Routing;
+        public int[] AliveCount;
+        public int[] StartingSize;
+        public Side[] Side;
+
+        public RegimentSnapshot(int capacity = 32)
+        {
+            int cap = Math.Max(8, capacity);
+            Morale = new ushort[cap];
+            Order = new RegimentOrder[cap];
+            Alive = new bool[cap];
+            Wiped = new bool[cap];
+            Routing = new bool[cap];
+            AliveCount = new int[cap];
+            StartingSize = new int[cap];
+            Side = new Side[cap];
+        }
+
+        public void EnsureCapacity(int required)
+        {
+            if (required <= Morale.Length)
+            {
+                return;
+            }
+            int cap = Math.Max(required, Morale.Length * 2);
+            Morale = new ushort[cap];
+            Order = new RegimentOrder[cap];
+            Alive = new bool[cap];
+            Wiped = new bool[cap];
+            Routing = new bool[cap];
+            AliveCount = new int[cap];
+            StartingSize = new int[cap];
+            Side = new Side[cap];
+        }
+
+        public void CopyTo(RegimentSnapshot target)
+        {
+            target.EnsureCapacity(Count);
+            target.Tick = Tick;
+            target.Count = Count;
+            Array.Copy(Morale, target.Morale, Count);
+            Array.Copy(Order, target.Order, Count);
+            Array.Copy(Alive, target.Alive, Count);
+            Array.Copy(Wiped, target.Wiped, Count);
+            Array.Copy(Routing, target.Routing, Count);
+            Array.Copy(AliveCount, target.AliveCount, Count);
+            Array.Copy(StartingSize, target.StartingSize, Count);
+            Array.Copy(Side, target.Side, Count);
+        }
+    }
+
+    /// <summary>Snapshot of battle-made blockers (<see cref="Blockers"/>) read from the simulation.</summary>
+    public sealed class BlockerSnapshot
+    {
+        public int Tick;
+        public int Count;
+        public BlockerKind[] Kind;
+        public int[] EventIndex;
+        public bool[] Cleared;
+        public int[] Clearer;
+        public int[] Progress;
+        public bool[] ClosesRoute;
+        public int[][] Cells;
+        public byte[][] Profile;
+
+        public BlockerSnapshot(int capacity = 32)
+        {
+            int cap = Math.Max(8, capacity);
+            Kind = new BlockerKind[cap];
+            EventIndex = new int[cap];
+            Cleared = new bool[cap];
+            Clearer = new int[cap];
+            Progress = new int[cap];
+            ClosesRoute = new bool[cap];
+            Cells = new int[cap][];
+            Profile = new byte[cap][];
+        }
+
+        public void EnsureCapacity(int required)
+        {
+            if (required <= Kind.Length)
+            {
+                return;
+            }
+            int oldCap = Kind.Length;
+            int cap = Math.Max(required, oldCap * 2);
+            Array.Resize(ref Kind, cap);
+            Array.Resize(ref EventIndex, cap);
+            Array.Resize(ref Cleared, cap);
+            Array.Resize(ref Clearer, cap);
+            Array.Resize(ref Progress, cap);
+            Array.Resize(ref ClosesRoute, cap);
+            Array.Resize(ref Cells, cap);
+            Array.Resize(ref Profile, cap);
+        }
+
+        public void FillFrom(World world, int tick)
+        {
+            Tick = tick;
+            var blockers = world?.Blockers;
+            int count = blockers != null ? blockers.Count : 0;
+            Count = count;
+            EnsureCapacity(count);
+            for (int i = 0; i < count; i++)
+            {
+                Kind[i] = blockers.Kind(i);
+                EventIndex[i] = blockers.Event(i);
+                Cleared[i] = blockers.IsCleared(i);
+                Clearer[i] = blockers.Clearer(i);
+                Progress[i] = blockers.Progress(i);
+                ClosesRoute[i] = blockers.ClosesRoute(i);
+
+                int[] srcCells = blockers.Cells(i);
+                int len = srcCells != null ? srcCells.Length : 0;
+                if (Cells[i] == null || Cells[i].Length != len)
+                {
+                    Cells[i] = new int[len];
+                }
+                if (len > 0)
+                {
+                    Array.Copy(srcCells, Cells[i], len);
+                }
+
+                byte[] srcProf = blockers.Profile(i);
+                int plen = srcProf != null ? srcProf.Length : 0;
+                if (Profile[i] == null || Profile[i].Length != plen)
+                {
+                    Profile[i] = new byte[plen];
+                }
+                if (plen > 0)
+                {
+                    Array.Copy(srcProf, Profile[i], plen);
+                }
+            }
+        }
+
+        public void CopyTo(BlockerSnapshot target)
+        {
+            target.EnsureCapacity(Count);
+            target.Tick = Tick;
+            target.Count = Count;
+            Array.Copy(Kind, target.Kind, Count);
+            Array.Copy(EventIndex, target.EventIndex, Count);
+            Array.Copy(Cleared, target.Cleared, Count);
+            Array.Copy(Clearer, target.Clearer, Count);
+            Array.Copy(Progress, target.Progress, Count);
+            Array.Copy(ClosesRoute, target.ClosesRoute, Count);
+            for (int i = 0; i < Count; i++)
+            {
+                int[] srcCells = Cells[i];
+                int len = srcCells != null ? srcCells.Length : 0;
+                if (target.Cells[i] == null || target.Cells[i].Length != len)
+                {
+                    target.Cells[i] = new int[len];
+                }
+                if (len > 0)
+                {
+                    Array.Copy(srcCells, target.Cells[i], len);
+                }
+
+                byte[] srcProf = Profile[i];
+                int plen = srcProf != null ? srcProf.Length : 0;
+                if (target.Profile[i] == null || target.Profile[i].Length != plen)
+                {
+                    target.Profile[i] = new byte[plen];
+                }
+                if (plen > 0)
+                {
+                    Array.Copy(srcProf, target.Profile[i], plen);
+                }
+            }
         }
     }
 }

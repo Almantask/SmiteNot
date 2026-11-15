@@ -1,7 +1,7 @@
 using GodGame.Sim;
 using UnityEngine;
-using Terrain = GodGame.Sim.Terrain;
 using UnityEngine.Rendering;
+using Terrain = GodGame.Sim.Terrain;
 
 namespace GodGame.Rendering
 {

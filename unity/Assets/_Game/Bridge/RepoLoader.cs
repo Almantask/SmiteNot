@@ -56,5 +56,38 @@ namespace GodGame.Bridge
                 map,
                 rules
             );
+
+        /// <summary>Loads a level JSON from data/levels (e.g. "chapter-0/b1-river-crossing.json").</summary>
+        public static LevelData LoadLevel(
+            string repoRoot,
+            string levelFile,
+            MapData map = null,
+            Ruleset rules = null
+        )
+        {
+            string normalized = levelFile.Replace('/', Path.DirectorySeparatorChar);
+            if (!normalized.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized += ".json";
+            }
+            string path = Path.Combine(repoRoot, "data", "levels", normalized);
+            return LevelData.Load(File.ReadAllText(path), map, rules, normalized);
+        }
+
+        /// <summary>Loads the starting plan referenced by a <see cref="LevelData"/>.</summary>
+        public static BattlePlan LoadPlanForLevel(
+            string repoRoot,
+            LevelData level,
+            MapData map,
+            Ruleset rules
+        )
+        {
+            string rel = level.PlanFile.Replace('/', Path.DirectorySeparatorChar);
+            string underData = Path.Combine(repoRoot, "data", rel);
+            string path = File.Exists(underData)
+                ? underData
+                : Path.Combine(repoRoot, "data", "plans", rel);
+            return BattlePlan.Load(File.ReadAllText(path), map, rules);
+        }
     }
 }

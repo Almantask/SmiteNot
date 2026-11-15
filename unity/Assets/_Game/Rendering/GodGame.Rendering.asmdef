@@ -6,6 +6,7 @@
     "GodGame.Sim",
     "GodGame.Sim.Math",
     "GodGame.Sim.Rules",
+    "GodGame.UI",
     "Unity.InputSystem",
     "Unity.Cinemachine"
   ],

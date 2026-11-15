@@ -64,10 +64,17 @@ namespace GodGame.Editor
             serialized.FindProperty("_lineShader").objectReferenceValue = Shader.Find(
                 "Universal Render Pipeline/Unlit"
             );
+            serialized.FindProperty("_deckShader").objectReferenceValue = Shader.Find(
+                "GodGame/DebugDeck"
+            );
+            serialized.FindProperty("_markerShader").objectReferenceValue = Shader.Find(
+                "GodGame/DebugMarkers"
+            );
             serialized.FindProperty("_panelSettings").objectReferenceValue =
                 BattleDebugScene.PanelSettingsAsset();
             serialized.FindProperty("_camera").objectReferenceValue = strategic;
             BattleDebugScene.AssignUnitMeshes(serialized, "Planning scene");
+            BattleDebugScene.AssignWorldProps(serialized, "Planning scene");
             serialized.ApplyModifiedPropertiesWithoutUndo();
             foreach (
                 string name in new[]
@@ -76,6 +83,8 @@ namespace GodGame.Editor
                     "_groundShader",
                     "_waterShader",
                     "_lineShader",
+                    "_deckShader",
+                    "_markerShader",
                     "_panelSettings",
                 }
             )

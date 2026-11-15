@@ -21,6 +21,7 @@ Shader "GodGame/DebugUnits"
 
             StructuredBuffer<float4> _Units;       // xyz: feet on the ground (m), w: palette index
             StructuredBuffer<float4> _Shapes;      // capsule: x=radius, y=height (>0); mesh: x=scale or animPhase, y<=0 (-animBlend), z=cosYaw, w=sinYaw
+            StructuredBuffer<float4> _UnitExtras;  // x: tumble pitch spin (rad), y: launched flag (>0)
             StructuredBuffer<float4> _Palette;     // rgb per side/regiment (linear)
             StructuredBuffer<float4> _CellColors;  // 256 linear RGB entries for 16x16 palette grid (cy * 16 + cx)
             StructuredBuffer<float4> _VatPositions;
@@ -46,25 +47,54 @@ Shader "GodGame/DebugUnits"
                 float4 positionCS : SV_POSITION;
                 float3 normalWS : TEXCOORD0;
                 float3 color : TEXCOORD1;
+                float2 capsuleInfo : TEXCOORD2; // x: variant (>0.5 = crew), y: normalised height 0..1
             };
+
+            float3 PitchTumble(float3 v, float pivotY, float sinT, float cosT, bool isPos)
+            {
+                if (isPos)
+                {
+                    v.y -= pivotY;
+                }
+                float py = v.y * cosT + v.z * sinT;
+                float pz = -v.y * sinT + v.z * cosT;
+                v.y = isPos ? py + pivotY : py;
+                v.z = pz;
+                return v;
+            }
 
             Varyings Vert(Attributes input)
             {
                 uint idx = (uint)_BaseInstance + input.instanceID;
                 float4 unit = _Units[idx];
                 float4 shape = _Shapes[idx];
+                float4 extra = _UnitExtras[idx];
+                float tumble = extra.x;
+                float sinT;
+                float cosT;
+                sincos(tumble, sinT, cosT);
                 float3 localPos;
                 float3 normalWS;
                 half3 albedo;
+                float capsuleVariant = 0.0;
+                float capsuleHeight01 = 0.5;
 
                 if (shape.y > 0.0)
                 {
                     // Capsule fallback: Unity's capsule is 2 m tall and 1 m across, centred on the origin.
+                    capsuleVariant = shape.z;
+                    capsuleHeight01 = saturate((input.positionOS.y + 1.0) * 0.5);
                     localPos = float3(
                         input.positionOS.x * shape.x * 2.0,
                         (input.positionOS.y + 1.0) * shape.y * 0.5,
                         input.positionOS.z * shape.x * 2.0);
                     normalWS = input.normalOS;
+                    if (abs(tumble) > 0.0001)
+                    {
+                        float pivotY = shape.y * 0.5;
+                        localPos = PitchTumble(localPos, pivotY, sinT, cosT, true);
+                        normalWS = PitchTumble(normalWS, 0.0, sinT, cosT, false);
+                    }
                     albedo = (half3)_Palette[(uint)unit.w].rgb;
                 }
                 else
@@ -149,6 +179,11 @@ Shader "GodGame/DebugUnits"
                         float3 nRaw = input.normalOS;
                         n = float3(nRaw.x, -nRaw.z, nRaw.y);
                     }
+                    if (abs(tumble) > 0.0001)
+                    {
+                        p = PitchTumble(p, 0.9, sinT, cosT, true);
+                        n = PitchTumble(n, 0.0, sinT, cosT, false);
+                    }
                     float cosY = shape.z;
                     float sinY = shape.w;
                     localPos = float3(
@@ -176,13 +211,34 @@ Shader "GodGame/DebugUnits"
                 output.positionCS = TransformWorldToHClip(unit.xyz + localPos);
                 output.normalWS = normalWS;
                 output.color = albedo;
+                output.capsuleInfo = float2(capsuleVariant, capsuleHeight01);
                 return output;
             }
 
             half4 Frag(Varyings input) : SV_Target
             {
+                half3 albedo = (half3)input.color;
+                if (input.capsuleInfo.x > 0.5)
+                {
+                    // Crew distinct capsule silhouette: dark oiled-leather apron below belt, bright brass belt & warm engineer cap over team tunic.
+                    float y01 = input.capsuleInfo.y;
+                    half3 crewAlbedo = albedo;
+                    if (y01 < 0.38)
+                    {
+                        crewAlbedo = lerp(half3(0.24, 0.17, 0.12), albedo, 0.20h);
+                    }
+                    else if (y01 < 0.45)
+                    {
+                        crewAlbedo = half3(0.76, 0.58, 0.24);
+                    }
+                    else if (y01 >= 0.78)
+                    {
+                        crewAlbedo = lerp(albedo, half3(0.92, 0.76, 0.36), 0.65h);
+                    }
+                    albedo = lerp(crewAlbedo, albedo, (half)(_IsGhost * 0.7));
+                }
                 float light = 0.45 + 0.55 * saturate(dot(normalize(input.normalWS), normalize(float3(0.4, 1.0, 0.3))));
-                return half4(input.color * light, 1.0);
+                return half4(albedo * (half)light, 1.0);
             }
             ENDHLSL
         }

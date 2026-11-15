@@ -6,6 +6,7 @@
     "UnityEditor.TestRunner",
     "GodGame.Bridge",
     "GodGame.Rendering",
+    "GodGame.UI",
     "GodGame.Editor",
     "GodGame.Sim",
     "GodGame.Sim.Math",

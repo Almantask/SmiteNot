@@ -5,6 +5,7 @@ using System.IO;
 using GodGame.Bridge;
 using GodGame.Sim;
 using GodGame.Sim.Math;
+using GodGame.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
@@ -35,6 +36,9 @@ namespace GodGame.Rendering
         private string _planFile = "m3-river-two-thousand.json";
 
         [SerializeField]
+        private string _levelFile = "";
+
+        [SerializeField]
         private Shader _unitShader;
 
         [SerializeField]
@@ -45,6 +49,12 @@ namespace GodGame.Rendering
 
         [SerializeField]
         private Shader _lineShader;
+
+        [SerializeField]
+        private Shader _deckShader;
+
+        [SerializeField]
+        private Shader _markerShader;
 
         [SerializeField]
         private PanelSettings _panelSettings;
@@ -58,16 +68,30 @@ namespace GodGame.Rendering
         [SerializeField]
         private UnitVatData[] _unitVats;
 
+        [SerializeField]
+        private Mesh _wreckMesh;
+
+        [SerializeField]
+        private Mesh _treeMesh;
+
+        [SerializeField]
+        private Mesh _felledTrunkMesh;
+
+        [SerializeField]
+        private Mesh _fireMesh;
+
         private enum Tool
         {
             Move,
             Rain,
             Boulder,
             Channel,
+            Lightning,
         }
 
         private GodGame.Sim.Rules.Ruleset _rules;
         private MapData _map;
+        private LevelData _level;
         private Terrain _terrain;
         private PlanEditor _editor;
 
@@ -80,15 +104,43 @@ namespace GodGame.Rendering
         private BattlePlan _shownPlan;
         private UnitCapsuleRenderer _units;
         private UnitCapsuleRenderer _ghost;
+        private DeckRenderer _deckRenderer;
+        private WorldMarkerRenderer _worldMarkers;
+        private StructureSnapshot _structures;
+        private RegimentSnapshot _regiments;
+        private BlockerSnapshot _blockers;
+        private StrikeSnapshot _strikes;
+        private HerdSnapshot _herds;
+        private HerdSnapshot _scrubHerds;
+        private readonly List<WreckCellInstance> _wreckInstances = new List<WreckCellInstance>();
+        private readonly List<StoneLandingInstance> _salvoInstances =
+            new List<StoneLandingInstance>();
+        private readonly List<TreePropInstance> _treeInstances = new List<TreePropInstance>();
+        private readonly List<FelledTreeInstance> _felledTreeInstances =
+            new List<FelledTreeInstance>();
+        private readonly List<FireCellInstance> _fireInstances = new List<FireCellInstance>();
+        private readonly List<LightningStrikeInstance> _strikeInstances =
+            new List<LightningStrikeInstance>();
+        private readonly List<HerdMarkerInstance> _herdInstances = new List<HerdMarkerInstance>();
+        private readonly Dictionary<int, int> _crushCountsScratch = new Dictionary<int, int>();
         private FieldUpload _fields;
         private uint[] _fieldCells;
         private int _fieldTick = -1;
         private PlaybackTrack _fieldTrack;
+        private Texture2D _overlayTexture;
+        private Color32[] _overlayPixels;
+        private bool _overlayDirty = true;
+        private int _lastOverlayTick = int.MinValue;
+        private int _lastOverlayCauses = -1;
+        private PlaybackTrack _lastOverlayTrack;
+        private bool _lastOverlayLanding;
+        private bool _lastOverlayStrain;
         private Material _groundMaterial;
         private Material _waterMaterial;
         private GameObject _ground;
         private GameObject _water;
         private Mesh _mesh;
+        private LineRenderer _objectiveLine;
         private readonly List<LineRenderer> _rings = new List<LineRenderer>();
         private readonly List<LineRenderer> _castCircles = new List<LineRenderer>();
 
@@ -96,15 +148,25 @@ namespace GodGame.Rendering
         private float _scrubSeconds;
         private bool _playing;
         private bool _showGhost = true;
+        private bool _showStrainOverlay;
+        private bool _boostMoraleTints;
         private int _radiusMm = 80_000;
         private string _selectedCast;
         private string _selectedPiece;
         private string _dragRegiment;
+        private bool _draggingCastOrPiece;
+        private int _dragCastStartXMm;
+        private int _dragCastStartYMm;
         private Vector3? _channelStart;
         private string _trace = "";
 
         private Label _hud;
         private Label _tracePanel;
+        private ResultsScreen _results;
+        private PlaybackTrack _resultsTrack;
+        private int _resultsCausesCount = -1;
+        private BattleOutcomeKind _resultsOutcomeStatus = BattleOutcomeKind.Ongoing;
+        private int _resultsAutoShownForEdits = -1;
         private VisualElement _bar;
         private VisualElement _filled;
         private VisualElement _cursor;
@@ -129,6 +191,7 @@ namespace GodGame.Rendering
             string repo = CommandLineValue("-repo") ?? RepoLoader.EditorRepoRoot;
             _mapId = CommandLineValue("-map") ?? _mapId;
             _planFile = CommandLineValue("-plan") ?? _planFile;
+            _levelFile = CommandLineValue("-level") ?? _levelFile;
             _measureFile = CommandLineValue("-measure-preview");
             _screenshotFile = CommandLineValue("-screenshot");
             _forceRings = Array.IndexOf(Environment.GetCommandLineArgs(), "-rings") >= 0;
@@ -152,16 +215,38 @@ namespace GodGame.Rendering
                 Application.runInBackground = true;
             }
             _rules = RepoLoader.LoadRules(repo);
-            _map = RepoLoader.LoadMap(repo, _mapId);
-            var plan = RepoLoader.LoadPlan(repo, _planFile, _map, _rules);
+            BattlePlan plan;
+            int seed = 1;
+            if (!string.IsNullOrEmpty(_levelFile))
+            {
+                var header = RepoLoader.LoadLevel(repo, _levelFile, null, _rules);
+                _mapId = header.MapId;
+                _map = RepoLoader.LoadMap(repo, _mapId);
+                _level = RepoLoader.LoadLevel(repo, _levelFile, _map, _rules);
+                _planFile = _level.PlanFile;
+                seed = _level.Seed;
+                plan = RepoLoader.LoadPlanForLevel(repo, _level, _map, _rules);
+            }
+            else
+            {
+                _map = RepoLoader.LoadMap(repo, _mapId);
+                _level = null;
+                plan = RepoLoader.LoadPlan(repo, _planFile, _map, _rules);
+            }
             _loadedPlan = plan;
             _editor = new PlanEditor(plan, _map, _rules);
-            var battle = new Battle(_rules, _map, plan, 1);
+            var battle = new Battle(_rules, _map, plan, (ulong)seed);
+            int endTick = _level != null ? _level.Outcome.SunsetTick : PreviewWorker.DefaultEndTick;
             _worker = new PreviewWorker(
                 battle,
                 new ThreadedRunner(Math.Max(1, SystemInfo.processorCount - 2)),
-                new KeyframeStore(512L << 20)
+                new KeyframeStore(512L << 20),
+                endTick
             );
+            if (_level != null)
+            {
+                _worker.SetOutcomeSpec(_level.Outcome);
+            }
             _worker.Start();
             BuildScene(battle);
             BuildUi();
@@ -176,7 +261,13 @@ namespace GodGame.Rendering
             _worker?.Dispose();
             _units?.Dispose();
             _ghost?.Dispose();
+            _deckRenderer?.Dispose();
+            _worldMarkers?.Dispose();
             _fields?.Dispose();
+            if (_objectiveLine != null)
+            {
+                Destroy(_objectiveLine.gameObject);
+            }
             foreach (var line in _rings)
             {
                 if (line != null) // already gone when the application quits
@@ -193,8 +284,13 @@ namespace GodGame.Rendering
             }
             _rings.Clear();
             _castCircles.Clear();
+            _objectiveLine = null;
+            _deckRenderer = null;
+            _worldMarkers = null;
+            _results = null;
             Destroy(_ground);
             Destroy(_water);
+            Destroy(_overlayTexture);
             Destroy(_groundMaterial);
             Destroy(_waterMaterial);
             Destroy(_mesh);
@@ -211,7 +307,16 @@ namespace GodGame.Rendering
                 out float maxH
             );
             _groundMaterial = new Material(_groundShader);
-            _groundMaterial.SetTexture("_Overlay", Texture2D.blackTexture);
+            _overlayTexture = new Texture2D(_map.Columns, _map.Rows, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+            };
+            _overlayPixels = new Color32[_map.Columns * _map.Rows];
+            Array.Fill(_overlayPixels, OverlayPainter.Clear);
+            _overlayTexture.SetPixels32(_overlayPixels);
+            _overlayTexture.Apply(false, false);
+            _groundMaterial.SetTexture("_Overlay", _overlayTexture);
             _groundMaterial.SetVector(
                 "_HeightRange",
                 new Vector4(minH, Mathf.Max(maxH, minH + 1), 0, 0)
@@ -232,6 +337,41 @@ namespace GodGame.Rendering
             _water = new GameObject("Planning water");
             _water.AddComponent<MeshFilter>().sharedMesh = _mesh;
             _water.AddComponent<MeshRenderer>().sharedMaterial = _waterMaterial;
+            _deckRenderer = new DeckRenderer(
+                _map,
+                _deckShader != null ? _deckShader : Shader.Find("GodGame/DebugDeck")
+            );
+            _worldMarkers = new WorldMarkerRenderer(
+                _map,
+                _markerShader != null ? _markerShader : Shader.Find("GodGame/DebugMarkers"),
+                new WorldMarkerMeshes(_wreckMesh, _treeMesh, _felledTrunkMesh, _fireMesh)
+            );
+            _structures = new StructureSnapshot();
+            _regiments = new RegimentSnapshot();
+            _blockers = new BlockerSnapshot();
+            _strikes = new StrikeSnapshot();
+            _herds = new HerdSnapshot();
+            _scrubHerds = new HerdSnapshot();
+            if (
+                _level != null
+                && _level.Outcome.Variant == LevelOutcomeVariant.Objective
+                && _level.Outcome.ObjectivePointCount >= 3
+            )
+            {
+                _objectiveLine = NewLine("Objective Zone", new Color(1f, 0.85f, 0.2f, 0.9f), 2.0f);
+                int ptCount = _level.Outcome.ObjectivePointCount;
+                _objectiveLine.positionCount = ptCount;
+                for (int i = 0; i < ptCount; i++)
+                {
+                    int xMm = _level.Outcome.ObjectivePolygonMm[i * 2];
+                    int yMm = _level.Outcome.ObjectivePolygonMm[i * 2 + 1];
+                    var p = new FixVec2(Fix.FromRatio(xMm, 1000), Fix.FromRatio(yMm, 1000));
+                    _objectiveLine.SetPosition(
+                        i,
+                        new Vector3(xMm / 1000f, _terrain.HeightMmAt(p) / 1000f + 1.8f, yMm / 1000f)
+                    );
+                }
+            }
             ResetReaders(battle);
         }
 
@@ -318,6 +458,7 @@ namespace GodGame.Rendering
                 _bar.ReleasePointer(e.pointerId);
             });
             root.Add(_bar);
+            _results = new ResultsScreen(root);
         }
 
         private static Label Panel(Label label, float left, float top)
@@ -396,17 +537,30 @@ namespace GodGame.Rendering
             }
 
             var track = _worker.Track;
-            if (
-                _reader.Read(
-                    track,
-                    _scrubSeconds,
-                    out var previous,
-                    out var current,
-                    out float alpha
-                )
-            )
+            int scrubTick = Mathf.RoundToInt(_scrubSeconds * SimConstants.TicksPerSecond);
+            _worker.ReadBlockers(_blockers);
+            _worker.ReadStrikes(_strikes);
+            _worker.ReadHerds(_herds);
+            var causes = _worker.ReadCauses();
+            BuildScrubHerds(causes, scrubTick);
+            _reader.ReadStructures(track, _scrubSeconds, _structures);
+            _reader.ReadRegiments(track, _scrubSeconds, _regiments);
+            _units.UpdateMoralePalette(
+                _regiments,
+                _camera != null ? _camera.Distance : 900f,
+                _boostMoraleTints,
+                _scrubHerds
+            );
+            bool hasCurrent = _reader.Read(
+                track,
+                _scrubSeconds,
+                out var previous,
+                out var current,
+                out float alpha
+            );
+            if (hasCurrent)
             {
-                _units.Draw(previous, current, alpha);
+                _units.Draw(previous, current, alpha, _reader, track, _scrubSeconds);
             }
             if (
                 _showGhost
@@ -421,14 +575,194 @@ namespace GodGame.Rendering
                 )
             )
             {
-                _ghost.Draw(gp, gc, ga);
+                _ghost.Draw(gp, gc, ga, _ghostReader, _ghostTrack, _scrubSeconds);
             }
+            MapData activeMap = _reader.Map ?? _map;
+            Terrain activeTerrain = _reader.Terrain ?? _terrain;
+            int fallTicks = _rules.Power("lightning")?.Lightning?.FallTicks ?? 40;
+            _deckRenderer?.Draw(_structures, activeMap, _showStrainOverlay);
+            SalvoAndBlockerProjection.CollectWrecks(
+                _blockers,
+                causes,
+                activeMap,
+                activeTerrain,
+                scrubTick,
+                filterByTime: true,
+                includeCleared: false,
+                _wreckInstances
+            );
+            SalvoAndBlockerProjection.CollectStoneLandings(
+                causes,
+                activeMap,
+                activeTerrain,
+                scrubTick,
+                windowSeconds: 12f,
+                _salvoInstances,
+                _crushCountsScratch
+            );
+            SalvoAndBlockerProjection.CollectTrees(
+                activeMap,
+                activeTerrain,
+                _strikes,
+                causes,
+                scrubTick,
+                filterByTime: true,
+                fallTicks,
+                _treeInstances
+            );
+            SalvoAndBlockerProjection.CollectFelledTrees(
+                _blockers,
+                activeMap,
+                activeTerrain,
+                _strikes,
+                causes,
+                scrubTick,
+                filterByTime: true,
+                includeCleared: false,
+                _felledTreeInstances
+            );
+            SalvoAndBlockerProjection.CollectFires(
+                _blockers,
+                activeMap,
+                activeTerrain,
+                _strikes,
+                causes,
+                scrubTick,
+                filterByTime: true,
+                includeExtinguished: false,
+                _fireInstances
+            );
+            SalvoAndBlockerProjection.CollectLightningStrikes(
+                _strikes,
+                causes,
+                activeMap,
+                activeTerrain,
+                scrubTick,
+                windowSeconds: 1.5f,
+                _strikeInstances
+            );
+            SalvoAndBlockerProjection.CollectHerdMarkers(
+                _herds,
+                hasCurrent ? current : null,
+                activeMap,
+                activeTerrain,
+                causes,
+                scrubTick,
+                filterByTime: true,
+                _herdInstances
+            );
+            _worldMarkers?.Draw(
+                _wreckInstances,
+                _salvoInstances,
+                _treeInstances,
+                _felledTreeInstances,
+                _fireInstances,
+                _strikeInstances,
+                _herdInstances,
+                Time.unscaledTime
+            );
             UploadFields(track);
+            UpdateOverlay(track);
             DrawRings(track);
             DrawCasts();
+            UpdateResults(track, plan);
             UpdateUi();
             Measure();
             Screenshot();
+        }
+
+        private void UpdateOverlay(PlaybackTrack track)
+        {
+            if (_overlayTexture == null || _overlayPixels == null)
+            {
+                return;
+            }
+            bool showLanding =
+                (Keyboard.current != null && Keyboard.current.lKey.isPressed)
+                || _dragMarker != null
+                || _dragRegiment != null
+                || _channelStart != null
+                || _draggingCastOrPiece;
+            bool showStrain = _showStrainOverlay;
+            int tickBucket = (int)(_scrubSeconds * SimConstants.TicksPerSecond) / 4;
+            var spreads = showLanding ? _worker.ReadLandingSpreads() : Array.Empty<LandingSpread>();
+            int causeCount = spreads.Length;
+            if (
+                !_overlayDirty
+                && ReferenceEquals(track, _lastOverlayTrack)
+                && tickBucket == _lastOverlayTick
+                && causeCount == _lastOverlayCauses
+                && showLanding == _lastOverlayLanding
+                && showStrain == _lastOverlayStrain
+            )
+            {
+                return;
+            }
+            Array.Fill(_overlayPixels, OverlayPainter.Clear);
+            if (showStrain)
+            {
+                OverlayPainter.PaintStrain(_structures, _overlayPixels, clearFirst: false);
+            }
+            if (showLanding)
+            {
+                OverlayPainter.PaintLandingSpread(
+                    spreads,
+                    _map,
+                    _rules.Launches.PreviewCellMm,
+                    _overlayPixels,
+                    clearFirst: false
+                );
+            }
+            _overlayTexture.SetPixels32(_overlayPixels);
+            _overlayTexture.Apply(false, false);
+            _overlayDirty = false;
+            _lastOverlayTrack = track;
+            _lastOverlayTick = tickBucket;
+            _lastOverlayCauses = causeCount;
+            _lastOverlayLanding = showLanding;
+            _lastOverlayStrain = showStrain;
+        }
+
+        private void UpdateResults(PlaybackTrack track, BattlePlan plan)
+        {
+            if (_results == null)
+            {
+                return;
+            }
+            var outcome = _worker.ReadOutcome();
+            var causes = _worker.ReadCauses();
+            var progress = _worker.ReadProgress();
+            var status = outcome != null ? outcome.Kind : BattleOutcomeKind.Ongoing;
+            if (
+                !ReferenceEquals(track, _resultsTrack)
+                || causes.Length != _resultsCausesCount
+                || status != _resultsOutcomeStatus
+            )
+            {
+                _results.SetData(outcome, causes, plan, _level);
+                _resultsTrack = track;
+                _resultsCausesCount = causes.Length;
+                _resultsOutcomeStatus = status;
+            }
+            int scrubTick = (int)(_scrubSeconds * SimConstants.TicksPerSecond);
+            int decidedTick =
+                outcome != null && outcome.DecidedTick > 0
+                    ? outcome.DecidedTick
+                    : (outcome?.EvaluatedTick ?? int.MaxValue);
+            if (
+                _playing
+                && _screenshotFile == null
+                && _measureFile == null
+                && outcome != null
+                && outcome.Kind != BattleOutcomeKind.Ongoing
+                && scrubTick >= decidedTick
+                && _resultsAutoShownForEdits != progress.Edits
+            )
+            {
+                _playing = false;
+                _results.Show();
+                _resultsAutoShownForEdits = progress.Edits;
+            }
         }
 
         private void UploadFields(PlaybackTrack track)
@@ -507,7 +841,7 @@ namespace GodGame.Rendering
             }
             for (int r = 0; r < regiments; r++)
             {
-                if (n[r] == 0)
+                if (n[r] == 0 || _reader.RegimentSides[r] == Side.Neutral)
                 {
                     continue;
                 }
@@ -535,10 +869,7 @@ namespace GodGame.Rendering
                 }
                 var cast = _editor.Casts[i];
                 bool red = Array.Exists(results, c => c.Id == cast.Id && c.Fizzled);
-                var color =
-                    red ? new Color(0.95f, 0.15f, 0.15f)
-                    : cast.Id == _selectedCast ? Color.white
-                    : new Color(0.3f, 0.75f, 1f);
+                var color = CastColor(cast, red);
                 _castCircles[i].startColor = _castCircles[i].endColor = color;
                 _castCircles[i].material.color = color;
                 Circle(
@@ -583,6 +914,26 @@ namespace GodGame.Rendering
             }
             var progress = _worker.ReadProgress();
             var results = _worker.ReadCasts();
+            var outcome = _worker.ReadOutcome();
+            string outcomeLabel =
+                outcome == null || outcome.Kind == BattleOutcomeKind.Ongoing ? ""
+                : outcome.Kind == BattleOutcomeKind.DefenderVictory
+                    ? string.Format(
+                        CultureInfo.InvariantCulture,
+                        "  VICTORY ({0} @ {1})",
+                        outcome.Reason,
+                        CauseTrace.Clock(
+                            outcome.DecidedTick > 0 ? outcome.DecidedTick : outcome.EvaluatedTick
+                        )
+                    )
+                : string.Format(
+                    CultureInfo.InvariantCulture,
+                    "  DEFEAT ({0} @ {1})",
+                    outcome.Reason,
+                    CauseTrace.Clock(
+                        outcome.DecidedTick > 0 ? outcome.DecidedTick : outcome.EvaluatedTick
+                    )
+                );
             string fizzles = "";
             foreach (var c in results)
             {
@@ -611,8 +962,8 @@ namespace GodGame.Rendering
             }
             _hud.text = string.Format(
                 CultureInfo.InvariantCulture,
-                "{0}  {1} / {2}  filled {3:0}%{4}{5}\ntool [1-4] {6}  radius [ ] {7} m  play [Space]  reset [R]  ghost [G] {8}  hold [V] speed  hold [N] no-cast rings  trace [right-click]  {9:0} fps{10}{11}",
-                _mapId,
+                "{0}  {1} / {2}  filled {3:0}%{4}{5}{6}\ntool [1-5] {7}  radius [ ] {8} m  play [Space]  reset [R]  ghost [G] {9}  strain [T] {10}  morale [M] {11}  hold [V] speed  hold [N] rings  hold [L] landing  results [Tab]  trace [right-click]  {12:0} fps{13}{14}",
+                _level != null ? _level.Title : _mapId,
                 CauseTrace.Clock((int)(_scrubSeconds * SimConstants.TicksPerSecond)),
                 CauseTrace.Clock(_worker.EndTick),
                 progress.Fraction * 100,
@@ -630,9 +981,12 @@ namespace GodGame.Rendering
                         progress.FillMs
                     )
                     : "",
+                outcomeLabel,
                 _tool,
                 _radiusMm / 1000,
                 _showGhost ? "on" : "off",
+                _showStrainOverlay ? "on" : "off",
+                _boostMoraleTints ? "on" : "auto",
                 1f / Mathf.Max(0.0001f, Time.smoothDeltaTime),
                 fizzles,
                 _editor.Error != null ? "\nREFUSED: " + _editor.Error : ""
@@ -674,10 +1028,7 @@ namespace GodGame.Rendering
                 bool red = Array.Exists(results, c => c.Id == cast.Id && c.Fizzled);
                 _markers[i].userData = cast.Id;
                 _markers[i].style.left = width * cast.Tick / (float)_worker.EndTick - 4;
-                _markers[i].style.backgroundColor =
-                    red ? new Color(0.95f, 0.15f, 0.15f)
-                    : cast.Id == _selectedCast ? Color.white
-                    : new Color(0.3f, 0.75f, 1f);
+                _markers[i].style.backgroundColor = CastColor(cast, red);
                 _markers[i].tooltip = red ? cast.Id + ": fizzles" : cast.Id;
             }
         }
@@ -698,16 +1049,31 @@ namespace GodGame.Rendering
                 _tool = Tool.Boulder;
             if (keyboard.digit4Key.wasPressedThisFrame)
                 _tool = Tool.Channel;
+            if (keyboard.digit5Key.wasPressedThisFrame)
+                _tool = Tool.Lightning;
             if (keyboard.spaceKey.wasPressedThisFrame)
                 _playing = !_playing;
             if (keyboard.rKey.wasPressedThisFrame)
                 ResetPlan();
             if (keyboard.gKey.wasPressedThisFrame)
                 _showGhost = !_showGhost;
+            if (keyboard.tKey.wasPressedThisFrame)
+            {
+                _showStrainOverlay = !_showStrainOverlay;
+                _overlayDirty = true;
+            }
+            if (keyboard.mKey.wasPressedThisFrame)
+                _boostMoraleTints = !_boostMoraleTints;
+            if (keyboard.tabKey.wasPressedThisFrame)
+                _results?.Toggle();
             if (keyboard.leftBracketKey.wasPressedThisFrame)
                 ChangeRadius(-10_000);
             if (keyboard.rightBracketKey.wasPressedThisFrame)
                 ChangeRadius(10_000);
+            if (_results != null && _results.IsVisible)
+            {
+                return;
+            }
             if (keyboard.deleteKey.wasPressedThisFrame)
             {
                 int removed =
@@ -728,6 +1094,10 @@ namespace GodGame.Rendering
                 );
             if (overUi || !PointOnMap(mouse.position.ReadValue(), out Vector3 point))
             {
+                if (!mouse.leftButton.isPressed)
+                {
+                    _draggingCastOrPiece = false;
+                }
                 return;
             }
             int xMm = Mathf.RoundToInt(point.x * 1000);
@@ -753,31 +1123,10 @@ namespace GodGame.Rendering
                     }
                     break;
                 case Tool.Rain:
-                    if (mouse.leftButton.wasPressedThisFrame)
-                    {
-                        var hit = _editor.Casts.Find(c =>
-                            (long)(c.XMm - xMm) * (c.XMm - xMm)
-                                + (long)(c.YMm - yMm) * (c.YMm - yMm)
-                            < (long)c.RadiusMm * c.RadiusMm
-                        );
-                        if (hit != null)
-                        {
-                            _selectedCast = hit.Id;
-                            break;
-                        }
-                        var cast = new PlanEditor.Cast
-                        {
-                            Id = _editor.NewId("rain"),
-                            Power = "rain",
-                            Tick = (int)(_scrubSeconds * SimConstants.TicksPerSecond),
-                            XMm = Mathf.Clamp(xMm, _radiusMm, _map.WidthMm - _radiusMm),
-                            YMm = Mathf.Clamp(yMm, _radiusMm, _map.DepthMm - _radiusMm),
-                            RadiusMm = _radiusMm,
-                        };
-                        _editor.Casts.Add(cast);
-                        _selectedCast = cast.Id;
-                        CommitEdit();
-                    }
+                    PlaceOrDragCast(mouse, xMm, yMm, "rain");
+                    break;
+                case Tool.Lightning:
+                    PlaceOrDragCast(mouse, xMm, yMm, "lightning");
                     break;
                 case Tool.Boulder:
                     if (mouse.leftButton.wasPressedThisFrame)
@@ -826,14 +1175,135 @@ namespace GodGame.Rendering
             }
         }
 
+        private void PlaceOrDragCast(Mouse mouse, int xMm, int yMm, string powerId)
+        {
+            if (mouse.leftButton.wasPressedThisFrame)
+            {
+                var hit = _editor.Casts.Find(c =>
+                    (long)(c.XMm - xMm) * (c.XMm - xMm) + (long)(c.YMm - yMm) * (c.YMm - yMm)
+                    < (long)c.RadiusMm * c.RadiusMm
+                );
+                if (hit != null)
+                {
+                    _selectedCast = hit.Id;
+                    _dragCastStartXMm = hit.XMm;
+                    _dragCastStartYMm = hit.YMm;
+                    _draggingCastOrPiece = true;
+                    return;
+                }
+                var power = _rules.Power(powerId);
+                int radius =
+                    power != null
+                        ? Mathf.Clamp(
+                            powerId == "lightning" ? power.DefaultRadiusMm : _radiusMm,
+                            power.MinRadiusMm,
+                            power.MaxRadiusMm
+                        )
+                        : _radiusMm;
+                var cast = new PlanEditor.Cast
+                {
+                    Id = _editor.NewId(powerId),
+                    Power = powerId,
+                    Tick = (int)(_scrubSeconds * SimConstants.TicksPerSecond),
+                    XMm = Mathf.Clamp(xMm, radius, _map.WidthMm - radius),
+                    YMm = Mathf.Clamp(yMm, radius, _map.DepthMm - radius),
+                    RadiusMm = radius,
+                };
+                _editor.Casts.Add(cast);
+                _selectedCast = cast.Id;
+                _dragCastStartXMm = cast.XMm;
+                _dragCastStartYMm = cast.YMm;
+                _draggingCastOrPiece = true;
+                CommitEdit();
+            }
+            else if (mouse.leftButton.isPressed && _draggingCastOrPiece)
+            {
+                var selected = _editor.Casts.Find(c => c.Id == _selectedCast);
+                if (selected != null)
+                {
+                    selected.XMm = Mathf.Clamp(
+                        xMm,
+                        selected.RadiusMm,
+                        _map.WidthMm - selected.RadiusMm
+                    );
+                    selected.YMm = Mathf.Clamp(
+                        yMm,
+                        selected.RadiusMm,
+                        _map.DepthMm - selected.RadiusMm
+                    );
+                }
+            }
+            else if (mouse.leftButton.wasReleasedThisFrame && _draggingCastOrPiece)
+            {
+                _draggingCastOrPiece = false;
+                var selected = _editor.Casts.Find(c => c.Id == _selectedCast);
+                if (
+                    selected != null
+                    && (selected.XMm != _dragCastStartXMm || selected.YMm != _dragCastStartYMm)
+                )
+                {
+                    CommitEdit();
+                }
+            }
+        }
+
+        private Color CastColor(PlanEditor.Cast cast, bool fizzled)
+        {
+            if (fizzled)
+            {
+                return new Color(0.95f, 0.15f, 0.15f);
+            }
+            if (cast.Id == _selectedCast)
+            {
+                return Color.white;
+            }
+            return cast.Power == "lightning"
+                ? new Color(1.0f, 0.85f, 0.2f)
+                : new Color(0.3f, 0.75f, 1f);
+        }
+
+        private void BuildScrubHerds(CauseEvent[] causes, int scrubTick)
+        {
+            if (_herds == null || _herds.Count == 0)
+            {
+                if (_scrubHerds != null)
+                {
+                    _scrubHerds.Count = 0;
+                }
+                return;
+            }
+            _herds.CopyTo(_scrubHerds);
+            for (int h = 0; h < _scrubHerds.Count; h++)
+            {
+                _scrubHerds.Mode[h] = SalvoAndBlockerProjection.ResolveHerdAtTick(
+                    _herds,
+                    causes,
+                    h,
+                    scrubTick,
+                    filterByTime: true,
+                    out int headingUnits,
+                    out int fear
+                );
+                _scrubHerds.HeadingUnits[h] = headingUnits;
+                _scrubHerds.Fear[h] = fear;
+            }
+        }
+
         private void ChangeRadius(int deltaMm)
         {
             _radiusMm = Mathf.Clamp(_radiusMm + deltaMm, 40_000, 100_000);
             var cast = _editor.Casts.Find(c => c.Id == _selectedCast);
             if (cast != null)
             {
-                cast.RadiusMm = _radiusMm;
-                CommitEdit();
+                var power = _rules.Power(cast.Power);
+                int minR = power != null ? power.MinRadiusMm : 40_000;
+                int maxR = power != null ? power.MaxRadiusMm : 100_000;
+                int next = Mathf.Clamp(cast.RadiusMm + deltaMm, minR, maxR);
+                if (next != cast.RadiusMm)
+                {
+                    cast.RadiusMm = next;
+                    CommitEdit();
+                }
             }
         }
 
@@ -847,8 +1317,12 @@ namespace GodGame.Rendering
             _editor = new PlanEditor(_loadedPlan, _map, _rules);
             _selectedCast = null;
             _selectedPiece = null;
+            _dragRegiment = null;
+            _channelStart = null;
+            _draggingCastOrPiece = false;
             _playing = false;
             _scrubSeconds = 0f;
+            _overlayDirty = true;
             _worker.Edit(_loadedPlan);
         }
 
@@ -923,7 +1397,15 @@ namespace GodGame.Rendering
                 return;
             }
             int tick = (int)(_scrubSeconds * SimConstants.TicksPerSecond);
-            int drowned = 0;
+            if (
+                regiment < _reader.RegimentSides.Length
+                && _reader.RegimentSides[regiment] == Side.Neutral
+            )
+            {
+                ShowHerdTrace(regiment, events, plan, tick);
+                return;
+            }
+            int losses = 0;
             int latest = -1;
             for (int e = 0; e < events.Length; e++)
             {
@@ -932,12 +1414,15 @@ namespace GodGame.Rendering
                 {
                     continue;
                 }
-                if (ev.Kind == CauseKind.SoldierDrowned)
+                if (CauseBreakdown.IsFatalEvent(ev))
                 {
-                    drowned++;
+                    losses++;
                     latest = e;
                 }
-                else if (ev.Kind == CauseKind.RegimentSwept && latest < 0)
+                else if (
+                    (ev.Kind == CauseKind.RegimentSwept || ev.Kind == CauseKind.RegimentRouted)
+                    && latest < 0
+                )
                 {
                     latest = e;
                 }
@@ -955,10 +1440,63 @@ namespace GodGame.Rendering
             var text =
                 CauseTrace.Regiment(regiment, plan)
                 + ": "
-                + drowned
-                + " drowned by "
+                + losses
+                + " lost by "
                 + CauseTrace.Clock(tick)
                 + ".\n";
+            for (int i = 0; i < chain.Count; i++)
+            {
+                text += (i == 0 ? "" : "\n  ← ") + CauseTrace.Describe(events[chain[i]], plan);
+            }
+            _trace = text;
+        }
+
+        private void ShowHerdTrace(int regiment, CauseEvent[] events, BattlePlan plan, int tick)
+        {
+            int herdIndex = -1;
+            if (_herds != null)
+            {
+                for (int h = 0; h < _herds.Count; h++)
+                {
+                    if (_herds.Regiment[h] == regiment)
+                    {
+                        herdIndex = h;
+                        break;
+                    }
+                }
+            }
+            int latest = -1;
+            int incidents = 0;
+            for (int e = 0; e < events.Length; e++)
+            {
+                CauseEvent ev = events[e];
+                if (ev.Tick > tick)
+                {
+                    continue;
+                }
+                bool matchesHerd =
+                    herdIndex >= 0
+                    && ev.Subject == herdIndex
+                    && (
+                        ev.Kind == CauseKind.HerdAgitated
+                        || ev.Kind == CauseKind.HerdStampeded
+                        || ev.Kind == CauseKind.HerdScattered
+                    );
+                bool matchesRegiment = ev.Subject == regiment && CauseBreakdown.IsFatalEvent(ev);
+                if (matchesHerd || matchesRegiment)
+                {
+                    incidents++;
+                    latest = e;
+                }
+            }
+            string label = herdIndex >= 0 ? "herd #" + herdIndex + " (cattle)" : "herd";
+            if (latest < 0)
+            {
+                _trace = label + ": grazing calmly at " + CauseTrace.Clock(tick) + ".";
+                return;
+            }
+            var chain = CauseTrace.Walk(events, latest);
+            string text = label + ": " + incidents + " events by " + CauseTrace.Clock(tick) + ".\n";
             for (int i = 0; i < chain.Count; i++)
             {
                 text += (i == 0 ? "" : "\n  ← ") + CauseTrace.Describe(events[chain[i]], plan);
@@ -984,7 +1522,7 @@ namespace GodGame.Rendering
                     foreach (var e in events)
                     {
                         if (
-                            e.Kind == CauseKind.SoldierDrowned
+                            CauseBreakdown.IsFatalEvent(e)
                             && e.Tick <= _scrubSeconds * SimConstants.TicksPerSecond
                         )
                         {

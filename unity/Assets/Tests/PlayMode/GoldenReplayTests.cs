@@ -10,7 +10,8 @@ namespace GodGame.Tests.PlayMode
     /// </summary>
     public class GoldenReplayTests
     {
-        private static IEnumerable<string> Names() => GoldenRunner.GoldenNames(GoldenRunner.EditorRepoRoot);
+        private static IEnumerable<string> Names() =>
+            GoldenRunner.GoldenNames(GoldenRunner.EditorRepoRoot);
 
         [Test]
         public void AtLeastOneGoldenExists()

@@ -1,0 +1,42 @@
+{
+  "animations": {
+    "clips": [
+      "A_humanoid_bash",
+      "A_humanoid_collapse",
+      "A_humanoid_death",
+      "A_humanoid_flurry",
+      "A_humanoid_strike",
+      "A_humanoid_walk"
+    ],
+    "file": "U_crew_a_Anims.fbx"
+  },
+  "asset": "U_crew_a",
+  "blender": "5.3.0",
+  "lods": [
+    {
+      "file": "U_crew_a_LOD0.fbx",
+      "lod": "LOD0",
+      "objects": [
+        "RIG_humanoid",
+        "U_crew_a_LOD0"
+      ]
+    },
+    {
+      "file": "U_crew_a_LOD1.fbx",
+      "lod": "LOD1",
+      "objects": [
+        "RIG_humanoid",
+        "U_crew_a_LOD1"
+      ]
+    },
+    {
+      "file": "U_crew_a_LOD2.fbx",
+      "lod": "LOD2",
+      "objects": [
+        "RIG_humanoid",
+        "U_crew_a_LOD2"
+      ]
+    }
+  ],
+  "source": "art/source/U_crew_a.blend"
+}

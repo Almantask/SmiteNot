@@ -259,7 +259,8 @@ namespace GodGame.Sim
             && a.Tick == b.Tick
             && a.XMm == b.XMm
             && a.YMm == b.YMm
-            && a.RadiusMm == b.RadiusMm;
+            && a.RadiusMm == b.RadiusMm
+            && a.HeadingCd == b.HeadingCd;
 
         private static bool SameArmy(BattlePlan a, BattlePlan b)
         {
@@ -279,6 +280,7 @@ namespace GodGame.Sim
                     || x.XMm != y.XMm
                     || x.YMm != y.YMm
                     || x.FacingCentiDegrees != y.FacingCentiDegrees
+                    || x.Open != y.Open
                     || (x.DitchMm == null) != (y.DitchMm == null)
                     || (x.DitchMm != null && !SamePoints(x.DitchMm, y.DitchMm!))
                 )
@@ -306,6 +308,8 @@ namespace GodGame.Sim
                     || x.DepthMm != y.DepthMm
                     || x.HeightMm != y.HeightMm
                     || x.LitresPerSecond != y.LitresPerSecond
+                    || x.RadiusMm != y.RadiusMm
+                    || x.Animals != y.Animals
                     || !SamePoints(x.PointsMm, y.PointsMm)
                 )
                 {

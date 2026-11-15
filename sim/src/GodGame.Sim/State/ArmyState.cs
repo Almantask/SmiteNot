@@ -80,9 +80,14 @@ namespace GodGame.Sim
             JobRef = new int[regimentCapacity];
             Spent2 = new int[regimentCapacity];
             Open = new bool[regimentCapacity];
+            ChargeSince = new int[regimentCapacity];
+            ChargeFrom = new FixVec2[regimentCapacity];
+            ChargeReady = new int[regimentCapacity];
+            ChargeEvent = new int[regimentCapacity];
             for (int r = 0; r < regimentCapacity; r++)
             {
                 Target[r] = -1;
+                ChargeEvent[r] = CauseLog.None;
                 VolleyTarget[r] = -1;
                 JobRef[r] = -1;
             }
@@ -165,6 +170,18 @@ namespace GodGame.Sim
         /// <summary>In open order (S2 2.2): file and rank spacing doubled; only on a span Crossing Marshals meter, for now.</summary>
         public bool[] Open { get; }
 
+        /// <summary>A charging cavalry regiment (S2 10.1): the tick its charge began plus 1, or 0 when it isn't charging.</summary>
+        public int[] ChargeSince { get; }
+
+        /// <summary>Where its centroid stood when the charge began (the run is measured from here).</summary>
+        public FixVec2[] ChargeFrom { get; }
+
+        /// <summary>The first tick it may charge again (the cooldown).</summary>
+        public int[] ChargeReady { get; }
+
+        /// <summary>Its latest charge's cause event, or none (a regiment that has charged must open the gap to charge again).</summary>
+        public int[] ChargeEvent { get; }
+
         /// <summary>A new regiment's state: marching, full ammunition, rallies to come.</summary>
         public void Init(int r, int ammo, int rallies)
         {
@@ -202,6 +219,10 @@ namespace GodGame.Sim
             JobRef[r] = -1;
             Spent2[r] = 0;
             Open[r] = false;
+            ChargeSince[r] = 0;
+            ChargeFrom[r] = FixVec2.Zero;
+            ChargeReady[r] = 0;
+            ChargeEvent[r] = CauseLog.None;
         }
 
         /// <summary>Whether a slot holds exactly what <see cref="Clear"/> leaves (dead regiment slots must).</summary>
@@ -232,7 +253,11 @@ namespace GodGame.Sim
             && JobKind[r] == 0
             && JobRef[r] == -1
             && Spent2[r] == 0
-            && !Open[r];
+            && !Open[r]
+            && ChargeSince[r] == 0
+            && ChargeFrom[r] == FixVec2.Zero
+            && ChargeReady[r] == 0
+            && ChargeEvent[r] == CauseLog.None;
 
         internal void WriteTo(ByteWriter writer)
         {
@@ -268,6 +293,11 @@ namespace GodGame.Sim
                 writer.WriteInt32(JobRef[r]);
                 writer.WriteInt32(Spent2[r]);
                 writer.WriteByte(Open[r] ? (byte)1 : (byte)0);
+                writer.WriteInt32(ChargeSince[r]);
+                writer.WriteInt64(ChargeFrom[r].X.Raw);
+                writer.WriteInt64(ChargeFrom[r].Y.Raw);
+                writer.WriteInt32(ChargeReady[r]);
+                writer.WriteInt32(ChargeEvent[r]);
             }
         }
 
@@ -336,6 +366,17 @@ namespace GodGame.Sim
                     throw new FormatException("Snapshot open-order flag is invalid.");
                 }
                 Open[r] = open == 1;
+                ChargeSince[r] = NonNegative(reader.ReadInt32());
+                ChargeFrom[r] = new FixVec2(
+                    Fix.FromRaw(reader.ReadInt64()),
+                    Fix.FromRaw(reader.ReadInt64())
+                );
+                ChargeReady[r] = reader.ReadInt32();
+                ChargeEvent[r] = reader.ReadInt32();
+                if (ChargeEvent[r] < CauseLog.None)
+                {
+                    throw new FormatException("Snapshot charge event is invalid.");
+                }
                 if (
                     (JobCells[r] == null) != (JobTargets[r] == null)
                     // A fill has a target per cell; a trestle one more (its near bank). A metered span lists its
@@ -463,6 +504,11 @@ namespace GodGame.Sim
                 hash.AppendInt32(JobRef[r]);
                 hash.AppendInt32(Spent2[r]);
                 hash.AppendInt32(Open[r] ? 1 : 0);
+                hash.AppendInt32(ChargeSince[r]);
+                hash.AppendInt64(ChargeFrom[r].X.Raw);
+                hash.AppendInt64(ChargeFrom[r].Y.Raw);
+                hash.AppendInt32(ChargeReady[r]);
+                hash.AppendInt32(ChargeEvent[r]);
             }
         }
     }

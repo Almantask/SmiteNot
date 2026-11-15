@@ -20,12 +20,45 @@ namespace GodGame.Sim
     /// </summary>
     public sealed class HazardSystem : ISimSystem
     {
+        /// <summary>The fire-started event of the fire burning where the soldier stands, or none.</summary>
+        private int FireAt(World world, int u)
+        {
+            var terrain = _navigation.Terrain;
+            terrain.CellOf(world.Position[u], out int x, out int y);
+            int cell = terrain.Index(x, y);
+            var strikes = world.Strikes;
+            for (int f = 0; f < strikes.FireCount; f++)
+            {
+                if (
+                    !strikes.FireOut(f)
+                    && System.Array.IndexOf(world.Blockers.Cells(strikes.FireBlocker(f)), cell) >= 0
+                )
+                {
+                    return strikes.FireEvent(f);
+                }
+            }
+            return CauseLog.None;
+        }
+
         /// <summary>A regiment's soldiers swept within 5 s of its last sweep event share it (S1, section 12).</summary>
         public const int SweptEventTicks = 5 * SimConstants.TicksPerSecond;
 
         private readonly Navigation _navigation;
         private readonly Ruleset _rules;
         private int[] _drowned = new int[64];
+        private int[] _burned = new int[8];
+
+        private static int x0(World world, int u, Terrain terrain)
+        {
+            terrain.CellOf(world.Position[u], out int x, out _);
+            return x;
+        }
+
+        private static int y0(World world, int u, Terrain terrain)
+        {
+            terrain.CellOf(world.Position[u], out _, out int y);
+            return y;
+        }
 
         public HazardSystem(Navigation navigation)
         {
@@ -46,6 +79,7 @@ namespace GodGame.Sim
             var hazards = _rules.Hazards;
             var terrain = _navigation.Terrain;
             int drowned = 0;
+            int burned = 0;
             var log = world.Causes;
             int tick = context.Tick;
             for (int u = 0; u < world.Units.HighWater; u++)
@@ -103,6 +137,10 @@ namespace GodGame.Sim
                             log.UnitPushed[u] = CauseLog.None;
                         }
                     }
+                    else if (unitType.IsAnimal)
+                    {
+                        // D6: swept animals drift and paddle out; they never drown.
+                    }
                     else if (--world.HazardTimer[u] <= 0)
                     {
                         if (drowned == _drowned.Length)
@@ -115,6 +153,23 @@ namespace GodGame.Sim
                     continue;
                 }
 
+                if (
+                    !unitType.IsAnimal
+                    && terrain.AnyBurning
+                    && terrain.IsBurning(
+                        terrain.Index(x0(world, u, terrain), y0(world, u, terrain))
+                    )
+                )
+                {
+                    // Fire v0 (S2 12.2): soldiers never walk in; one pushed in burns.
+                    if (_burned.Length == burned)
+                    {
+                        Array.Resize(ref _burned, burned * 2 + 8);
+                    }
+                    _burned[burned++] = u;
+                    world.Flags[u] = flags;
+                    continue;
+                }
                 if (depthMm > 0 && response.Sweeps(depthMm, flowMmPerS, armour))
                 {
                     int pushed = CauseLog.None;
@@ -174,6 +229,23 @@ namespace GodGame.Sim
                     flags &= ~UnitFlags.Teetering;
                 }
                 world.Flags[u] = flags;
+            }
+            for (int k = 0; k < burned; k++)
+            {
+                int u = _burned[k];
+                if (log != null)
+                {
+                    log.Add(
+                        CauseKind.SoldierBurned,
+                        tick,
+                        world.UnitRegiment[u],
+                        u,
+                        log.UnitPushed[u],
+                        FireAt(world, u)
+                    );
+                }
+                world.DespawnUnit(world.Units.IdOf(u));
+                world.Counters.Killed++;
             }
             for (int k = 0; k < drowned; k++)
             {

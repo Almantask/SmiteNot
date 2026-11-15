@@ -287,11 +287,13 @@ namespace GodGame.Sim
         private readonly Ruleset _rules;
         private readonly Navigation _navigation;
         private SpatialHash? _hash;
+        private readonly Impacts _impacts;
 
         public BallisticsSystem(Ruleset rules, Navigation navigation)
         {
             _rules = rules ?? throw new ArgumentNullException(nameof(rules));
             _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
+            _impacts = new Impacts(rules, navigation);
         }
 
         public TickStep Step => TickStep.BallisticsAndImpacts;
@@ -343,6 +345,8 @@ namespace GodGame.Sim
                 // A death despawns, which the hash must see before the next query.
                 hashBuilt = !Land(context, u);
             }
+            // Then the bodies that run into soldiers this tick (S2 10.3, 11.4): their victims fly from the next tick.
+            _impacts.Run(context);
         }
 
         /// <summary>Lands the body; true when the landing killed him (his slot is freed).</summary>

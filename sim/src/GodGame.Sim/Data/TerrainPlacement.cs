@@ -34,7 +34,26 @@ namespace GodGame.Sim
                     ?? throw new DataFormatException(
                         item.Path + ": no piece \"" + pieceId + "\" in terrain.json."
                     );
+                if (piece.Kind == PieceKind.Herd && rules.Herds == null)
+                {
+                    throw new DataFormatException(item.Path + ": these rules have no herds.json.");
+                }
                 pieces.Add(ReadOne(item, id, piece, map));
+            }
+            long animals = 0;
+            foreach (var p in pieces)
+            {
+                animals += p.Animals;
+            }
+            if (rules.Herds != null && animals > rules.Herds.MaxAnimalsPerMap)
+            {
+                throw new DataFormatException(
+                    "plan.json: "
+                        + animals
+                        + " herd animals; a map holds at most "
+                        + rules.Herds.MaxAnimalsPerMap
+                        + "."
+                );
             }
             // Ids are unique, so the ordinal sort is total.
             pieces.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
@@ -71,13 +90,44 @@ namespace GodGame.Sim
                     );
                 case PieceKind.Bridge:
                     return ReadBridge(item, id, rules, map);
+                case PieceKind.Trees when rules.IsCircle:
+                case PieceKind.Herd:
+                    // A grove or a herd: a circle wholly on the map (S2 13.1, 11.1).
+                    if (rules.Kind == PieceKind.Herd)
+                    {
+                        item.OnlyKeys("id", "piece", "xMm", "yMm", "radiusMm", "animals");
+                    }
+                    else
+                    {
+                        item.OnlyKeys("id", "piece", "xMm", "yMm", "radiusMm");
+                    }
+                    int radius = item.Int("radiusMm", rules.MinRadiusMm, rules.MaxRadiusMm);
+                    int cx = item.Int("xMm", radius, map.WidthMm - radius);
+                    int cy = item.Int("yMm", radius, map.DepthMm - radius);
+                    return new PlannedPiece(
+                        id,
+                        rules,
+                        new[] { cx, cy },
+                        0,
+                        0,
+                        0,
+                        0,
+                        radius,
+                        rules.Kind == PieceKind.Herd
+                            ? (
+                                item.Has("animals")
+                                    ? item.Int("animals", rules.MinAnimals, rules.MaxAnimals)
+                                    : rules.DefaultAnimals
+                            )
+                            : 0
+                    );
                 case PieceKind.Boulder:
                     item.OnlyKeys("id", "piece", "xMm", "yMm");
                     CheckFits(item, System.Math.Max(1, rules.SizeMm / map.CellSizeMm), map);
                     return new PlannedPiece(id, rules, Point(item, map), 0, 0, 0, 0);
             }
             string size = rules.Kind == PieceKind.Ridge ? "heightMm" : "depthMm";
-            if (rules.Kind == PieceKind.Line)
+            if (rules.Kind == PieceKind.Line || rules.Kind == PieceKind.Trees)
             {
                 item.OnlyKeys("id", "piece", "points");
             }
@@ -165,6 +215,7 @@ namespace GodGame.Sim
                         0
                     );
                 case PieceKind.Line:
+                case PieceKind.Trees:
                     return new PlannedPiece(id, rules, xy, 0, 0, 0, 0);
                 default:
                     return new PlannedPiece(
@@ -309,6 +360,8 @@ namespace GodGame.Sim
                     PieceKind.Spring,
                     PieceKind.Line,
                     PieceKind.Bridge,
+                    PieceKind.Trees,
+                    PieceKind.Herd,
                 }
             )
             {
@@ -345,6 +398,7 @@ namespace GodGame.Sim
                                     or PieceKind.Hollow
                                     or PieceKind.Spring
                                     or PieceKind.Line
+                                    or PieceKind.Trees
                         )
                         {
                             // S1 D5: dams are their own piece; a spring in a river adds little.
@@ -381,7 +435,11 @@ namespace GodGame.Sim
                             boulders[i] = true;
                         }
                         else if (
-                            (kind == PieceKind.Spring || kind == PieceKind.Line) && boulders[i]
+                            (
+                                kind == PieceKind.Spring
+                                || kind == PieceKind.Line
+                                || kind == PieceKind.Trees
+                            ) && boulders[i]
                         )
                         {
                             throw new DataFormatException(

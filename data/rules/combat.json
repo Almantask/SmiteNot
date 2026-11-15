@@ -21,5 +21,37 @@
     "openArrowHitsPermille": 500
   },
   "smallRegimentsBlockCasts": false,
-  "smallRegimentSoldiers": 25
+  "smallRegimentSoldiers": 25,
+  "charge": {
+    "$comment": "Charges and trampling (spec S2 section 10, settled 2026-11-07 with D7 and D8; numbers are proposals). A cavalry regiment (unit type charges) engaging a target charges when the target's outline is startMinMm to startMaxMm away and the straight line to its centroid is open for horse with no cell of mud at least blockedByMudAtLeast, water at least blockedByWaterMm, or ice (D8). Riders accelerate at accelMmPerS2 to speedMmPerS; a rider counts as charging while at least chargingMinMmPerS. The charge ends after maxRunMm, when half the riders have made contact, or when a rider hits deep ground (deepMudStop, D7: stopped dead, stunned, no damage, cause thrown in the mud); then cooldownTicks, and a regiment that has charged must be rechargeSeparationMm from the enemy to charge again. Contact: each charging rider takes at most targetsPerRider enemy soldiers on their feet in body contact within frontArcCd of his heading, once per charge; each is launched (launches.json charge) with launchPermille, otherwise trampled (trampleDamage, armour ignored, stunned trampleStunTicks); then the rider slows to afterContactMmPerS and fights. Braced targets (a braces unit type in close order, slower than maxSpeedMmPerS, its regiment facing within facingArcCd of the charge's reverse) are launched with braced.launchPermille and the rider takes riderDamagePerTarget each. Landings only knock down (S2 9.3): never a chain.",
+    "startMinMm": 20000,
+    "startMaxMm": 80000,
+    "blockedByMudAtLeast": 32767,
+    "blockedByWaterMm": 300,
+    "speedMmPerS": 7000,
+    "accelMmPerS2": 3500,
+    "chargingMinMmPerS": 5000,
+    "maxRunMm": 100000,
+    "cooldownTicks": 400,
+    "rechargeSeparationMm": 40000,
+    "deepMudStop": {
+      "mudAtLeast": 49151,
+      "waterAtLeastMm": 400,
+      "stunTicks": 60
+    },
+    "contact": {
+      "targetsPerRider": 2,
+      "frontArcCd": 4500,
+      "launchPermille": 500,
+      "trampleDamage": 40,
+      "trampleStunTicks": 40,
+      "afterContactMmPerS": 1500
+    },
+    "braced": {
+      "maxSpeedMmPerS": 300,
+      "facingArcCd": 6000,
+      "launchPermille": 250,
+      "riderDamagePerTarget": 25
+    }
+  }
 }

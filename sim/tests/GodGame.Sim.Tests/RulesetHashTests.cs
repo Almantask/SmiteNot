@@ -175,6 +175,8 @@ public class RulesetLoaderTests
                     "pontoon-train",
                     "crossing-marshals",
                     "crew",
+                    "cattle",
+                    "drovers",
                 }
             )
         );

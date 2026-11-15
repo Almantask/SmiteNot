@@ -41,6 +41,9 @@ namespace GodGame.Sim.Rules
 
         public const string LaunchesFile = "launches.json";
 
+        /// <summary>Optional: rules without it have no herds (herd pieces are refused).</summary>
+        public const string HerdsFile = "herds.json";
+
         public const int TerrainVersion = 0;
 
         public const int PowersVersion = 0;
@@ -100,6 +103,7 @@ namespace GodGame.Sim.Rules
             JsonValue? specialistsJson = null;
             JsonValue? loadJson = null;
             JsonValue? launchesJson = null;
+            JsonValue? herdsJson = null;
             foreach (var file in files)
             {
                 var value = JsonReader.Parse(file.Value, file.Key);
@@ -155,6 +159,10 @@ namespace GodGame.Sim.Rules
                 else if (string.Equals(file.Key, LaunchesFile, StringComparison.Ordinal))
                 {
                     launchesJson = value;
+                }
+                else if (string.Equals(file.Key, HerdsFile, StringComparison.Ordinal))
+                {
+                    herdsJson = value;
                 }
                 else
                 {
@@ -233,6 +241,8 @@ namespace GodGame.Sim.Rules
             }
             var launches = ReadLaunches(launchesJson, ref placeholders);
             ResolveUnitTypes(unitTypesJson, unitTypes, combat, specialists);
+            var herds =
+                herdsJson == null ? null : ReadHerds(herdsJson, unitTypes, ref placeholders);
             foreach (var movementClass in movement)
             {
                 // The class's codes sweep at its most heavily armoured type's threshold (S2 2.1; brief 2026-10-09).
@@ -266,7 +276,118 @@ namespace GodGame.Sim.Rules
                 Specialists = specialists,
                 Structures = structures,
                 Launches = launches,
+                Herds = herds,
             };
+        }
+
+        /// <summary>Herds and stampedes (<c>herds.json</c>, spec S2 section 11).</summary>
+        private static HerdRules ReadHerds(
+            JsonValue root,
+            List<UnitTypeRules> types,
+            ref bool placeholders
+        )
+        {
+            root.OnlyKeys(
+                "$comment",
+                "version",
+                "status",
+                "animalType",
+                "maxAnimalsPerMap",
+                "grazeMmPerS",
+                "waypointTicks",
+                "drivenMmPerS",
+                "drivenFearAtLeast",
+                "fear",
+                "agitationTicks",
+                "stampede",
+                "impact"
+            );
+            if (root.Int("version") != 0)
+            {
+                throw new DataFormatException(root.Path + ": version must be 0.");
+            }
+            placeholders |= ReadStatus(root);
+            string animal = root.Str("animalType");
+            UnitTypeRules? type = null;
+            foreach (var t in types)
+            {
+                if (string.Equals(t.Id, animal, StringComparison.Ordinal))
+                {
+                    type = t;
+                }
+            }
+            if (type == null || !type.IsAnimal)
+            {
+                throw new DataFormatException(
+                    root.Path + ".animalType: an animal unit type (\"" + animal + "\")."
+                );
+            }
+            var fear = root["fear"];
+            fear.OnlyKeys("$comment", "thresholdFear", "fire", "strike", "drovers");
+            var stampede = root["stampede"];
+            stampede.OnlyKeys(
+                "$comment",
+                "speedMmPerS",
+                "lookAheadMm",
+                "turnStepCd",
+                "downhillMinSlopePermille",
+                "downhillArcCd",
+                "downhillTurnCdPerS",
+                "runMaxMm",
+                "runMaxTicks"
+            );
+            var impact = root["impact"];
+            impact.OnlyKeys(
+                "$comment",
+                "minAnimalSpeedMmPerS",
+                "launchPermille",
+                "trampleDamage",
+                "trampleStunTicks",
+                "victimCooldownTicks",
+                "slowAfterHitPermille",
+                "slowAfterHitTicks"
+            );
+            return new HerdRules
+            {
+                AnimalType = type,
+                MaxAnimalsPerMap = root.Int("maxAnimalsPerMap", 1, 10_000),
+                GrazeMmPerS = root.Int("grazeMmPerS", 0, 20_000),
+                WaypointTicks = root.Int("waypointTicks", 1, 12_000),
+                DrivenMmPerS = root.Int("drivenMmPerS", 0, 20_000),
+                DrivenFearAtLeast = root.Int("drivenFearAtLeast", 1, 1_000),
+                ThresholdFear = fear.Int("thresholdFear", 1, 1_000),
+                Fire = ReadFear(fear["fire"]),
+                Strike = ReadFear(fear["strike"]),
+                Drovers = ReadFear(fear["drovers"]),
+                AgitationTicks = root.Int("agitationTicks", 0, 12_000),
+                StampedeMmPerS = stampede.Int("speedMmPerS", 1, 20_000),
+                LookAheadMm = stampede.Int("lookAheadMm", 0, 100_000),
+                TurnStepCd = stampede.Int("turnStepCd", 0, 18_000),
+                DownhillMinSlopePermille = stampede.Int("downhillMinSlopePermille", 0, 100_000),
+                DownhillArcCd = stampede.Int("downhillArcCd", 0, 18_000),
+                DownhillTurnCdPerS = stampede.Int("downhillTurnCdPerS", 0, 36_000),
+                RunMaxMm = stampede.Int("runMaxMm", 1, 10_000_000),
+                RunMaxTicks = stampede.Int("runMaxTicks", 1, 72_000),
+                MinImpactMmPerS = impact.Int("minAnimalSpeedMmPerS", 0, 20_000),
+                LaunchPermille = impact.Int("launchPermille", 0, 1_000),
+                TrampleDamage = impact.Int("trampleDamage", 0, 1_000_000),
+                TrampleStunTicks = impact.Int("trampleStunTicks", 1, 12_000),
+                VictimCooldownTicks = impact.Int("victimCooldownTicks", 1, 12_000),
+                SlowAfterHitPermille = impact.Int("slowAfterHitPermille", 0, 1_000),
+                SlowAfterHitTicks = impact.Int("slowAfterHitTicks", 0, 12_000),
+            };
+        }
+
+        private static FearSourceRules ReadFear(JsonValue item)
+        {
+            item.OnlyKeys("$comment", "fear", "fullWithinMm", "zeroAtMm", "decayPerS");
+            int full = item.Int("fullWithinMm", 0, 10_000_000);
+            return new FearSourceRules(
+                item.Int("fear", 0, 1_000),
+                full,
+                item.Int("zeroAtMm", full, 10_000_000),
+                item.Has("decayPerS") ? item.Int("decayPerS", 0, 1_000) : 0
+            );
         }
 
         private static MovementClassRules[] ReadMovementClasses(
@@ -430,6 +551,9 @@ namespace GodGame.Sim.Rules
                     "crawlPermille",
                     "crewRadiusMm",
                     "slotRadiusMm",
+                    "animal",
+                    "charges",
+                    "braces",
                     "formation"
                 );
                 string id = DataIds.Require(item["id"]);
@@ -566,6 +690,21 @@ namespace GodGame.Sim.Rules
                 {
                     type.SlotRadiusMm = item.Int("slotRadiusMm", 0, 100_000);
                 }
+                type.Charges = item.Has("charges") && item["charges"].AsBool;
+                type.Braces = item.Has("braces") && item["braces"].AsBool;
+                if (item.Has("animal"))
+                {
+                    type.IsAnimal = item["animal"].AsBool;
+                    if (
+                        type.IsAnimal && (type.AttackerMay || type.DefenderMay || item.Has("melee"))
+                    )
+                    {
+                        // D6 and the brief: animals pick no side and never fight.
+                        throw new DataFormatException(
+                            item.Path + ": an animal has no seats and no melee."
+                        );
+                    }
+                }
             }
             // Engines and their crews (S2 2.1, D4), once every type is known.
             for (int i = 0; i < types.Count; i++)
@@ -640,6 +779,81 @@ namespace GodGame.Sim.Rules
         /// <summary>An engine regiment's most engines or boats (the Pontoon Train's 8).</summary>
         public const int MaxEngines = 8;
 
+        /// <summary>Charges and trampling (spec S2 10).</summary>
+        private static ChargeRules ReadCharge(JsonValue c)
+        {
+            c.OnlyKeys(
+                "$comment",
+                "startMinMm",
+                "startMaxMm",
+                "blockedByMudAtLeast",
+                "blockedByWaterMm",
+                "speedMmPerS",
+                "accelMmPerS2",
+                "chargingMinMmPerS",
+                "maxRunMm",
+                "cooldownTicks",
+                "rechargeSeparationMm",
+                "deepMudStop",
+                "contact",
+                "braced"
+            );
+            var stop = c["deepMudStop"];
+            stop.OnlyKeys("$comment", "mudAtLeast", "waterAtLeastMm", "stunTicks");
+            var contact = c["contact"];
+            contact.OnlyKeys(
+                "$comment",
+                "targetsPerRider",
+                "frontArcCd",
+                "launchPermille",
+                "trampleDamage",
+                "trampleStunTicks",
+                "afterContactMmPerS"
+            );
+            var braced = c["braced"];
+            braced.OnlyKeys(
+                "$comment",
+                "maxSpeedMmPerS",
+                "facingArcCd",
+                "launchPermille",
+                "riderDamagePerTarget"
+            );
+            var rules = new ChargeRules
+            {
+                StartMinMm = c.Int("startMinMm", 0, 1_000_000),
+                StartMaxMm = c.Int("startMaxMm", 0, 1_000_000),
+                BlockedByMudAtLeast = c.Int("blockedByMudAtLeast", 0, 65_535),
+                BlockedByWaterMm = c.Int("blockedByWaterMm", 0, 100_000),
+                SpeedMmPerS = c.Int("speedMmPerS", 1, 50_000),
+                AccelMmPerS2 = c.Int("accelMmPerS2", 1, 100_000),
+                ChargingMinMmPerS = c.Int("chargingMinMmPerS", 0, 50_000),
+                MaxRunMm = c.Int("maxRunMm", 0, 1_000_000),
+                CooldownTicks = c.Int("cooldownTicks", 0, 72_000),
+                RechargeSeparationMm = c.Int("rechargeSeparationMm", 0, 1_000_000),
+                StopMudAtLeast = stop.Int("mudAtLeast", 0, 65_535),
+                StopWaterAtLeastMm = stop.Int("waterAtLeastMm", 0, 100_000),
+                StopStunTicks = stop.Int("stunTicks", 1, 72_000),
+                TargetsPerRider = contact.Int("targetsPerRider", 0, 16),
+                FrontArcCd = contact.Int("frontArcCd", 0, 18_000),
+                LaunchPermille = contact.Int("launchPermille", 0, 1_000),
+                TrampleDamage = contact.Int("trampleDamage", 0, 100_000),
+                TrampleStunTicks = contact.Int("trampleStunTicks", 1, 72_000),
+                AfterContactMmPerS = contact.Int("afterContactMmPerS", 0, 50_000),
+                BracedMaxSpeedMmPerS = braced.Int("maxSpeedMmPerS", 0, 50_000),
+                BracedFacingArcCd = braced.Int("facingArcCd", 0, 18_000),
+                BracedLaunchPermille = braced.Int("launchPermille", 0, 1_000),
+                RiderDamagePerTarget = braced.Int("riderDamagePerTarget", 0, 100_000),
+            };
+            if (rules.StartMinMm > rules.StartMaxMm || rules.ChargingMinMmPerS > rules.SpeedMmPerS)
+            {
+                throw new DataFormatException(
+                    c.Path
+                        + ": startMinMm must not exceed startMaxMm, nor chargingMinMmPerS the charge speed."
+                );
+            }
+            return rules;
+        }
+
         private static CombatRules ReadCombat(
             JsonValue root,
             JsonValue projectilesRoot,
@@ -655,7 +869,8 @@ namespace GodGame.Sim.Rules
                 "regimentTargeting",
                 "order",
                 "smallRegimentsBlockCasts",
-                "smallRegimentSoldiers"
+                "smallRegimentSoldiers",
+                "charge"
             );
             if (root.Int("version") != 0)
             {
@@ -766,6 +981,10 @@ namespace GodGame.Sim.Rules
                 order.OnlyKeys("$comment", "openSpacingPermille", "openArrowHitsPermille");
                 combat.OpenSpacingPermille = order.Int("openSpacingPermille", 1_000, 10_000);
                 combat.OpenArrowHitsPermille = order.Int("openArrowHitsPermille", 0, 1_000);
+            }
+            if (root.Has("charge"))
+            {
+                combat.Charge = ReadCharge(root["charge"]);
             }
             if (root.Has("smallRegimentsBlockCasts") != root.Has("smallRegimentSoldiers"))
             {
@@ -1224,10 +1443,39 @@ namespace GodGame.Sim.Rules
                             TicksPer40Soldiers = action.Int("ticksPer40Soldiers", 0, 1_000_000),
                         };
                         break;
+                    case "drive-herd":
+                        action.OnlyKeys(
+                            "$comment",
+                            "id",
+                            "aheadMm",
+                            "nearPathMm",
+                            "clearOfPathMm",
+                            "holdTicks",
+                            "standOffMm",
+                            "attackerJobs",
+                            "defenderJobs",
+                            "scatterWithinMm",
+                            "scatterTicks",
+                            "releaseWithinMm"
+                        );
+                        result.DriveHerd = new DriveHerdRules
+                        {
+                            AheadMm = action.Int("aheadMm", 0, 1_000_000),
+                            NearPathMm = action.Int("nearPathMm", 0, 1_000_000),
+                            ClearOfPathMm = action.Int("clearOfPathMm", 0, 1_000_000),
+                            HoldTicks = action.Int("holdTicks", 0, 72_000),
+                            StandOffMm = action.Int("standOffMm", 0, 1_000_000),
+                            AttackerJobs = action.Int("attackerJobs", 0, 64),
+                            DefenderJobs = action.Int("defenderJobs", 0, 64),
+                            ScatterWithinMm = action.Int("scatterWithinMm", 0, 1_000_000),
+                            ScatterTicks = action.Int("scatterTicks", 0, 72_000),
+                            ReleaseWithinMm = action.Int("releaseWithinMm", 0, 1_000_000),
+                        };
+                        break;
                     default:
                         throw new DataFormatException(
                             action.Path
-                                + ".id: dig-ditch or fill-crossing; the other S2 actions arrive with bridges and herds."
+                                + ".id: dig-ditch, fill-crossing, bridgework, clear-blocker, lay-pontoon, meter-crossing or drive-herd."
                         );
                 }
             }
@@ -1573,7 +1821,8 @@ namespace GodGame.Sim.Rules
                     "windUpTicks",
                     "durationTicks",
                     "writes",
-                    "rot"
+                    "rot",
+                    "lightning"
                 );
                 string id = DataIds.Require(item["id"]);
                 if (!ids.Add(id))
@@ -1617,7 +1866,11 @@ namespace GodGame.Sim.Rules
                     range.Int("minDistanceMm", 0, 1_000_000),
                     range.Int("minSoldiersPerCoarseCell", 1, 1_000),
                     WholeFieldSteps(item, "windUpTicks", 0),
-                    WholeFieldSteps(item, "durationTicks", FieldStepTicks),
+                    WholeFieldSteps(
+                        item,
+                        "durationTicks",
+                        item.Has("lightning") ? 0 : FieldStepTicks
+                    ),
                     writes.AsReadOnly()
                 );
                 if (item.Has("rot"))
@@ -1645,10 +1898,41 @@ namespace GodGame.Sim.Rules
                         StackFloorPermille = rot.Int("stackFloorPermille", 0, 1_000),
                     };
                 }
-                if ((power.Rot == null) == (writes.Count == 0))
+                if (item.Has("lightning"))
+                {
+                    var l = item["lightning"];
+                    l.OnlyKeys(
+                        "$comment",
+                        "treeSearchMm",
+                        "fallTicks",
+                        "ignitionRadiusMm",
+                        "ignitionMaxWetness",
+                        "burnTicks"
+                    );
+                    if (power.WindUpTicks == 0 || min != max)
+                    {
+                        // The strike comes after its wind-up (0 means none yet); its area is fixed (S2 12.1).
+                        throw new DataFormatException(
+                            item.Path + ": Lightning needs a wind-up and one fixed radius."
+                        );
+                    }
+                    power.Lightning = new LightningRules
+                    {
+                        TreeSearchMm = l.Int("treeSearchMm", 0, max),
+                        FallTicks = l.Int("fallTicks", 1, 1_200),
+                        IgnitionRadiusMm = l.Int("ignitionRadiusMm", 0, max),
+                        IgnitionMaxWetness = l.Int("ignitionMaxWetness", 0, 65_535),
+                        BurnTicks = l.Int("burnTicks", 1, 72_000),
+                    };
+                }
+                int effects =
+                    (power.Rot != null ? 1 : 0)
+                    + (writes.Count > 0 ? 1 : 0)
+                    + (power.Lightning != null ? 1 : 0);
+                if (effects != 1)
                 {
                     throw new DataFormatException(
-                        item.Path + ": a power writes fields or rots wood, one of the two."
+                        item.Path + ": a power writes fields, rots wood or strikes, one of them."
                     );
                 }
                 list.Add(power);
@@ -1844,10 +2128,98 @@ namespace GodGame.Sim.Rules
                             crossing.Int("wheeled", 0, 1_000),
                         };
                         break;
+                    case "trees":
+                        bool grove = string.Equals(
+                            item.Str("shape"),
+                            "circle",
+                            StringComparison.Ordinal
+                        );
+                        if (grove)
+                        {
+                            item.OnlyKeys(
+                                "$comment",
+                                "id",
+                                "kind",
+                                "shape",
+                                "minRadiusMm",
+                                "maxRadiusMm",
+                                "treeEveryCells",
+                                "treeMinHeightMm",
+                                "treeMaxHeightMm",
+                                "trunkPermille",
+                                "woodlandPermille"
+                            );
+                            piece = new PieceRules(id, PieceKind.Trees) { IsCircle = true };
+                            piece.MinRadiusMm = item.Int("minRadiusMm", 1_000, 1_000_000);
+                            piece.MaxRadiusMm = item.Int(
+                                "maxRadiusMm",
+                                piece.MinRadiusMm,
+                                1_000_000
+                            );
+                            piece.TreeEveryCells = item.Int("treeEveryCells", 1, 64);
+                            piece.WoodlandPermille = ClassPermille(item["woodlandPermille"]);
+                        }
+                        else if (
+                            string.Equals(item.Str("shape"), "polyline", StringComparison.Ordinal)
+                        )
+                        {
+                            item.OnlyKeys(
+                                "$comment",
+                                "id",
+                                "kind",
+                                "shape",
+                                "minPoints",
+                                "maxPoints",
+                                "minLengthMm",
+                                "maxLengthMm",
+                                "treeSpacingMm",
+                                "treeMinHeightMm",
+                                "treeMaxHeightMm",
+                                "trunkPermille"
+                            );
+                            piece = Polyline(item, id, PieceKind.Trees);
+                            piece.TreeSpacingMm = item.Int("treeSpacingMm", 1_000, 1_000_000);
+                        }
+                        else
+                        {
+                            throw new DataFormatException(
+                                item.Path + ".shape: circle or polyline."
+                            );
+                        }
+                        piece.TreeMinHeightMm = item.Int("treeMinHeightMm", 1_000, 100_000);
+                        piece.TreeMaxHeightMm = item.Int(
+                            "treeMaxHeightMm",
+                            piece.TreeMinHeightMm,
+                            100_000
+                        );
+                        piece.TrunkPermille = ClassPermille(item["trunkPermille"]);
+                        break;
+                    case "herd":
+                        item.OnlyKeys(
+                            "$comment",
+                            "id",
+                            "kind",
+                            "minRadiusMm",
+                            "maxRadiusMm",
+                            "minAnimals",
+                            "maxAnimals",
+                            "defaultAnimals"
+                        );
+                        piece = new PieceRules(id, PieceKind.Herd) { IsCircle = true };
+                        piece.MinRadiusMm = item.Int("minRadiusMm", 1_000, 1_000_000);
+                        piece.MaxRadiusMm = item.Int("maxRadiusMm", piece.MinRadiusMm, 1_000_000);
+                        piece.MinAnimals = item.Int("minAnimals", 1, 10_000);
+                        piece.MaxAnimals = item.Int("maxAnimals", piece.MinAnimals, 10_000);
+                        piece.DefaultAnimals = item.Int(
+                            "defaultAnimals",
+                            piece.MinAnimals,
+                            piece.MaxAnimals
+                        );
+                        break;
                     default:
                         throw new DataFormatException(
                             item.Path
-                                + ".kind: channel, ridge, hollow, spring, boulder, line-blocker or bridge."
+                                + ".kind: channel, ridge, hollow, spring, boulder, line-blocker, bridge, trees or herd."
                         );
                 }
                 list.Add(piece);
@@ -1856,10 +2228,18 @@ namespace GodGame.Sim.Rules
             if (root.Has("battleMadeBlockers"))
             {
                 var blockers = root["battleMadeBlockers"];
-                blockers.OnlyKeys("$comment", "wreck");
+                blockers.OnlyKeys("$comment", "wreck", "felledTree", "fire");
                 if (blockers.Has("wreck"))
                 {
                     terrain.Wreck = ReadBlocker(blockers["wreck"]);
+                }
+                if (blockers.Has("felledTree"))
+                {
+                    terrain.FelledTree = ReadBlocker(blockers["felledTree"]);
+                }
+                if (blockers.Has("fire"))
+                {
+                    terrain.Fire = ReadBlocker(blockers["fire"]);
                 }
             }
             return terrain;
@@ -1871,21 +2251,40 @@ namespace GodGame.Sim.Rules
             item.OnlyKeys(
                 "$comment",
                 "crossingPermille",
+                "crownPermille",
+                "crownLengthMm",
+                "crownWidthCells",
+                "crushEdgeMm",
                 "engineerClearTicks",
                 "footRegimentClearTicks"
             );
-            var crossing = item["crossingPermille"];
-            crossing.OnlyKeys("foot", "horse", "wheeled");
-            return new BlockerRules(
-                new[]
-                {
-                    crossing.Int("foot", 0, 1_000),
-                    crossing.Int("horse", 0, 1_000),
-                    crossing.Int("wheeled", 0, 1_000),
-                },
+            var blocker = new BlockerRules(
+                ClassPermille(item["crossingPermille"]),
                 item.Int("engineerClearTicks", 1, 72_000),
                 item.Int("footRegimentClearTicks", 1, 72_000)
             );
+            if (item.Has("crownPermille"))
+            {
+                blocker.CrownPermille = ClassPermille(item["crownPermille"]);
+                blocker.CrownLengthMm = item.Int("crownLengthMm", 0, 100_000);
+                blocker.CrownWidthCells = item.Int("crownWidthCells", 1, 15);
+            }
+            if (item.Has("crushEdgeMm"))
+            {
+                blocker.CrushEdgeMm = item.Int("crushEdgeMm", 0, 100_000);
+            }
+            return blocker;
+        }
+
+        private static int[] ClassPermille(JsonValue crossing)
+        {
+            crossing.OnlyKeys("foot", "horse", "wheeled");
+            return new[]
+            {
+                crossing.Int("foot", 0, 1_000),
+                crossing.Int("horse", 0, 1_000),
+                crossing.Int("wheeled", 0, 1_000),
+            };
         }
 
         private static PieceRules Polyline(JsonValue item, string id, PieceKind kind)

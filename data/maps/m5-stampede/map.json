@@ -1,0 +1,33 @@
+{
+  "$comment": "M5 Stampede grey-box map (heightfield + zones only, written by tools/maps/make_m5_stampede.py): packed east-west road at y = 60..84 m (24 m wide), grazing meadow centered around (240, 124) m (40 m beside the road edge), and dry grove rise centered at (240, 224) m (100 m beyond the herd).",
+  "version": 0,
+  "id": "m5-stampede",
+  "widthMm": 480000,
+  "depthMm": 360000,
+  "cellSizeMm": 1500,
+  "deployment": [
+    {
+      "side": "attacker",
+      "minXMm": 0,
+      "minYMm": 0,
+      "maxXMm": 75000,
+      "maxYMm": 160000
+    },
+    {
+      "side": "defender",
+      "minXMm": 390000,
+      "minYMm": 0,
+      "maxXMm": 480000,
+      "maxYMm": 180000
+    }
+  ],
+  "soils": [
+    {
+      "soil": "road",
+      "minXMm": 0,
+      "minYMm": 60000,
+      "maxXMm": 480000,
+      "maxYMm": 84000
+    }
+  ]
+}

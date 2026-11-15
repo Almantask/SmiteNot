@@ -173,6 +173,9 @@ namespace GodGame.Sim.Rules
         /// <summary>D15: a regiment that deployed with fewer soldiers than this is small.</summary>
         public int SmallRegimentSoldiers { get; internal set; }
 
+        /// <summary>Cavalry charges (spec S2 10), or null: then no regiment charges.</summary>
+        public ChargeRules? Charge { get; internal set; }
+
         public IReadOnlyList<ProjectileRules> Projectiles { get; }
 
         public ProjectileRules? Projectile(string id)
@@ -186,6 +189,69 @@ namespace GodGame.Sim.Rules
             }
             return null;
         }
+    }
+
+    /// <summary>
+    /// Charges and trampling (spec S2 10, D7, D8; numbers are proposals): when a charging cavalry regiment starts, how fast
+    /// its riders go, what stops it, and what a rider's contact does.
+    /// </summary>
+    public sealed class ChargeRules
+    {
+        /// <summary>A charge starts when the target's outline is between these (S2 10.1)...</summary>
+        public int StartMinMm { get; internal set; }
+
+        public int StartMaxMm { get; internal set; }
+
+        /// <summary>...and no cell on the straight line has this much mud, this much water, or ice (D8).</summary>
+        public int BlockedByMudAtLeast { get; internal set; }
+
+        public int BlockedByWaterMm { get; internal set; }
+
+        public int SpeedMmPerS { get; internal set; }
+
+        public int AccelMmPerS2 { get; internal set; }
+
+        /// <summary>A rider counts as charging while at least this fast.</summary>
+        public int ChargingMinMmPerS { get; internal set; }
+
+        /// <summary>A charge ends after its regiment has run this far.</summary>
+        public int MaxRunMm { get; internal set; }
+
+        public int CooldownTicks { get; internal set; }
+
+        /// <summary>A regiment that has charged must be this far from the enemy to charge again.</summary>
+        public int RechargeSeparationMm { get; internal set; }
+
+        /// <summary>D7: a charging rider in this much mud or water stops dead, stunned, and his regiment's charge ends.</summary>
+        public int StopMudAtLeast { get; internal set; }
+
+        public int StopWaterAtLeastMm { get; internal set; }
+
+        public int StopStunTicks { get; internal set; }
+
+        /// <summary>S2 10.3: at most this many soldiers per rider per charge, in contact within the front arc.</summary>
+        public int TargetsPerRider { get; internal set; }
+
+        public int FrontArcCd { get; internal set; }
+
+        public int LaunchPermille { get; internal set; }
+
+        public int TrampleDamage { get; internal set; }
+
+        public int TrampleStunTicks { get; internal set; }
+
+        /// <summary>After his contact a rider slows to this and fights in melee.</summary>
+        public int AfterContactMmPerS { get; internal set; }
+
+        /// <summary>A braced target: standing (under this speed), close order, facing within the arc of the charge's reverse.</summary>
+        public int BracedMaxSpeedMmPerS { get; internal set; }
+
+        public int BracedFacingArcCd { get; internal set; }
+
+        public int BracedLaunchPermille { get; internal set; }
+
+        /// <summary>The rider takes this much per braced target.</summary>
+        public int RiderDamagePerTarget { get; internal set; }
     }
 
     /// <summary>Morale per regiment, routing, rallying and wiping (spec S2, section 7): <c>data/rules/morale.json</c>.</summary>

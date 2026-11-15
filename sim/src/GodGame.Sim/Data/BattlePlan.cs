@@ -69,9 +69,18 @@ namespace GodGame.Sim
     /// </summary>
     public sealed class PlannedCast
     {
-        public PlannedCast(string id, PowerRules power, int tick, int xMm, int yMm, int radiusMm)
+        public PlannedCast(
+            string id,
+            PowerRules power,
+            int tick,
+            int xMm,
+            int yMm,
+            int radiusMm,
+            int headingCd = 0
+        )
         {
             Id = id;
+            HeadingCd = headingCd;
             Power = power;
             Tick = tick;
             XMm = xMm;
@@ -93,6 +102,12 @@ namespace GodGame.Sim
         public int YMm { get; }
 
         public int RadiusMm { get; }
+
+        /// <summary>
+        /// The direction dragged with the mouse, in centi-degrees (0 = +x, counter-clockwise): Lightning v0's fall heading
+        /// (spec S2 12.1, D10). 0 for powers that have none.
+        /// </summary>
+        public int HeadingCd { get; }
     }
 
     /// <summary>
@@ -414,7 +429,7 @@ namespace GodGame.Sim
             var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (var item in root.Array("casts"))
             {
-                item.OnlyKeys("id", "power", "tick", "xMm", "yMm", "radiusMm");
+                item.OnlyKeys("id", "power", "tick", "xMm", "yMm", "radiusMm", "headingCd");
                 string id = DataIds.Require(item["id"]);
                 if (!ids.Add(id))
                 {
@@ -432,7 +447,8 @@ namespace GodGame.Sim
                 int radius = item.Int("radiusMm", power.MinRadiusMm, power.MaxRadiusMm);
                 int x = item.Int("xMm", radius, map.WidthMm - radius);
                 int y = item.Int("yMm", radius, map.DepthMm - radius);
-                casts.Add(new PlannedCast(id, power, tick, x, y, radius));
+                int heading = item.Has("headingCd") ? item.Int("headingCd", 0, 35_999) : 0;
+                casts.Add(new PlannedCast(id, power, tick, x, y, radius, heading));
             }
             // Ids are unique, so the ordinal sort is total.
             casts.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));

@@ -186,6 +186,8 @@ namespace GodGame.Sim.Rules
 
         public ClearBlockerRules? ClearBlocker { get; internal set; }
 
+        public DriveHerdRules? DriveHerd { get; internal set; }
+
         /// <summary>The action ids the file defines, for unit types to name.</summary>
         public IReadOnlyList<string> ActionIds { get; internal set; } = Array.Empty<string>();
     }

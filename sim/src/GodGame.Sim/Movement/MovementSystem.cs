@@ -99,6 +99,7 @@ namespace GodGame.Sim
         private bool[] _hasPoint = new bool[0];
         private FixVec2[] _point = new FixVec2[0];
         private bool[] _closeIn = new bool[0];
+        private FixVec2[] _chargeDir = new FixVec2[0]; // a charging regiment's line of advance, a unit vector
         private bool[] _near = new bool[0]; // an enemy outline within contact range: only these soldiers check for melee
         private readonly long _contactMm;
         private readonly long[] _typeRadiusRaw;
@@ -114,6 +115,40 @@ namespace GodGame.Sim
         private readonly long _maxRadiusRaw;
         private readonly long _quarterCellRaw;
         private readonly long _mapDiagonalRaw;
+
+        // Herds (spec S2 11): per regiment, filled serially each run by UpdateHerds; -1 where the regiment isn't a herd.
+        private readonly HerdRules? _herdRules;
+        private readonly Fix _grazeSpeed; // metres per tick
+        private readonly Fix _drivenSpeed;
+        private readonly Fix _stampedeSpeed;
+        private readonly bool[] _typeCharges;
+        private readonly Fix _chargeSpeed; // metres per tick (S2 10.1)
+        private readonly Fix _afterContactSpeed;
+        private readonly long _chargeAccelRaw; // metres per tick, per tick
+        private int[] _herdOf = new int[0];
+        private HerdMode[] _herdMode = new HerdMode[0];
+        private FixVec2[] _herdCentre = new FixVec2[0];
+        private int[] _herdRadiusMm = new int[0];
+        private FixVec2[] _herdRun = new FixVec2[0]; // the stampede's heading, a unit vector
+        private bool[] _herdDriven = new bool[0];
+        private FixVec2[] _herdDrivenFrom = new FixVec2[0]; // the drive's direction, a unit vector
+        private ulong _seed;
+        private int _tick;
+
+        /// <summary>The animals' wander waypoints (<see cref="SimRandom.Stream"/>: entity = unit slot, tick = the waypoint's period).</summary>
+        public const int HerdWanderSystemId = 8_001;
+
+        /// <summary>An agitated herd mills: each animal picks a new point this often, within <see cref="MillRadiusMm"/> (placeholder).</summary>
+        public const int MillTicks = 20;
+
+        /// <summary>How far from the herd's centre a milling animal wanders (placeholder).</summary>
+        public const int MillRadiusMm = 6_000;
+
+        /// <summary>A scattered herd wanders in place, within this of where it stopped (S2 11.3 sets no circle; placeholder).</summary>
+        public const int ScatterWanderMm = 12_000;
+
+        /// <summary>An animal this close to its waypoint stands and grazes.</summary>
+        public const int WaypointReachedMm = 500;
 
         // Scratch: overwritten every run before it is read.
         private SpatialHash? _hash;
@@ -164,6 +199,30 @@ namespace GodGame.Sim
             long d = navigation.Map.Depth.Raw;
             _mapDiagonalRaw = IntMath.Sqrt((ulong)(w * w + d * d)) + 1; // sides at most 30 km: the square fits
             _crews = new EngineCrews(navigation.Rules);
+            _herdRules = navigation.Rules.Herds;
+            _typeCharges = new bool[types.Count];
+            for (int t = 0; t < types.Count; t++)
+            {
+                _typeCharges[t] = types[t].Charges;
+            }
+            var charge = navigation.Rules.Combat.Charge;
+            if (charge != null)
+            {
+                long ticks = 1000L * SimConstants.TicksPerSecond;
+                _chargeSpeed = Fix.FromRatio(charge.SpeedMmPerS, ticks);
+                _afterContactSpeed = Fix.FromRatio(charge.AfterContactMmPerS, ticks);
+                _chargeAccelRaw = Fix.FromRatio(
+                    charge.AccelMmPerS2,
+                    1000L * SimConstants.TicksPerSecond * SimConstants.TicksPerSecond
+                ).Raw;
+            }
+            if (_herdRules != null)
+            {
+                long perTick = 1000L * SimConstants.TicksPerSecond;
+                _grazeSpeed = Fix.FromRatio(_herdRules.GrazeMmPerS, perTick);
+                _drivenSpeed = Fix.FromRatio(_herdRules.DrivenMmPerS, perTick);
+                _stampedeSpeed = Fix.FromRatio(_herdRules.StampedeMmPerS, perTick);
+            }
             _typeMass = new long[types.Count];
             _typeEngine = new EngineRules?[types.Count];
             _crewRing = new Fix[types.Count];
@@ -248,6 +307,9 @@ namespace GodGame.Sim
             _hash.Build(world);
             UpdateRegiments(world);
             UpdateOrders(world);
+            _seed = context.Seed;
+            _tick = context.Tick;
+            UpdateHerds(world);
             if (_typeCosts.Length != _typeClass.Length)
             {
                 _typeCosts = new ushort[_typeClass.Length][];
@@ -470,6 +532,7 @@ namespace GodGame.Sim
                 _hasPoint = new bool[n];
                 _point = new FixVec2[n];
                 _closeIn = new bool[n];
+                _chargeDir = new FixVec2[n];
                 _near = new bool[n];
             }
             var army = world.Army;
@@ -486,6 +549,7 @@ namespace GodGame.Sim
                     || _order[r] == RegimentOrder.Hold;
                 _hasPoint[r] = false;
                 _closeIn[r] = false;
+                _chargeDir[r] = FixVec2.Zero;
             }
             if (!any)
             {
@@ -516,8 +580,148 @@ namespace GodGame.Sim
                 }
                 _hasPoint[r] = true;
                 _point[r] = _summary.Centroid[target];
-                _closeIn[r] = _summary.Gap(r, target) <= CloseInMm;
+                // A charging regiment keeps its line (S2 10.3: the front ranks meet the front ranks).
+                _closeIn[r] = _summary.Gap(r, target) <= CloseInMm && army.ChargeSince[r] == 0;
+                if (army.ChargeSince[r] > 0)
+                {
+                    var line = _summary.Centroid[target] - _summary.Centroid[r];
+                    _chargeDir[r] = line == FixVec2.Zero ? FixVec2.Zero : line.WithLength(Fix.One);
+                }
             }
+        }
+
+        /// <summary>
+        /// Serial: what each herd asks of its animals this tick (spec S2 11.1–11.3), from the herd step's state. Grazing,
+        /// the animals walk between seeded waypoints in the grazing circle around the herd's anchor; driven, away from the
+        /// drovers at walking pace; agitated, they mill near the herd's centre; stampeding, along the run's heading at
+        /// stampede speed; scattered, they wander where the run stopped.
+        /// </summary>
+        private void UpdateHerds(World world)
+        {
+            int n = world.Regiments.Capacity;
+            if (_herdOf.Length != n)
+            {
+                _herdOf = new int[n];
+                _herdMode = new HerdMode[n];
+                _herdCentre = new FixVec2[n];
+                _herdRadiusMm = new int[n];
+                _herdRun = new FixVec2[n];
+                _herdDriven = new bool[n];
+                _herdDrivenFrom = new FixVec2[n];
+            }
+            for (int r = 0; r < n; r++)
+            {
+                _herdOf[r] = -1;
+            }
+            var herds = world.Herds;
+            if (_herdRules == null || herds.Count == 0)
+            {
+                return;
+            }
+            var specs = _navigation.Map.Herds;
+            for (int h = 0; h < herds.Count; h++)
+            {
+                int r = herds.Regiment[h];
+                if (r < 0 || r >= n || !world.Regiments.IsAlive(r))
+                {
+                    continue;
+                }
+                _herdOf[r] = h;
+                var mode = herds.Mode[h];
+                _herdMode[r] = mode;
+                _herdDriven[r] = herds.DrivenBy[h] >= 0;
+                _herdDrivenFrom[r] = herds.DrivenFrom[h];
+                if (_herdDriven[r] && _summary.Count[r] > 0)
+                {
+                    // The whole herd walks one way, away from the drovers through its centre, so an animal on the
+                    // drovers' far side isn't sent back the way they came.
+                    var away = _summary.Centroid[r] - herds.DrivenFrom[h];
+                    _herdDrivenFrom[r] =
+                        away == FixVec2.Zero ? FixVec2.Zero : away.WithLength(Fix.One);
+                }
+                else
+                {
+                    _herdDriven[r] = false;
+                }
+                _herdRun[r] = FixVec2.FromAngle(Angle.FromUnits(herds.Heading[h]), Fix.One);
+                switch (mode)
+                {
+                    case HerdMode.Agitated:
+                        _herdCentre[r] =
+                            _summary.Count[r] > 0 ? _summary.Centroid[r] : herds.Anchor[h];
+                        _herdRadiusMm[r] = MillRadiusMm;
+                        break;
+                    case HerdMode.Scattered:
+                        _herdCentre[r] = herds.Anchor[h];
+                        _herdRadiusMm[r] = ScatterWanderMm;
+                        break;
+                    default:
+                        _herdCentre[r] = herds.Anchor[h];
+                        _herdRadiusMm[r] =
+                            h < specs.Count
+                                ? System.Math.Max(1_000, specs[h].RadiusMm - 1_000)
+                                : ScatterWanderMm;
+                        break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// An animal's heading and pace this tick (<see cref="UpdateHerds"/>): <paramref name="stampeding"/> when it runs
+        /// with the stampede (it then ploughs on rather than braking for soldiers). Reads only state the tick started with.
+        /// </summary>
+        private FixVec2 AnimalHeading(
+            World world,
+            int u,
+            FixVec2 p,
+            int r,
+            out long cap,
+            out bool stampeding
+        )
+        {
+            var mode = _herdMode[r];
+            stampeding = mode == HerdMode.Stampede;
+            if (stampeding)
+            {
+                cap = _stampedeSpeed.Raw;
+                var hits = world.Herds.LastHit[_herdOf[r]];
+                int slot = world.FormationSlot[u];
+                if (
+                    hits != null
+                    && slot >= 0
+                    && slot < hits.Length
+                    && _tick - hits[slot] < _herdRules!.SlowAfterHitTicks
+                )
+                {
+                    cap = cap * _herdRules.SlowAfterHitPermille / 1000;
+                }
+                return _herdRun[r];
+            }
+            if (_herdDriven[r] && mode != HerdMode.Agitated)
+            {
+                cap = _drivenSpeed.Raw;
+                return _herdDrivenFrom[r]; // the drive's direction (UpdateHerds)
+            }
+            int period = mode == HerdMode.Agitated ? MillTicks : _herdRules!.WaypointTicks;
+            // Each animal's own phase, so the herd doesn't all set off on the same tick.
+            int phase = (int)((uint)(u * 2654435761u) % (uint)period);
+            var rng = SimRandom.Stream(_seed, HerdWanderSystemId, u, (_tick + phase) / period);
+            var angle = Angle.FromUnits((int)rng.NextUInt(Angle.UnitsPerTurn));
+            long radius = _herdRadiusMm[r];
+            // At most uint.MaxValue (a circle of about 65 m; herds are at most 40 m, S2 11.1), never a zero bound.
+            long bound = System.Math.Min(radius * radius, uint.MaxValue);
+            long off = bound <= 0 ? 0 : IntMath.Sqrt(rng.NextUInt((uint)bound));
+            var waypoint = _herdCentre[r] + FixVec2.FromAngle(angle, Fix.FromRatio(off, 1000));
+            long dx = waypoint.X.Raw - p.X.Raw;
+            long dy = waypoint.Y.Raw - p.Y.Raw;
+            long reached = Fix.FromRatio(WaypointReachedMm, 1000).Raw;
+            if (dx * dx + dy * dy <= reached * reached)
+            {
+                cap = 0;
+                return FixVec2.Zero;
+            }
+            cap = mode == HerdMode.Agitated ? _drivenSpeed.Raw : _grazeSpeed.Raw;
+            return Kernel.TowardPoint(p, waypoint);
         }
 
         /// <summary>Swept, stunned or airborne: not on its feet, so it neither steers nor leads.</summary>
@@ -585,6 +789,15 @@ namespace GodGame.Sim
                     }
                     Fix speed = _s._typeSpeed[type];
                     Fix run = _s._typeRun[type];
+                    // A charging rider (S2 10.1) rides at the charge speed until his contact, then slows to fight.
+                    bool charging = _s._typeCharges[type] && _world.Army.ChargeSince[regiment] > 0;
+                    if (charging)
+                    {
+                        bool contacted = (flags & UnitFlags.Charged) != 0;
+                        speed = contacted ? _s._afterContactSpeed : _s._chargeSpeed;
+                        run = speed;
+                        charging = !contacted;
+                    }
                     if (_s._codes != null || _terrain.HasPieceSpeed)
                     {
                         // Wading, mud and climbing a hedge or wall: the speed the cell's codes allow. A soldier caught
@@ -626,7 +839,20 @@ namespace GodGame.Sim
                     int anchor = _world.RegimentAnchor[regiment];
                     var order = _s._order[regiment];
                     bool routing = order == RegimentOrder.Rout;
-                    if (routing)
+                    bool stampeding = false;
+                    if (_s._herdOf[regiment] >= 0)
+                    {
+                        // A herd animal (S2 11): grazing, driven, milling or running, never in formation.
+                        heading = _s.AnimalHeading(_world, u, p, regiment, out cap, out stampeding);
+                    }
+                    else if (charging && _s._chargeDir[regiment] != FixVec2.Zero)
+                    {
+                        // Charging (S2 10.1): every rider still to make contact rides the regiment's line at the charge
+                        // speed, side by side, so the front rank meets the enemy's front rank.
+                        heading = _s._chargeDir[regiment];
+                        cap = speed.Raw;
+                    }
+                    else if (routing)
                     {
                         // Routed: every soldier runs down the retreat field for himself (S2 7.2).
                         heading = directions == null ? FixVec2.Zero : Heading(directions, p);
@@ -783,7 +1009,7 @@ namespace GodGame.Sim
                             swing >= 0
                             && !engaged
                             && distSq <= (contact + swing) * (contact + swing)
-                            && _world.RegimentSide[unitRegiment[j]] != side
+                            && Sides.Hostile(_world.RegimentSide[unitRegiment[j]], side)
                         )
                         {
                             engaged = true; // an enemy within reach: this soldier is fighting
@@ -820,6 +1046,13 @@ namespace GodGame.Sim
                         }
                         if (
                             heading != FixVec2.Zero
+                            // A stampede doesn't wait for soldiers: it runs into them (S2 11.4).
+                            && !(stampeding && unitRegiment[j] != regiment)
+                            // Nor does a charge wait for the enemy it rides into (S2 10.3).
+                            && !(
+                                charging
+                                && Sides.Hostile(_world.RegimentSide[unitRegiment[j]], side)
+                            )
                             && !(
                                 engineRules != null
                                 && unitRegiment[j] == regiment
@@ -857,10 +1090,21 @@ namespace GodGame.Sim
                         // Only while not already pressed: in a deep crowd the creeps would add up along the chain.
                         limit = System.Math.Max(limit, cap * CreepShare.Raw >> Fix.FractionalBits);
                     }
-                    if (engaged)
+                    if (engaged && !charging) // a charging rider rides into the line (S2 10.3)
                     {
                         // A soldier in melee moves at a fifth of his march speed (S2 5).
                         limit = System.Math.Min(limit, speed.Raw * _s._engagedPermille / 1000);
+                    }
+                    if (charging)
+                    {
+                        // The charge builds up: at most the acceleration on top of the speed he has.
+                        long now = IntMath.Sqrt(
+                            (ulong)(
+                                velocity[u].X.Raw * velocity[u].X.Raw
+                                + velocity[u].Y.Raw * velocity[u].Y.Raw
+                            )
+                        );
+                        limit = System.Math.Min(limit, now + _s._chargeAccelRaw);
                     }
                     FixVec2 desired = heading * Fix.FromRaw(limit);
                     if (follower)
@@ -1011,6 +1255,8 @@ namespace GodGame.Sim
                 long apart = from > to ? from - to : to - from;
                 return apart <= 2 * straight + 2000;
             }
+
+            internal static FixVec2 TowardPoint(FixVec2 p, FixVec2 to) => Toward(p, to);
 
             /// <summary>A unit vector from <paramref name="p"/> to <paramref name="to"/>, or zero within a few centimetres.</summary>
             private static FixVec2 Toward(FixVec2 p, FixVec2 to)

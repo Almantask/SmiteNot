@@ -85,6 +85,15 @@ namespace GodGame.Sim
         public World CreateBlank()
         {
             var blank = new World(Units.Capacity, Regiments.Capacity);
+            // The herds' layout is fixed at deployment; a restore reads the rest.
+            var regiments = new int[Herds.Count];
+            var animals = new int[Herds.Count];
+            for (int h = 0; h < Herds.Count; h++)
+            {
+                regiments[h] = Herds.Regiment[h];
+                animals[h] = Herds.LastHit[h]!.Length;
+            }
+            blank.Herds.Init(regiments, animals);
             if (Fields != null)
             {
                 blank.AttachFields(new FieldStore(Fields.Rules, Fields.Columns, Fields.Rows));
@@ -187,6 +196,12 @@ namespace GodGame.Sim
 
         /// <summary>Blockers the battle made (wrecks, felled trees: spec S2 13.2), in the order they were made.</summary>
         public Blockers Blockers { get; } = new Blockers();
+
+        /// <summary>The herds (spec S2 11): their modes, fear and runs.</summary>
+        public HerdStates Herds { get; } = new HerdStates();
+
+        /// <summary>Lightning v0's strikes, felled trees and fires (spec S2 12.1–12.2).</summary>
+        public StrikeStates Strikes { get; } = new StrikeStates();
 
         /// <summary>Per-regiment orders, volleys and morale bookkeeping (spec S2, sections 5 to 7).</summary>
         public ArmyState Army { get; }
@@ -395,6 +410,8 @@ namespace GodGame.Sim
             Army.WriteTo(writer);
             Ground.WriteTo(writer);
             Blockers.WriteTo(writer);
+            Herds.WriteTo(writer);
+            Strikes.WriteTo(writer);
             writer.WriteByte(Structures == null ? (byte)0 : (byte)1);
             Structures?.WriteTo(writer);
             writer.WriteByte(Casts == null ? (byte)0 : (byte)1);
@@ -418,7 +435,8 @@ namespace GodGame.Sim
                 | UnitFlags.Swept
                 | UnitFlags.Burning
                 | UnitFlags.Routing
-                | UnitFlags.Garrisoned;
+                | UnitFlags.Garrisoned
+                | UnitFlags.Charged;
             var counted = new int[Regiments.Capacity];
             for (int u = 0; u < Units.Capacity; u++)
             {
@@ -591,7 +609,7 @@ namespace GodGame.Sim
             for (int r = 0; r < Regiments.Capacity; r++)
             {
                 byte side = reader.ReadByte();
-                if (side > (byte)Side.Defender)
+                if (side > (byte)Side.Neutral)
                 {
                     throw new FormatException("Snapshot side is out of range.");
                 }
@@ -616,6 +634,8 @@ namespace GodGame.Sim
                 reader,
                 Fields == null ? MaxGroundCells : Fields.Columns * Fields.Rows
             );
+            Herds.ReadFrom(reader, Regiments.Capacity);
+            Strikes.ReadFrom(reader);
             if (reader.ReadByte() != (Structures == null ? 0 : 1))
             {
                 throw new FormatException("The snapshot's structures don't match this world's.");
@@ -686,6 +706,8 @@ namespace GodGame.Sim
             Army.AppendTo(hash, Regiments);
             Ground.AppendTo(hash);
             Blockers.AppendTo(hash);
+            Herds.AppendTo(hash);
+            Strikes.AppendTo(hash);
             Structures?.AppendTo(hash);
             Casts?.AppendTo(hash);
             Causes?.AppendTo(hash);

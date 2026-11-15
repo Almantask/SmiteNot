@@ -88,12 +88,51 @@ namespace GodGame.Sim
 
         /// <summary>A siege engine whose regiment has no crew left was abandoned as a wreck. Subject: its regiment; detail: the blocker.</summary>
         EngineAbandoned = 22,
+
+        /// <summary>Lightning struck (spec S2 12.1). Subject: the cast's index; detail: the struck cell; cause: the cast.</summary>
+        LightningStruck = 23,
+
+        /// <summary>A struck tree came down (S2 13.2). Subject: the tree; detail: its blocker; cause: the strike.</summary>
+        TreeFelled = 24,
+
+        /// <summary>Dry fuel caught (fire v0, S2 12.2). Subject: the fire's index; detail: its blocker; cause: the strike.</summary>
+        FireStarted = 25,
+
+        /// <summary>A herd's fear reached the threshold: it mills (S2 11.2). Subject: the herd; cause: the strongest source.</summary>
+        HerdAgitated = 26,
+
+        /// <summary>A herd broke into its stampede. Subject: the herd; detail: the heading (angle units); cause: the agitation.</summary>
+        HerdStampeded = 27,
+
+        /// <summary>A stampede ran out and the herd scattered. Subject: the herd; cause: the stampede.</summary>
+        HerdScattered = 28,
+
+        /// <summary>
+        /// A soldier was trampled to death (a stampeding animal, or a charge; brief 2026-10-11). Subject: his regiment; detail:
+        /// his unit slot; cause: the stampede or the charge.
+        /// </summary>
+        SoldierTrampled = 29,
+
+        /// <summary>A soldier pushed or launched into fire burned (S2 12.2). Subject: his regiment; detail: his slot; causes: the push or landing, the fire.</summary>
+        SoldierBurned = 30,
+
+        /// <summary>A battle-made blocker was cleared (S2 13.2, D14). Subject: the clearing regiment; detail: the blocker.</summary>
+        BlockerCleared = 31,
+
+        /// <summary>A cavalry regiment began a charge (S2 10.1). Subject: the regiment; detail: its target regiment.</summary>
+        ChargeStarted = 32,
+
+        /// <summary>
+        /// A charging rider hit deep mud or water and stopped dead, stunned, thrown over his horse's head (S2 10.2, D7); his
+        /// regiment's charge ended. Subject: the regiment; detail: his unit slot; cause: the charge.
+        /// </summary>
+        RiderThrown = 33,
     }
 
     /// <summary>The highest <see cref="CauseKind"/> (snapshots reject anything above it).</summary>
     public static class CauseKinds
     {
-        public const CauseKind Last = CauseKind.EngineAbandoned;
+        public const CauseKind Last = CauseKind.RiderThrown;
     }
 
     /// <summary>One entry in the cause log: what, when, and the (up to two) earlier events that caused it.</summary>

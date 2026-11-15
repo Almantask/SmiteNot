@@ -188,6 +188,15 @@ namespace GodGame.Sim
         /// </summary>
         public DeckLayout? Decks { get; private set; }
 
+        /// <summary>The plan's trees (spec S2 13.1), in plan order then tree order: what Lightning v0 can fell.</summary>
+        public IReadOnlyList<TreeSpec> Trees { get; private set; } = Array.Empty<TreeSpec>();
+
+        /// <summary>Per cell, fuel for Lightning v0's fire (trees, woodland, hedgerows), or null when there is none.</summary>
+        public bool[]? Fuel { get; private set; }
+
+        /// <summary>The plan's herds (spec S2 11.1) in plan order: their animals deploy as neutral regiments.</summary>
+        public IReadOnlyList<HerdSpec> Herds { get; private set; } = Array.Empty<HerdSpec>();
+
         /// <summary>The plan's boulders in plan order, with the ground under each (on a played map only).</summary>
         public IReadOnlyList<BoulderSpec> Boulders { get; private set; } =
             Array.Empty<BoulderSpec>();
@@ -216,7 +225,10 @@ namespace GodGame.Sim
             WaterSource[] sources,
             int[]? pieceSpeed = null,
             DeckLayout? decks = null,
-            BoulderSpec[]? boulders = null
+            BoulderSpec[]? boulders = null,
+            TreeSpec[]? trees = null,
+            bool[]? fuel = null,
+            HerdSpec[]? herds = null
         )
         {
             if (pieceSpeed != null && pieceSpeed.Length != HeightMm.Length)
@@ -244,6 +256,9 @@ namespace GodGame.Sim
                 PieceSpeed = pieceSpeed,
                 Decks = decks,
                 Boulders = boulders ?? Array.Empty<BoulderSpec>(),
+                Trees = trees ?? Array.Empty<TreeSpec>(),
+                Fuel = fuel,
+                Herds = herds ?? Array.Empty<HerdSpec>(),
                 IsPlayed = true,
                 InitialFields = InitialFields,
                 WindXMmPerS = WindXMmPerS,

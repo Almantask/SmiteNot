@@ -134,7 +134,7 @@ namespace GodGame.Sim
                 {
                     if (
                         Count[b] > 0
-                        && world.RegimentSide[a] != world.RegimentSide[b]
+                        && Sides.Hostile(world.RegimentSide[a], world.RegimentSide[b])
                         && Within(a, b, withinMm)
                     )
                     {

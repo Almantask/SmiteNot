@@ -27,6 +27,8 @@ namespace GodGame.Sim
         private readonly RegimentSummary _summary = new RegimentSummary();
 
         private readonly SpecialistExecutor? _specialists;
+        private readonly HerdSystem? _herds;
+        private readonly Charges? _charges;
         private bool[] _wasHold = new bool[0];
 
         public RegimentOrderSystem(Ruleset rules, MapData map, Terrain terrain)
@@ -41,6 +43,8 @@ namespace GodGame.Sim
             : this(rules, navigation.Map, navigation.Terrain)
         {
             _specialists = new SpecialistExecutor(rules, navigation, plan, _summary);
+            _herds = new HerdSystem(rules, navigation);
+            _charges = new Charges(rules, navigation);
         }
 
         public TickStep Step => TickStep.RegimentAi;
@@ -54,6 +58,8 @@ namespace GodGame.Sim
             var combat = _rules.Combat;
             _summary.Gather(world);
             int tick = context.Tick;
+            // The herds' minds first (S2 11.2), from the drovers as they stand, so every regiment sees the same herds.
+            _herds?.Update(context, _summary);
             _specialists?.Washout(context);
             // Crossing Marshals' gates first (S2 14.6), so every regiment decides against the same gate state.
             _specialists?.Gates(context);
@@ -68,9 +74,13 @@ namespace GodGame.Sim
             }
             for (int r = 0; r < world.Regiments.HighWater; r++)
             {
-                if (!world.Regiments.IsAlive(r) || world.RegimentAlive[r] == 0)
+                if (
+                    !world.Regiments.IsAlive(r)
+                    || world.RegimentAlive[r] == 0
+                    || world.RegimentSide[r] == Side.Neutral
+                )
                 {
-                    continue;
+                    continue; // herds have minds of their own (HerdSystem)
                 }
                 if (_specialists != null && _specialists.Run(context, r))
                 {
@@ -82,6 +92,19 @@ namespace GodGame.Sim
                 }
                 var type = _rules.UnitTypes[world.RegimentUnitType[r]];
                 var side = world.RegimentSide[r];
+                if (
+                    type.Charges
+                    && _charges?.Rules != null
+                    && _charges.Decide(
+                        context,
+                        _summary,
+                        r,
+                        Nearest(world, r, _charges.Rules.StartMaxMm, meleeOnly: false)
+                    )
+                )
+                {
+                    continue; // charging (S2 10.1)
+                }
                 if (type.Projectile != null && type.Projectile.IsStone)
                 {
                     DecideSiege(world, r, type.Projectile);
@@ -116,6 +139,7 @@ namespace GodGame.Sim
             if (_specialists != null)
             {
                 Hold(world);
+                _specialists.FootClearing(context);
             }
         }
 
@@ -307,7 +331,7 @@ namespace GodGame.Sim
             e >= 0
             && e < world.Regiments.HighWater
             && world.Regiments.IsAlive(e)
-            && world.RegimentSide[e] != world.RegimentSide[r]
+            && Sides.Hostile(world.RegimentSide[e], world.RegimentSide[r])
             && _summary.Count[e] > 0
             && !world.Army.Wiped[e];
     }

@@ -47,6 +47,30 @@
         "stackPermille": 200,
         "stackFloorPermille": 300
       }
+    },
+    {
+      "$comment": "Lightning v0 (spec S2 12.1, D10, D11, settled 2026-11-07): placed as a point and a fall heading (the cast's headingCd); its area for the range rule is a fixed 30 m circle, which covers the tree search, the longest fall and the fire. After a 3 s wind-up it strikes: it fells the tallest standing tree within treeSearchMm (ties: the lower tree index) along the heading, landing fallTicks later (a battle-made blocker: terrain.json felledTree), and lights every fuel cell within ignitionRadiusMm whose wetness is below ignitionMaxWetness, burning burnTicks: closed, lethal, a fear source for herds, never spreading. The strike itself is a fear source (herds.json strike). Rain beforehand wets the fuel, so it won't catch; the tree still falls.",
+      "id": "lightning",
+      "area": {
+        "shape": "circle",
+        "minRadiusMm": 30000,
+        "maxRadiusMm": 30000,
+        "defaultRadiusMm": 30000
+      },
+      "rangeRule": {
+        "minDistanceMm": 100000,
+        "minSoldiersPerCoarseCell": 2
+      },
+      "windUpTicks": 60,
+      "durationTicks": 0,
+      "writes": [],
+      "lightning": {
+        "treeSearchMm": 8000,
+        "fallTicks": 40,
+        "ignitionRadiusMm": 6000,
+        "ignitionMaxWetness": 24576,
+        "burnTicks": 600
+      }
     }
   ]
 }

@@ -1,0 +1,33 @@
+{
+  "$comment": "M5 Drovers grey-box map (heightfield + zones only, written by tools/maps/make_m5_drovers.py): 36 m wide central road along y = 102..138 m for placing a herd directly on the road near (225, 120) m with clear flank margins for droving.",
+  "version": 0,
+  "id": "m5-drovers",
+  "widthMm": 450000,
+  "depthMm": 240000,
+  "cellSizeMm": 1500,
+  "deployment": [
+    {
+      "side": "attacker",
+      "minXMm": 0,
+      "minYMm": 45000,
+      "maxXMm": 60000,
+      "maxYMm": 195000
+    },
+    {
+      "side": "defender",
+      "minXMm": 390000,
+      "minYMm": 45000,
+      "maxXMm": 450000,
+      "maxYMm": 195000
+    }
+  ],
+  "soils": [
+    {
+      "soil": "road",
+      "minXMm": 0,
+      "minYMm": 102000,
+      "maxXMm": 450000,
+      "maxYMm": 138000
+    }
+  ]
+}

@@ -30,11 +30,13 @@ namespace GodGame.Sim
         private readonly int _coarseColumns;
         private readonly Dictionary<long, int> _outlineCounts = new Dictionary<long, int>();
         private int _tick; // the tick being run, for the events Check adds
+        private readonly LightningStrikes _lightning;
 
         public CastSystem(BattlePlan plan, Navigation navigation)
         {
             _plan = plan ?? throw new ArgumentNullException(nameof(plan));
             _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
+            _lightning = new LightningStrikes(navigation);
             _writeOffset = WriteOffsets(plan, out _);
             if (TickOrder.FieldsRate.Period != RulesetLoader.FieldStepTicks)
             {
@@ -85,6 +87,8 @@ namespace GodGame.Sim
             }
             int tick = context.Tick;
             _tick = tick;
+            // Felled trees landing and fires burning out (S2 12.1–12.2, 13.2), before this tick's casts.
+            _lightning.Update(context);
             bool fieldStep = TickOrder.FieldsRate.IsDue(tick);
             for (int c = 0; c < _plan.Casts.Count; c++)
             {
@@ -100,6 +104,14 @@ namespace GodGame.Sim
                 )
                 {
                     StartRot(world, cast, states.Event[c], tick);
+                }
+                if (
+                    cast.Power.Lightning != null
+                    && states.Status[c] == CastStatus.Fired
+                    && tick == (long)cast.Tick + cast.Power.WindUpTicks
+                )
+                {
+                    _lightning.Strike(context, c, cast, states.Event[c]);
                 }
                 if (!fieldStep || states.Status[c] != CastStatus.Fired)
                 {
@@ -221,6 +233,10 @@ namespace GodGame.Sim
                 )
                 {
                     continue; // D15: a small regiment (marshals, drovers) is no shield against casts
+                }
+                if (world.RegimentSide[r] == Side.Neutral)
+                {
+                    continue; // a herd is neither army (S2 11): it never blocks a cast
                 }
                 long d = DistanceSquared(world.Position[u], cast);
                 if (world.RegimentSide[r] == Side.Attacker)

@@ -65,9 +65,14 @@ namespace GodGame.Sim
             {
                 soldiers += rules.UnitType(regiment.UnitType).UnitsFor(regiment.Soldiers);
             }
+            int animals = 0;
+            foreach (var herd in map.Herds)
+            {
+                animals += herd.Animals;
+            }
             var world = new World(
-                soldiers + extraUnitCapacity,
-                System.Math.Max(1, plan.Army.Count)
+                soldiers + animals + extraUnitCapacity,
+                System.Math.Max(1, plan.Army.Count + map.Herds.Count)
             );
             world.AttachFields(new FieldStore(rules.Fields, map.Columns, map.Rows));
             ApplyInitialFields(world.Fields!, map);
@@ -148,7 +153,63 @@ namespace GodGame.Sim
                     }
                 }
             }
+            DeployHerds(world, map, rules, maxX, maxY);
             return world;
+        }
+
+        /// <summary>
+        /// Each herd (spec S2 11.1) as a neutral regiment of animals after the army's regiments, in plan order, scattered
+        /// over its grazing circle by a hash of the herd's id (area-uniform, a metre inside the edge), grazing.
+        /// </summary>
+        private static void DeployHerds(World world, MapData map, Ruleset rules, Fix maxX, Fix maxY)
+        {
+            var herds = rules.Herds;
+            if (herds == null || map.Herds.Count == 0)
+            {
+                return;
+            }
+            var type = herds.AnimalType;
+            var regiments = new int[map.Herds.Count];
+            var sizes = new int[map.Herds.Count];
+            for (int h = 0; h < map.Herds.Count; h++)
+            {
+                var spec = map.Herds[h];
+                var regiment = world.AddRegiment(Side.Neutral, type.Index, type.Morale, 1);
+                regiments[h] = regiment.Index;
+                sizes[h] = spec.Animals;
+                long reach = System.Math.Max(1, spec.RadiusMm - 1_000);
+                for (int k = 0; k < spec.Animals; k++)
+                {
+                    var hash = new SimHash();
+                    hash.AppendInt32(spec.Id.Length);
+                    foreach (char c in spec.Id)
+                    {
+                        hash.AppendInt32(c);
+                    }
+                    hash.AppendInt32(k);
+                    ulong bits = hash.Digest();
+                    var angle = Angle.FromUnits((int)(bits % (ulong)Angle.UnitsPerTurn));
+                    long r = IntMath.Sqrt((bits >> 20) % (ulong)(reach * reach));
+                    var p =
+                        new FixVec2(Fix.FromRatio(spec.XMm, 1000), Fix.FromRatio(spec.YMm, 1000))
+                        + FixVec2.FromAngle(angle, Fix.FromRatio(r, 1000));
+                    world.SpawnUnit(
+                        regiment,
+                        new FixVec2(Fix.Clamp(p.X, Fix.Zero, maxX), Fix.Clamp(p.Y, Fix.Zero, maxY)),
+                        type.Health,
+                        type.Morale
+                    );
+                }
+            }
+            world.Herds.Init(regiments, sizes);
+            for (int h = 0; h < map.Herds.Count; h++)
+            {
+                // Each herd grazes around its circle's centre until something moves it (S2 11.1).
+                world.Herds.Anchor[h] = new FixVec2(
+                    Fix.FromRatio(map.Herds[h].XMm, 1000),
+                    Fix.FromRatio(map.Herds[h].YMm, 1000)
+                );
+            }
         }
     }
 }

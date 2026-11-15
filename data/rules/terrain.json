@@ -112,14 +112,95 @@
       "maxSpanMm": 40000,
       "bankMinAboveWaterMm": 5,
       "footprintEndCells": 1
+    },
+    {
+      "$comment": "Spec S2 13.1 (D13): a circle of trees, one per treeEveryCells x treeEveryCells block on a grid offset by a hash of the piece's id, each seeded 12-18 m tall from the id and its index. A trunk cell closes every class; the grove's other cells are woodland: foot 800, horse (and herds) 500, wheeled closed. Every cell is fuel (Lightning v0's fire). Refused in tick-0 water.",
+      "id": "grove",
+      "kind": "trees",
+      "shape": "circle",
+      "minRadiusMm": 6000,
+      "maxRadiusMm": 30000,
+      "treeEveryCells": 3,
+      "treeMinHeightMm": 12000,
+      "treeMaxHeightMm": 18000,
+      "trunkPermille": {
+        "foot": 0,
+        "horse": 0,
+        "wheeled": 0
+      },
+      "woodlandPermille": {
+        "foot": 800,
+        "horse": 500,
+        "wheeled": 0
+      }
+    },
+    {
+      "$comment": "Spec S2 13.1: a row of trees along a polyline, one trunk every treeSpacingMm from the first point. Trunk cells close every class and are fuel; no woodland between.",
+      "id": "tree-row",
+      "kind": "trees",
+      "shape": "polyline",
+      "minPoints": 2,
+      "maxPoints": 8,
+      "minLengthMm": 10000,
+      "maxLengthMm": 150000,
+      "treeSpacingMm": 4500,
+      "treeMinHeightMm": 12000,
+      "treeMaxHeightMm": 18000,
+      "trunkPermille": {
+        "foot": 0,
+        "horse": 0,
+        "wheeled": 0
+      }
+    },
+    {
+      "$comment": "Spec S2 11.1, 13.5: a herd grazing in a circle (its footprint for the buffer); 20-120 animals (herds.json, at most 400 a map). Herds move, so the route check ignores them.",
+      "id": "herd",
+      "kind": "herd",
+      "minRadiusMm": 15000,
+      "maxRadiusMm": 40000,
+      "minAnimals": 20,
+      "maxAnimals": 120,
+      "defaultAnimals": 60
     }
   ],
   "battleMadeBlockers": {
     "$comment": "Spec S2 13.2 (battle-made blockers: exempt from the lock-in route check, clearable; brief 2026-10-09, D14). wreck: a siege engine smashed to 0 structure, or abandoned once its regiment has no crew left (S2 2.1; the same stamp as a felled trunk), over the cells under the engine's body: foot climbs over at crossingPermille, horse and wheeled closed. Engineers clear one in engineerClearTicks; any foot regiment in footRegimentClearTicks, only when it closes its army's last route for some class (D14; M5 item 7).",
     "wreck": {
-      "crossingPermille": { "foot": 300, "horse": 0, "wheeled": 0 },
+      "crossingPermille": {
+        "foot": 300,
+        "horse": 0,
+        "wheeled": 0
+      },
       "engineerClearTicks": 900,
       "footRegimentClearTicks": 2400
+    },
+    "felledTree": {
+      "$comment": "Spec S2 13.2: a tree Lightning felled: the trunk one cell wide and as long as the tree, the crown its last crownLengthMm, crownWidthCells wide. Foot climb the trunk at 300 permille; the crown closes every class. Soldiers in its cells when it lands are crushed, those within crushEdgeMm launched (launches.json falling-tree); animals are never hurt (D6). Clearing as the wreck's.",
+      "crossingPermille": {
+        "foot": 300,
+        "horse": 0,
+        "wheeled": 0
+      },
+      "crownPermille": {
+        "foot": 0,
+        "horse": 0,
+        "wheeled": 0
+      },
+      "crownLengthMm": 4500,
+      "crownWidthCells": 3,
+      "crushEdgeMm": 1500,
+      "engineerClearTicks": 600,
+      "footRegimentClearTicks": 2400
+    },
+    "fire": {
+      "$comment": "Fire v0 (S2 12.2, D11): a burning cell closes every class (and is lethal: a soldier launched or pushed into it burns). It reopens when the fire is out.",
+      "crossingPermille": {
+        "foot": 0,
+        "horse": 0,
+        "wheeled": 0
+      },
+      "engineerClearTicks": 72000,
+      "footRegimentClearTicks": 72000
     }
   }
 }

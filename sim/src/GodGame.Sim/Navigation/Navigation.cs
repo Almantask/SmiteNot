@@ -400,7 +400,37 @@ namespace GodGame.Sim
             }
             Stamp(blockers, b);
             RefreshCells(context, cells);
+            if (kind != BlockerKind.Fire && Map.DeploymentZones.Count >= 2)
+            {
+                // D14: does it close some army's last route for some class? Then foot regiments may clear it.
+                if (_routes == null)
+                {
+                    _routes = new Reachability(Costs, Map, Rules.Routes);
+                }
+                else
+                {
+                    var dirty = Bounds(cells);
+                    _routes.Update(dirty);
+                }
+                blockers.SetClosesRoute(b, !_routes.Check(context.Runner).Ok);
+            }
             return b;
+        }
+
+        private CellRect Bounds(int[] cells)
+        {
+            int minX = int.MaxValue;
+            int minY = int.MaxValue;
+            int maxX = -1;
+            int maxY = -1;
+            foreach (int cell in cells)
+            {
+                minX = System.Math.Min(minX, cell % Terrain.Columns);
+                maxX = System.Math.Max(maxX, cell % Terrain.Columns);
+                minY = System.Math.Min(minY, cell / Terrain.Columns);
+                maxY = System.Math.Max(maxY, cell / Terrain.Columns);
+            }
+            return Terrain.DirtyAround(minX, minY, maxX, maxY);
         }
 
         /// <summary>Clears a battle-made blocker (spec S2 13.2, D14): its cells go back to the map's, with any other blocker on them.</summary>
@@ -416,6 +446,7 @@ namespace GodGame.Sim
             foreach (int cell in cells)
             {
                 Terrain.UnstampBlocker(cell);
+                Terrain.SetBurning(cell, false);
             }
             // Re-stamp the others that share a cell, in the order they were made (a few blockers: a linear scan).
             for (int other = 0; other < blockers.Count; other++)
@@ -434,6 +465,10 @@ namespace GodGame.Sim
                             theirs[k],
                             BlockerCodes(blockers.Kind(other), profile[k])
                         );
+                        if (blockers.Kind(other) == BlockerKind.Fire)
+                        {
+                            Terrain.SetBurning(theirs[k], true);
+                        }
                     }
                 }
             }
@@ -448,7 +483,10 @@ namespace GodGame.Sim
             {
                 return FieldSpeed.Closed | FieldSpeed.Closed << 8 | FieldSpeed.Closed << 16;
             }
-            var crossing = rules.CrossingPermille;
+            var crossing =
+                profile == 1 && rules.CrownPermille != null
+                    ? rules.CrownPermille
+                    : rules.CrossingPermille;
             return FieldSpeed.CodeForPermille(crossing[0])
                 | FieldSpeed.CodeForPermille(crossing[1]) << 8
                 | FieldSpeed.CodeForPermille(crossing[2]) << 16;
@@ -456,7 +494,12 @@ namespace GodGame.Sim
 
         /// <summary>The rules of a blocker's cell profile, or null (closed to every class) where the rules set none.</summary>
         public BlockerRules? BlockerRulesFor(BlockerKind kind, byte profile) =>
-            kind == BlockerKind.Wreck ? Rules.Terrain.Wreck : null;
+            kind switch
+            {
+                BlockerKind.Wreck => Rules.Terrain.Wreck,
+                BlockerKind.FelledTree => Rules.Terrain.FelledTree,
+                _ => Rules.Terrain.Fire,
+            };
 
         private void Stamp(Blockers blockers, int b)
         {
@@ -465,6 +508,10 @@ namespace GodGame.Sim
             for (int k = 0; k < cells.Length; k++)
             {
                 Terrain.StampBlocker(cells[k], BlockerCodes(blockers.Kind(b), profile[k]));
+                if (blockers.Kind(b) == BlockerKind.Fire)
+                {
+                    Terrain.SetBurning(cells[k], true);
+                }
             }
         }
 

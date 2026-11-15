@@ -4,11 +4,11 @@
   "status": "placeholder",
   "unitTypes": [
     {
-      "id": "infantry", "movementClass": "foot", "massKg": 90, "health": 100, "morale": 1000, "speedMmPerS": 1500, "radiusMm": 350, "runMmPerS": 3000, "moraleShockPermille": 1000, "melee": {"damage": 25, "hitPermille": 550, "intervalTicks": 30, "reachMm": 600}, "meleeTakenPermille": 900, "arrowTakenPermille": 600, "sweptDepthSpeedPermille": 900,
+      "id": "infantry", "braces": true, "movementClass": "foot", "massKg": 90, "health": 100, "morale": 1000, "speedMmPerS": 1500, "radiusMm": 350, "runMmPerS": 3000, "moraleShockPermille": 1000, "melee": {"damage": 25, "hitPermille": 550, "intervalTicks": 30, "reachMm": 600}, "meleeTakenPermille": 900, "arrowTakenPermille": 600, "sweptDepthSpeedPermille": 900,
       "formation": {"files": 20, "fileSpacingMm": 1000, "rankSpacingMm": 1200, "minSoldiers": 50, "maxSoldiers": 200}
     },
     {
-      "id": "cavalry", "movementClass": "horse", "massKg": 600, "health": 150, "morale": 1000, "speedMmPerS": 3500, "radiusMm": 700, "runMmPerS": 5000, "moraleShockPermille": 900, "melee": {"damage": 30, "hitPermille": 600, "intervalTicks": 30, "reachMm": 900}, "meleeTakenPermille": 800, "arrowTakenPermille": 800,
+      "id": "cavalry", "charges": true, "movementClass": "horse", "massKg": 600, "health": 150, "morale": 1000, "speedMmPerS": 3500, "radiusMm": 700, "runMmPerS": 5000, "moraleShockPermille": 900, "melee": {"damage": 30, "hitPermille": 600, "intervalTicks": 30, "reachMm": 900}, "meleeTakenPermille": 800, "arrowTakenPermille": 800,
       "formation": {"files": 10, "fileSpacingMm": 1800, "rankSpacingMm": 3000, "minSoldiers": 30, "maxSoldiers": 120}
     },
     {
@@ -44,6 +44,16 @@
     {
       "id": "crew", "seats": [], "movementClass": "foot", "massKg": 85, "health": 80, "morale": 1000, "speedMmPerS": 1500, "radiusMm": 350, "runMmPerS": 3000, "moraleShockPermille": 1200, "melee": {"damage": 10, "hitPermille": 400, "intervalTicks": 30, "reachMm": 400}, "meleeTakenPermille": 1000, "arrowTakenPermille": 1000, "slotRadiusMm": 3000,
       "formation": {"files": 1, "fileSpacingMm": 1000, "rankSpacingMm": 1000, "minSoldiers": 1, "maxSoldiers": 64}
+    },
+    {
+      "$comment": "Herd animals (S2 11.1; herds.json): never die, never launched, crushed or burned (D6); swept animals paddle out with no drowning timer. Placed as terrain pieces, not in the army layer (no seats). speedMmPerS is the driven walk, runMmPerS the stampede.",
+      "id": "cattle", "seats": [], "animal": true, "movementClass": "horse", "massKg": 500, "health": 1, "morale": 1000, "speedMmPerS": 1200, "radiusMm": 700, "runMmPerS": 6500, "moraleShockPermille": 0, "meleeTakenPermille": 0, "arrowTakenPermille": 0,
+      "formation": {"files": 1, "fileSpacingMm": 2000, "rankSpacingMm": 2000, "minSoldiers": 1, "maxSoldiers": 400}
+    },
+    {
+      "$comment": "Drovers (S2 14.8, both seats, 10-20; dogs are presentation only): walk a herd at its driven pace by fear 400 within 30 m (herds.json), never more, so they never start a stampede (brief 2026-10-09). Under 25 soldiers: no shield against casts (D15).",
+      "id": "drovers", "seats": ["attacker", "defender"], "action": "drive-herd", "movementClass": "foot", "massKg": 75, "health": 80, "morale": 1000, "speedMmPerS": 1600, "radiusMm": 350, "runMmPerS": 3200, "moraleShockPermille": 1300, "melee": {"damage": 10, "hitPermille": 400, "intervalTicks": 30, "reachMm": 400}, "meleeTakenPermille": 1000, "arrowTakenPermille": 1000,
+      "formation": {"files": 5, "fileSpacingMm": 3000, "rankSpacingMm": 3000, "minSoldiers": 10, "maxSoldiers": 20}
     }
   ]
 }

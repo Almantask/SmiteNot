@@ -73,9 +73,11 @@ namespace GodGame.Sim
             }
             bool engineers = type.Does("bridgework") || type.Does("clear-blocker");
             bool marshals = type.Does("meter-crossing");
+            bool drovers = type.Does("drive-herd");
             int code =
                 engineers ? army.JobKind[r]
                 : marshals ? MeterAction
+                : drovers ? DriveAction
                 : string.Equals(type.Action, "dig-ditch", StringComparison.Ordinal) ? DigDitchAction
                 : FillCrossingAction;
             if (army.Wiped[r] || army.Order[r] == RegimentOrder.Rout)
@@ -107,6 +109,10 @@ namespace GodGame.Sim
             if (marshals)
             {
                 return Meter(context, r);
+            }
+            if (drovers)
+            {
+                return Drive(context, r);
             }
             if (type.Does("lay-pontoon"))
             {
@@ -415,14 +421,16 @@ namespace GodGame.Sim
             {
                 if (
                     (bridgework == null || timber <= 0)
-                    && (clearing == null || pool < clearing.BoulderTicks)
+                    && (clearing == null || pool < MinClearTicks(clearing))
                 )
                 {
                     army.Job[r] = SpecialistJob.Done;
                     return false;
                 }
                 int kind =
-                    clearing != null
+                    clearing != null && FindBattleBlocker(world, r, clearing, pool)
+                        ? ClearBlockerAction
+                    : clearing != null
                     && pool >= clearing.BoulderTicks
                     && FindBoulder(world, r, clearing)
                         ? ClearAction
@@ -471,6 +479,9 @@ namespace GodGame.Sim
                         army.Spent2[r] += clearing.BoulderTicks;
                     }
                     break;
+                case ClearBlockerAction:
+                    finished = ClearBattleBlocker(context, r, clearing!);
+                    break;
                 case TrestleAction:
                     finished = BuildTrestle(context, r, bridgework!);
                     break;
@@ -507,6 +518,7 @@ namespace GodGame.Sim
             int cell = army.JobKind[r] switch
             {
                 ClearAction => army.WorkStep[r],
+                ClearBlockerAction => army.WorkStep[r],
                 PontoonAction => army.JobTargets[r]![army.JobTargets[r]!.Length - 1],
                 TrestleAction => army.WorkStep[r] < 0
                     ? 0
@@ -847,7 +859,7 @@ namespace GodGame.Sim
             {
                 if (
                     !world.Regiments.IsAlive(e)
-                    || world.RegimentSide[e] == world.RegimentSide[r]
+                    || !Sides.Hostile(world.RegimentSide[e], world.RegimentSide[r])
                     || _summary.Count[e] == 0
                     || army.Wiped[e]
                     || !_summary.Within(r, e, common.PauseWhenEnemyWithinMm)

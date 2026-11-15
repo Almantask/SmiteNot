@@ -32,6 +32,15 @@ namespace GodGame.Sim.Rules
         /// classes its structure kind carries, over water that flows beneath it.
         /// </summary>
         Bridge = 6,
+
+        /// <summary>
+        /// Trees (spec S2 13.1): a grove (a circle of trees with woodland between) or a row along a polyline. Trunk cells
+        /// close every class; everything is fuel for Lightning v0's fire.
+        /// </summary>
+        Trees = 7,
+
+        /// <summary>A herd grazing in a circle (spec S2 11.1): animals that move, so the route check ignores them.</summary>
+        Herd = 8,
     }
 
     /// <summary>
@@ -50,8 +59,40 @@ namespace GodGame.Sim.Rules
 
         public PieceKind Kind { get; }
 
-        /// <summary>Whether the piece is drawn as a polyline (channel, ridge, hollow) rather than placed at a point.</summary>
-        public bool IsPolyline => Kind <= PieceKind.Hollow || Kind == PieceKind.Line;
+        /// <summary>Whether the piece is drawn as a polyline (channel, ridge, hollow, line, tree row) rather than placed at a point.</summary>
+        public bool IsPolyline =>
+            Kind <= PieceKind.Hollow
+            || Kind == PieceKind.Line
+            || (Kind == PieceKind.Trees && !IsCircle);
+
+        /// <summary>A grove or a herd: a circle the player places with a radius.</summary>
+        public bool IsCircle { get; internal set; }
+
+        public int MinRadiusMm { get; internal set; }
+
+        public int MaxRadiusMm { get; internal set; }
+
+        /// <summary>A grove's tree spacing: one tree per block this many cells square.</summary>
+        public int TreeEveryCells { get; internal set; }
+
+        /// <summary>A row's tree spacing along it.</summary>
+        public int TreeSpacingMm { get; internal set; }
+
+        public int TreeMinHeightMm { get; internal set; }
+
+        public int TreeMaxHeightMm { get; internal set; }
+
+        /// <summary>A trunk cell's crossing speed per land class (‰; 0 closed).</summary>
+        public int[] TrunkPermille { get; internal set; } = new int[3];
+
+        /// <summary>A grove's woodland cells' crossing speed per land class, or null for a row.</summary>
+        public int[]? WoodlandPermille { get; internal set; }
+
+        public int MinAnimals { get; internal set; }
+
+        public int MaxAnimals { get; internal set; }
+
+        public int DefaultAnimals { get; internal set; }
 
         public int MinPoints { get; internal set; }
 
@@ -153,6 +194,16 @@ namespace GodGame.Sim.Rules
         public int EngineerClearTicks { get; }
 
         public int FootRegimentClearTicks { get; }
+
+        /// <summary>A felled tree's crown cells (profile 1), per land class (‰; 0 closed); null for a one-profile blocker.</summary>
+        public int[]? CrownPermille { get; internal set; }
+
+        public int CrownLengthMm { get; internal set; }
+
+        public int CrownWidthCells { get; internal set; }
+
+        /// <summary>Soldiers within this of a felled tree's cells when it lands are launched (those in them crushed).</summary>
+        public int CrushEdgeMm { get; internal set; }
     }
 
     /// <summary>The terrain pieces and the rules every placement shares (spec S1, section 9.1).</summary>
@@ -171,6 +222,12 @@ namespace GodGame.Sim.Rules
 
         /// <summary>A wrecked or abandoned engine's stamp (spec S2 13.2), or null in rules without one.</summary>
         public BlockerRules? Wreck { get; internal set; }
+
+        /// <summary>A felled tree's trunk and crown (spec S2 13.2), or null.</summary>
+        public BlockerRules? FelledTree { get; internal set; }
+
+        /// <summary>A burning cell (fire v0, S2 12.2), or null.</summary>
+        public BlockerRules? Fire { get; internal set; }
 
         /// <summary>The piece with this id, or null.</summary>
         public PieceRules? Piece(string id)

@@ -31,12 +31,25 @@ namespace GodGame.Sim
 
         /// <summary>In a fixed slot on a tower or wall (tech notes, section 4).</summary>
         Garrisoned = 1 << 6,
+
+        /// <summary>A rider who has made his charge's contact (spec S2 10.3): he takes no more targets until his regiment charges again.</summary>
+        Charged = 1 << 7,
     }
 
-    /// <summary>The two seats in every mode.</summary>
+    /// <summary>The two seats in every mode, and the herds, which pick no side (brief 2026-10-08).</summary>
     public enum Side : byte
     {
         Attacker = 0,
         Defender = 1,
+
+        /// <summary>A herd (spec S2 11): neither army's, never a target, never fighting, never counted for either.</summary>
+        Neutral = 2,
+    }
+
+    public static class Sides
+    {
+        /// <summary>Whether regiments of these sides fight each other: the two armies do; herds fight nobody.</summary>
+        public static bool Hostile(Side a, Side b) =>
+            a != b && a != Side.Neutral && b != Side.Neutral;
     }
 }

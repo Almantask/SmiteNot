@@ -708,7 +708,7 @@ namespace GodGame.Sim
                         int j = neighbours[k];
                         if (
                             j == u
-                            || w.RegimentSide[w.UnitRegiment[j]] == side
+                            || !Sides.Hostile(w.RegimentSide[w.UnitRegiment[j]], side)
                             || (w.Flags[j] & UnitFlags.Launched) != 0
                         )
                         {

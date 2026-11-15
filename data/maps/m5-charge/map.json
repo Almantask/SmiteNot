@@ -1,0 +1,24 @@
+{
+  "$comment": "M5 Charge grey-box map (heightfield + zones only, written by tools/maps/make_m5_charge.py): 420 x 240 m open ground with full-depth attacker (west) and defender (east) deployment zones for testing close-order vs open-order infantry blocks under charge impact.",
+  "version": 0,
+  "id": "m5-charge",
+  "widthMm": 420000,
+  "depthMm": 240000,
+  "cellSizeMm": 1500,
+  "deployment": [
+    {
+      "side": "attacker",
+      "minXMm": 0,
+      "minYMm": 0,
+      "maxXMm": 90000,
+      "maxYMm": 240000
+    },
+    {
+      "side": "defender",
+      "minXMm": 330000,
+      "minYMm": 0,
+      "maxXMm": 420000,
+      "maxYMm": 240000
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "$comment": "Herds and stampedes (spec S2 section 11, settled 2026-11-07; numbers are proposals). Integers only: mm, mm/s, cd, ticks at 20 per second, permille, fear 0-1000, health points. Brief: herds roam and block (2026-10-08); a fear source spooks a herd into a stampede that flees it, steered by terrain, never aimed, picking no side (2026-10-08); herds never walk into lethal cells (2026-10-09); units herd at walking pace and never start a stampede (2026-10-09); animals never die (D6). Fear is the largest of its sources, recomputed at the regiment AI rate from the herd's centroid: full fear within fullWithinMm, falling linearly to 0 at zeroAtMm; a strike's fear falls by decayPerS a second. Reaching thresholdFear commits the herd: agitated (milling, dust) for agitationTicks, then the stampede, heading straight away from the strongest source. Steering: if the cell lookAheadMm ahead is closed for the animals' class, turn turnStepCd toward the lower-cost side (left on a tie); downhill bias where the slope exceeds downhillMinSlopePermille within downhillArcCd of the heading, up to downhillTurnCdPerS. The run ends after runMaxMm or runMaxTicks; the herd then scatters (wanders at grazing pace where it stopped) and never stampedes again. Drovers' fear (at least drivenFearAtLeast) walks the herd away from them at drivenMmPerS. Impacts: a stampeding animal at minAnimalSpeedMmPerS or faster in body contact with a soldier on his feet (either side, not an engine) launches him (launches.json stampede) with launchPermille, else tramples him (trampleDamage, armour ignored, stunned trampleStunTicks); one victim per animal per victimCooldownTicks, after which it runs at slowAfterHitPermille for slowAfterHitTicks. The herd pen (S2 11.5) waits for its own pass; occupancy cost (x4 per animal cell) is left to the steering's queueing.",
+  "version": 0,
+  "status": "placeholder",
+  "animalType": "cattle",
+  "maxAnimalsPerMap": 400,
+  "grazeMmPerS": 300,
+  "waypointTicks": 200,
+  "drivenMmPerS": 1200,
+  "drivenFearAtLeast": 200,
+  "fear": {
+    "thresholdFear": 700,
+    "fire": {
+      "fear": 1000,
+      "fullWithinMm": 50000,
+      "zeroAtMm": 120000
+    },
+    "strike": {
+      "fear": 500,
+      "fullWithinMm": 80000,
+      "zeroAtMm": 80000,
+      "decayPerS": 100
+    },
+    "drovers": {
+      "fear": 400,
+      "fullWithinMm": 30000,
+      "zeroAtMm": 30000
+    }
+  },
+  "agitationTicks": 60,
+  "stampede": {
+    "speedMmPerS": 6500,
+    "lookAheadMm": 6000,
+    "turnStepCd": 1500,
+    "downhillMinSlopePermille": 100,
+    "downhillArcCd": 4500,
+    "downhillTurnCdPerS": 500,
+    "runMaxMm": 300000,
+    "runMaxTicks": 800
+  },
+  "impact": {
+    "minAnimalSpeedMmPerS": 4000,
+    "launchPermille": 600,
+    "trampleDamage": 60,
+    "trampleStunTicks": 60,
+    "victimCooldownTicks": 10,
+    "slowAfterHitPermille": 800,
+    "slowAfterHitTicks": 20
+  }
+}

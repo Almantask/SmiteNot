@@ -26,6 +26,46 @@ namespace GodGame.Sim
         public int DeckHeightMm { get; }
     }
 
+    /// <summary>A standing tree (spec S2 13.1): its trunk cell and height; its index in <see cref="MapData.Trees"/>.</summary>
+    public sealed class TreeSpec
+    {
+        internal TreeSpec(int cell, int heightMm, int index)
+        {
+            Cell = cell;
+            HeightMm = heightMm;
+            Index = index;
+        }
+
+        public int Cell { get; }
+
+        public int HeightMm { get; }
+
+        public int Index { get; }
+    }
+
+    /// <summary>A herd piece (spec S2 11.1): its grazing circle and its animals.</summary>
+    public sealed class HerdSpec
+    {
+        internal HerdSpec(string id, int xMm, int yMm, int radiusMm, int animals)
+        {
+            Id = id;
+            XMm = xMm;
+            YMm = yMm;
+            RadiusMm = radiusMm;
+            Animals = animals;
+        }
+
+        public string Id { get; }
+
+        public int XMm { get; }
+
+        public int YMm { get; }
+
+        public int RadiusMm { get; }
+
+        public int Animals { get; }
+    }
+
     /// <summary>A placed boulder (spec S1 9.1): its cells and the ground under it, for Engineers to clear (S2 14.7).</summary>
     public sealed class BoulderSpec
     {

@@ -255,6 +255,15 @@ namespace GodGame.Sim.Rules
         /// </summary>
         public int SweptDepthSpeedPermille { get; internal set; } = 1000;
 
+        /// <summary>A herd animal (spec S2 11.1, D6): never fights, never dies, never launched; placed by herd pieces.</summary>
+        public bool IsAnimal { get; internal set; }
+
+        /// <summary>Charges (spec S2 10.1): cavalry. A charging rider tramples or launches the soldiers he meets.</summary>
+        public bool Charges { get; internal set; }
+
+        /// <summary>Braces against a charge when standing in close order, facing it (S2 10.3): line infantry.</summary>
+        public bool Braces { get; internal set; }
+
         /// <summary>An engine type's crew (spec S2 2.1, D4: siege engines, the Pontoon Train's boats), or null.</summary>
         public EngineRules? Engine { get; internal set; }
 
@@ -469,6 +478,9 @@ namespace GodGame.Sim.Rules
 
         /// <summary>Launched soldiers and their landings (<c>launches.json</c>).</summary>
         public LaunchRules Launches { get; internal set; } = new LaunchRules();
+
+        /// <summary>Herds and stampedes (<c>herds.json</c>, spec S2 section 11), or null in rules without herds.</summary>
+        public HerdRules? Herds { get; internal set; }
 
         /// <summary>The specialist executor's actions (<c>specialists.json</c>).</summary>
         public SpecialistRules Specialists { get; internal set; } = new SpecialistRules();

@@ -78,5 +78,8 @@ namespace GodGame.Sim.Rules
 
         /// <summary>Rot's effect on wooden segments (spec S2 12.3), or null for a power that writes fields.</summary>
         public RotRules? Rot { get; internal set; }
+
+        /// <summary>Lightning v0 (spec S2 12.1): a strike that fells a tree and lights dry fuel; null for others.</summary>
+        public LightningRules? Lightning { get; internal set; }
     }
 }

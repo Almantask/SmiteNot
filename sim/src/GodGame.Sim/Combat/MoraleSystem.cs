@@ -141,7 +141,11 @@ namespace GodGame.Sim
                 _newlyWiped[r] = false;
                 _flagsChanged[r] = false;
                 int start = world.RegimentStartingSize[r];
-                if (!world.Regiments.IsAlive(r) || start == 0)
+                if (
+                    !world.Regiments.IsAlive(r)
+                    || start == 0
+                    || world.RegimentSide[r] == Side.Neutral
+                )
                 {
                     continue;
                 }
@@ -163,7 +167,12 @@ namespace GodGame.Sim
             {
                 _morale[r] = world.RegimentMorale[r];
                 int start = world.RegimentStartingSize[r];
-                if (!world.Regiments.IsAlive(r) || start == 0 || army.Wiped[r])
+                if (
+                    !world.Regiments.IsAlive(r)
+                    || start == 0
+                    || army.Wiped[r]
+                    || world.RegimentSide[r] == Side.Neutral
+                )
                 {
                     continue;
                 }
@@ -174,6 +183,7 @@ namespace GodGame.Sim
                     if (
                         f == r
                         || !world.Regiments.IsAlive(f)
+                        || world.RegimentSide[f] == Side.Neutral
                         || _summary.Count[f] == 0 && _lost[f] == 0
                     )
                     {
@@ -244,7 +254,11 @@ namespace GodGame.Sim
             );
             for (int r = 0; r < high; r++)
             {
-                if (!world.Regiments.IsAlive(r) || world.RegimentStartingSize[r] == 0)
+                if (
+                    !world.Regiments.IsAlive(r)
+                    || world.RegimentStartingSize[r] == 0
+                    || world.RegimentSide[r] == Side.Neutral
+                )
                 {
                     continue;
                 }
@@ -287,7 +301,7 @@ namespace GodGame.Sim
                 {
                     if (
                         world.Regiments.IsAlive(e)
-                        && world.RegimentSide[e] != world.RegimentSide[r]
+                        && Sides.Hostile(world.RegimentSide[e], world.RegimentSide[r])
                         && _summary.Count[e] > 0
                         && !army.Wiped[e]
                         && _summary.Gap(r, e) <= m.RallyNoEnemyWithinMm

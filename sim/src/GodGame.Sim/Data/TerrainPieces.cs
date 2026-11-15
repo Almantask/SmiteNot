@@ -15,9 +15,13 @@ namespace GodGame.Sim
             int widthMm,
             int depthMm,
             int heightMm,
-            int litresPerSecond
+            int litresPerSecond,
+            int radiusMm = 0,
+            int animals = 0
         )
         {
+            RadiusMm = radiusMm;
+            Animals = animals;
             Id = id;
             Rules = rules;
             PointsMm = pointsMm;
@@ -48,6 +52,12 @@ namespace GodGame.Sim
 
         /// <summary>Spring discharge; 0 for other kinds.</summary>
         public int LitresPerSecond { get; }
+
+        /// <summary>A grove's or a herd's circle radius (its one point is the centre); 0 for other kinds.</summary>
+        public int RadiusMm { get; }
+
+        /// <summary>A herd's animals; 0 for other kinds.</summary>
+        public int Animals { get; }
     }
 
     /// <summary>
@@ -158,6 +168,70 @@ namespace GodGame.Sim
                     (i, d) => stamped[i] = FieldSpeed.Combine(stamped[i], codes)
                 );
             }
+            // Trees (S2 13.1): trunk cells and a grove's woodland set crossing codes like lines; all of it, and hedgerows,
+            // is fuel for Lightning v0's fire. Herds are only recorded: their animals deploy as units.
+            var trees = new List<TreeSpec>();
+            var herds = new List<HerdSpec>();
+            bool[]? fuel = null;
+            foreach (var piece in pieces)
+            {
+                if (piece.Rules.Kind == PieceKind.Herd)
+                {
+                    herds.Add(
+                        new HerdSpec(
+                            piece.Id,
+                            piece.PointsMm[0],
+                            piece.PointsMm[1],
+                            piece.RadiusMm,
+                            piece.Animals
+                        )
+                    );
+                    continue;
+                }
+                bool hedge =
+                    piece.Rules.Kind == PieceKind.Line
+                    && string.Equals(piece.Rules.Material, "hedge", StringComparison.Ordinal);
+                if (piece.Rules.Kind != PieceKind.Trees && !hedge)
+                {
+                    continue;
+                }
+                fuel ??= new bool[heights.Length];
+                if (hedge)
+                {
+                    var burns = fuel;
+                    ForEachNear(map, piece, HalfFootprint(map, piece), (i, d) => burns[i] = true);
+                    continue;
+                }
+                if (speed == null)
+                {
+                    speed = new int[heights.Length];
+                    for (int i = 0; i < speed.Length; i++)
+                    {
+                        speed[i] = FieldSpeed.AllDry;
+                    }
+                }
+                int trunk = Codes(piece.Rules.TrunkPermille);
+                var trunks = TreeCells(map, piece);
+                for (int k = 0; k < trunks.Count; k++)
+                {
+                    int i = trunks[k];
+                    speed[i] = FieldSpeed.Combine(speed[i], trunk);
+                    fuel[i] = true;
+                    trees.Add(new TreeSpec(i, TreeHeight(piece, k), trees.Count));
+                }
+                if (piece.Rules.WoodlandPermille != null)
+                {
+                    int wood = Codes(piece.Rules.WoodlandPermille);
+                    foreach (int i in CircleCells(map, piece))
+                    {
+                        fuel[i] = true;
+                        if (!trunks.Contains(i))
+                        {
+                            speed[i] = FieldSpeed.Combine(speed[i], wood);
+                        }
+                    }
+                }
+            }
             // Decks last (S2 8.1): the map's stone bridges and ponds, then the plan's bridges over the finished ground.
             var decks =
                 rules == null
@@ -175,8 +249,119 @@ namespace GodGame.Sim
                 sources.ToArray(),
                 speed,
                 decks,
-                boulders.ToArray()
+                boulders.ToArray(),
+                trees.ToArray(),
+                fuel,
+                herds.ToArray()
             );
+        }
+
+        private static int Codes(int[] permille)
+        {
+            int codes = 0;
+            for (int c = 0; c < FieldSpeed.Classes; c++)
+            {
+                codes |= FieldSpeed.CodeForPermille(permille[c]) << (c * 8);
+            }
+            return codes;
+        }
+
+        /// <summary>A stable hash of a piece id and a number: what "seeded" means for pieces, which the plan alone decides.</summary>
+        private static uint PieceHash(string id, int k)
+        {
+            var hash = new SimHash();
+            hash.AppendInt32(id.Length);
+            foreach (char c in id)
+            {
+                hash.AppendInt32(c);
+            }
+            hash.AppendInt32(k);
+            return unchecked((uint)hash.Digest());
+        }
+
+        /// <summary>Tree <paramref name="k"/>'s height, seeded by the piece's id between the piece's limits.</summary>
+        private static int TreeHeight(PlannedPiece piece, int k)
+        {
+            var rules = piece.Rules;
+            uint span = (uint)(rules.TreeMaxHeightMm - rules.TreeMinHeightMm + 1);
+            return rules.TreeMinHeightMm + (int)(PieceHash(piece.Id, k + 1) % span);
+        }
+
+        /// <summary>Cells whose centre lies within a circle piece's radius of its centre, row by row.</summary>
+        public static List<int> CircleCells(MapData map, PlannedPiece piece)
+        {
+            var cells = new List<int>();
+            long cx = piece.PointsMm[0];
+            long cy = piece.PointsMm[1];
+            long r = piece.RadiusMm;
+            int cell = map.CellSizeMm;
+            int x0 = (int)System.Math.Max(0, (cx - r) / cell);
+            int x1 = (int)System.Math.Min(map.Columns - 1, (cx + r) / cell);
+            int y0 = (int)System.Math.Max(0, (cy - r) / cell);
+            int y1 = (int)System.Math.Min(map.Rows - 1, (cy + r) / cell);
+            for (int y = y0; y <= y1; y++)
+            {
+                for (int x = x0; x <= x1; x++)
+                {
+                    long dx = (long)x * cell + cell / 2 - cx;
+                    long dy = (long)y * cell + cell / 2 - cy;
+                    if (dx * dx + dy * dy <= r * r)
+                    {
+                        cells.Add(y * map.Columns + x);
+                    }
+                }
+            }
+            return cells;
+        }
+
+        /// <summary>
+        /// A tree piece's trunk cells, in a fixed order (S2 13.1): a grove's on a grid of blocks treeEveryCells square,
+        /// offset by a hash of its id; a row's every treeSpacingMm along it from its first point.
+        /// </summary>
+        public static List<int> TreeCells(MapData map, PlannedPiece piece)
+        {
+            var cells = new List<int>();
+            var rules = piece.Rules;
+            if (rules.IsCircle)
+            {
+                int n = System.Math.Max(1, rules.TreeEveryCells);
+                uint h = PieceHash(piece.Id, 0);
+                int ox = (int)(h % (uint)n);
+                int oy = (int)((h / (uint)n) % (uint)n);
+                foreach (int i in CircleCells(map, piece))
+                {
+                    int x = i % map.Columns;
+                    int y = i / map.Columns;
+                    if ((x + n - ox) % n == 0 && (y + n - oy) % n == 0)
+                    {
+                        cells.Add(i);
+                    }
+                }
+                return cells;
+            }
+            int[] p = piece.PointsMm;
+            long carry = 0; // distance along the line to the next tree, from the start of this segment
+            for (int k = 0; k + 3 < p.Length; k += 2)
+            {
+                long dx = p[k + 2] - p[k];
+                long dy = p[k + 3] - p[k + 1];
+                long length = IntMath.Sqrt((ulong)(dx * dx + dy * dy));
+                long at = carry;
+                for (; at <= length; at += rules.TreeSpacingMm)
+                {
+                    long x = length == 0 ? p[k] : p[k] + dx * at / length;
+                    long y = length == 0 ? p[k + 1] : p[k + 1] + dy * at / length;
+                    int i =
+                        (int)System.Math.Min(map.Rows - 1, y / map.CellSizeMm) * map.Columns
+                        + (int)System.Math.Min(map.Columns - 1, x / map.CellSizeMm);
+                    if (!cells.Contains(i))
+                    {
+                        cells.Add(i);
+                    }
+                }
+                carry = at - length;
+            }
+            return cells;
         }
 
         /// <summary>
@@ -197,6 +382,10 @@ namespace GodGame.Sim
                     break;
                 case PieceKind.Bridge:
                     cells.AddRange(DeckLayout.BridgeFootprint(map, piece));
+                    break;
+                case PieceKind.Trees when piece.Rules.IsCircle:
+                case PieceKind.Herd:
+                    cells.AddRange(CircleCells(map, piece));
                     break;
                 case PieceKind.Spring:
                     var area = SpringArea(map, piece);
@@ -299,6 +488,7 @@ namespace GodGame.Sim
                     return rules.TopWidthMm / 2
                         + (long)piece.HeightMm * 1000 / rules.SideSlopePermille;
                 case PieceKind.Line:
+                case PieceKind.Trees:
                     return LineReach(map);
                 default:
                     return rules.TopWidthMm / 2

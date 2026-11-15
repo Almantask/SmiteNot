@@ -173,9 +173,33 @@ namespace GodGame.Sim
         private readonly int[]? _mapPieceSpeed; // the played map's line pieces, never changed
         private int[]? _pieceSpeed; // those plus the battle-made blockers stamped on them
 
+        private bool[]? _burning; // fire v0 cells (S2 12.2), from the world's fire blockers
+
+        /// <summary>Whether a cell burns (fire v0): closed and lethal; a soldier pushed or launched in burns.</summary>
+        public bool IsBurning(int index) => _burning != null && _burning[index];
+
+        public bool AnyBurning { get; private set; }
+
+        /// <summary>Marks a cell burning or not (the fire's blocker is stamped or cleared).</summary>
+        public void SetBurning(int index, bool burning)
+        {
+            if (_burning == null)
+            {
+                if (!burning)
+                {
+                    return;
+                }
+                _burning = new bool[Columns * Rows];
+            }
+            _burning[index] = burning;
+            AnyBurning |= burning;
+        }
+
         /// <summary>Back to the played map's line pieces, with no battle-made blocker (before a restore re-stamps them).</summary>
         public void ResetBlockers()
         {
+            _burning = null;
+            AnyBurning = false;
             if (_mapPieceSpeed == null)
             {
                 _pieceSpeed = null;

@@ -12,6 +12,9 @@ namespace GodGame.Sim
 
         /// <summary>A tree lightning felled across the ground (S2 12.1, 13.2): trunk cells and crown cells.</summary>
         FelledTree = 1,
+
+        /// <summary>A fire v0 patch (S2 12.2): burning cells, closed and lethal until it goes out.</summary>
+        Fire = 2,
     }
 
     /// <summary>
@@ -33,6 +36,9 @@ namespace GodGame.Sim
         private readonly List<byte[]> _profile = new List<byte[]>();
         private readonly List<int> _event = new List<int>();
         private readonly List<bool> _cleared = new List<bool>();
+        private readonly List<bool> _closesRoute = new List<bool>();
+        private readonly List<int> _clearer = new List<int>();
+        private readonly List<int> _progress = new List<int>();
 
         public int Count => _kind.Count;
 
@@ -47,6 +53,23 @@ namespace GodGame.Sim
         public int Event(int b) => _event[b];
 
         public bool IsCleared(int b) => _cleared[b];
+
+        /// <summary>Whether it closed some army's last route for some class when it was made (D14: foot regiments clear it).</summary>
+        public bool ClosesRoute(int b) => _closesRoute[b];
+
+        /// <summary>The foot regiment clearing it (D14), or -1.</summary>
+        public int Clearer(int b) => _clearer[b];
+
+        /// <summary>Ticks of clearing the foot regiment has done.</summary>
+        public int Progress(int b) => _progress[b];
+
+        public void SetClearer(int b, int regiment, int progress)
+        {
+            _clearer[b] = regiment;
+            _progress[b] = progress;
+        }
+
+        public void SetClosesRoute(int b, bool closes) => _closesRoute[b] = closes;
 
         /// <summary>Adds a blocker and returns its index, or -1 when the battle has made as many as it may.</summary>
         public int Add(BlockerKind kind, int[] cells, byte[] profile, int causeEvent)
@@ -68,6 +91,9 @@ namespace GodGame.Sim
             _profile.Add((byte[])profile.Clone());
             _event.Add(causeEvent);
             _cleared.Add(false);
+            _closesRoute.Add(false);
+            _clearer.Add(-1);
+            _progress.Add(0);
             return _kind.Count - 1;
         }
 
@@ -81,6 +107,9 @@ namespace GodGame.Sim
                 writer.WriteByte((byte)_kind[b]);
                 writer.WriteInt32(_event[b]);
                 writer.WriteByte(_cleared[b] ? (byte)1 : (byte)0);
+                writer.WriteByte(_closesRoute[b] ? (byte)1 : (byte)0);
+                writer.WriteInt32(_clearer[b]);
+                writer.WriteInt32(_progress[b]);
                 writer.WriteInt32(_cells[b].Length);
                 for (int k = 0; k < _cells[b].Length; k++)
                 {
@@ -97,6 +126,9 @@ namespace GodGame.Sim
             _profile.Clear();
             _event.Clear();
             _cleared.Clear();
+            _closesRoute.Clear();
+            _clearer.Clear();
+            _progress.Clear();
             int n = reader.ReadInt32();
             if (n < 0 || n > MaxBlockers)
             {
@@ -105,7 +137,7 @@ namespace GodGame.Sim
             for (int b = 0; b < n; b++)
             {
                 byte kind = reader.ReadByte();
-                if (kind > (byte)BlockerKind.FelledTree)
+                if (kind > (byte)BlockerKind.Fire)
                 {
                     throw new FormatException("Snapshot blocker kind is out of range.");
                 }
@@ -119,6 +151,16 @@ namespace GodGame.Sim
                 {
                     throw new FormatException("Snapshot blocker cleared flag is invalid.");
                 }
+                byte closes = reader.ReadByte();
+                int clearer = reader.ReadInt32();
+                int progress = reader.ReadInt32();
+                if (closes > 1 || clearer < -1 || progress < 0)
+                {
+                    throw new FormatException("Snapshot blocker clearing is invalid.");
+                }
+                _closesRoute.Add(closes == 1);
+                _clearer.Add(clearer);
+                _progress.Add(progress);
                 int length = reader.ReadInt32();
                 if (length < 1 || length > MaxCells)
                 {
@@ -151,6 +193,9 @@ namespace GodGame.Sim
                 hash.AppendInt32((int)_kind[b]);
                 hash.AppendInt32(_event[b]);
                 hash.AppendInt32(_cleared[b] ? 1 : 0);
+                hash.AppendInt32(_closesRoute[b] ? 1 : 0);
+                hash.AppendInt32(_clearer[b]);
+                hash.AppendInt32(_progress[b]);
                 hash.AppendInt32(_cells[b].Length);
                 for (int k = 0; k < _cells[b].Length; k++)
                 {

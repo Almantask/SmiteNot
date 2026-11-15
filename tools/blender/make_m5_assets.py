@@ -675,6 +675,353 @@ def build_fire_small(b: PropBuilder, lod: int):
         )
 
 
+def build_hedgerow(b: PropBuilder, lod: int):
+    """~1.5 m wide hawthorn & briar hedgerow cell segment: root bank, gnarled woody stems, layered thorny foliage."""
+    if lod == 2:
+        b.add_box((0.0, 0.0, 0.14), (1.48, 0.72, 0.28), (0, 0, 0), "bark_dark", 0, "root")
+        b.add_sphere((-0.44, 0.02, 0.78), (0.48, 0.52, 0.64), 5, 3, "foliage_dark", 0, "root")
+        b.add_sphere((0.0, -0.03, 0.88), (0.54, 0.56, 0.68), 5, 3, "foliage_mid", 0, "root")
+        b.add_sphere((0.44, 0.03, 0.76), (0.48, 0.50, 0.62), 5, 3, "foliage_dark", 0, "root")
+        return
+
+    # Earthy & tangled root bank base anchored at z = 0.
+    b.add_tapered_box((0.0, 0.0, 0.14), (1.50, 0.92), (1.38, 0.72), 0.28, (0, 0, 0), "bark_dark", 0, "root")
+
+    # Gnarled twisting hawthorn stems & protruding briar branches.
+    stem_seg = 6 if lod == 0 else 4
+    stems = [
+        ((-0.52, -0.06, 0.08), (-0.46, 0.04, 0.95), 0.08, 0.04),
+        ((-0.18, 0.10, 0.08), (-0.22, -0.08, 1.08), 0.09, 0.04),
+        ((0.16, -0.10, 0.08), (0.20, 0.06, 1.04), 0.085, 0.04),
+        ((0.50, 0.04, 0.08), (0.44, -0.06, 0.92), 0.075, 0.035),
+    ]
+    for idx, (p0, p1, r0, r1) in enumerate(stems):
+        b.add_cylinder(p0, p1, r0, r1, stem_seg, "bark_dark", 0, "root")
+        if lod == 0:
+            side_y = 0.48 if idx % 2 == 0 else -0.48
+            b.add_cylinder(
+                ((p0[0] + p1[0]) * 0.5, 0.0, 0.62 + 0.08 * idx),
+                (p1[0] * 1.05, side_y, 0.96 + 0.06 * (idx % 2)),
+                0.045,
+                0.018,
+                5,
+                "wood",
+                0,
+                "root",
+            )
+
+    # Dense overlapping foliage clusters spanning 1.5 m along X with irregular natural silhouette.
+    f_seg, f_ring = (8, 5) if lod == 0 else (6, 4)
+    main_clusters = [
+        ((-0.52, 0.06, 0.74), (0.44, 0.48, 0.52), "foliage_dark"),
+        ((-0.24, -0.10, 0.88), (0.46, 0.50, 0.56), "foliage_mid"),
+        ((0.02, 0.08, 0.96), (0.50, 0.52, 0.58), "foliage_dark"),
+        ((0.28, -0.06, 0.84), (0.44, 0.48, 0.52), "foliage_mid"),
+        ((0.54, 0.04, 0.72), (0.42, 0.46, 0.48), "foliage_dark"),
+        ((-0.36, 0.24, 0.56), (0.34, 0.34, 0.36), "foliage_mid"),
+        ((0.32, -0.26, 0.54), (0.34, 0.34, 0.36), "foliage_dry"),
+    ]
+    for ctr, rad, cell in main_clusters:
+        b.add_sphere(ctr, rad, f_seg, f_ring, cell, 0, "root")
+
+    if lod == 1:
+        accents = [
+            ((-0.40, -0.22, 1.02), (0.28, 0.28, 0.28), "foliage_dry"),
+            ((-0.08, 0.22, 1.18), (0.30, 0.28, 0.30), "foliage_mid"),
+            ((0.24, 0.18, 1.12), (0.28, 0.26, 0.26), "foliage_dry"),
+            ((0.48, -0.20, 0.88), (0.26, 0.28, 0.26), "foliage_mid"),
+        ]
+        for ctr, rad, cell in accents:
+            b.add_sphere(ctr, rad, 5, 3, cell, 0, "root")
+    else:
+        accents = [
+            ((-0.58, -0.18, 0.52), (0.28, 0.28, 0.28), "foliage_dark"),
+            ((-0.44, 0.18, 1.08), (0.30, 0.28, 0.28), "foliage_dry"),
+            ((-0.18, -0.26, 1.12), (0.28, 0.26, 0.28), "foliage_mid"),
+            ((0.06, -0.18, 1.24), (0.32, 0.28, 0.26), "foliage_dry"),
+            ((0.36, 0.22, 1.06), (0.28, 0.26, 0.28), "foliage_mid"),
+            ((0.58, -0.16, 0.50), (0.26, 0.28, 0.26), "foliage_dark"),
+            ((-0.02, 0.30, 0.62), (0.30, 0.26, 0.30), "foliage_mid"),
+            ((0.14, -0.32, 0.46), (0.28, 0.24, 0.28), "foliage_dark"),
+            ((-0.34, -0.30, 0.44), (0.26, 0.24, 0.26), "foliage_dry"),
+        ]
+        for ctr, rad, cell in accents:
+            b.add_sphere(ctr, rad, 6, 4, cell, 0, "root")
+
+
+def build_wall_drystone(b: PropBuilder, lod: int):
+    """~1.5 m battered coursed fieldstone drystone wall section with rubble hearting and upright coping stones."""
+    if lod == 2:
+        b.add_tapered_box((0.0, 0.0, 0.48), (1.50, 0.84), (1.46, 0.56), 0.96, (0, 0, 0), "stone", 0, "root")
+        for i in range(4):
+            cx = -0.54 + i * 0.36
+            b.add_box((cx, 0.0, 1.06), (0.30, 0.44, 0.22), (0, 3 if i % 2 == 0 else -4, 0), "charred", 0, "root")
+        return
+
+    # Inner battered rubble mortarless core grounded cleanly at z = 0.
+    b.add_tapered_box((0.0, 0.0, 0.48), (1.50, 0.82), (1.46, 0.52), 0.96, (0, 0, 0), "charred", 0, "root")
+
+    # Coursed outer fieldstones on both faces (+Y and -Y) tapering inward with height.
+    stone_palette = ("stone", "cloth_cream", "stone", "charred")
+    courses = (
+        (0.16, 0.30, 0.34, 4 if lod == 1 else 5),
+        (0.46, 0.26, 0.30, 4 if lod == 1 else 6),
+        (0.76, 0.22, 0.26, 4 if lod == 1 else 5),
+    )
+    for c_idx, (cz, ch, dy, count) in enumerate(courses):
+        span = 1.46
+        step = span / count
+        y_off = 0.28 - c_idx * 0.055
+        for side_y in (-1.0, 1.0):
+            for i in range(count):
+                jx = (0.04 if (i + c_idx) % 2 == 0 else -0.03)
+                cx = -span * 0.5 + (i + 0.5) * step + jx * 0.4
+                sx = step * (0.94 if (i + c_idx) % 3 else 0.88)
+                sz = ch * (0.96 if i % 2 == 0 else 0.88)
+                yaw = (4.0 if (i + int(side_y)) % 2 == 0 else -3.5)
+                pitch = (2.5 if c_idx == 1 else -2.0) * side_y
+                cell = stone_palette[(i + c_idx * 2 + (0 if side_y > 0 else 1)) % len(stone_palette)]
+                b.add_box((cx, side_y * y_off, cz), (sx, dy, sz), (pitch, 0, yaw), cell, 0, "root")
+
+    # Additional small chinking stones on LOD0 to hit authentic drystone texture.
+    if lod == 0:
+        for i in range(12):
+            cx = -0.66 + (i * 0.12)
+            sy = 0.32 if i % 2 == 0 else -0.32
+            cz = 0.31 + (i % 3) * 0.28
+            b.add_box((cx, sy * 0.92, cz), (0.14, 0.16, 0.09), (0, 5 if i % 2 else -5, 12), "charred", 0, "root")
+
+    # Upright angled coping stones crowning the wall crest (z = 0.94..1.20 m).
+    coping_count = 7 if lod == 0 else 5
+    step = 1.46 / coping_count
+    for i in range(coping_count):
+        cx = -0.73 + (i + 0.5) * step
+        sh = 0.24 if i % 2 == 0 else 0.20
+        cell = "stone" if i % 3 != 1 else "charred"
+        b.add_tapered_box(
+            (cx, 0.0, 0.95 + sh * 0.5),
+            (step * 0.92, 0.46),
+            (step * 0.78, 0.26),
+            sh,
+            (4 if i % 2 == 0 else -3, 3, 2 if i % 2 == 0 else -2),
+            cell,
+            0,
+            "root",
+        )
+
+
+def build_bridge_wood(b: PropBuilder, lod: int):
+    """~3.0 m wide x 4.5 m long heavy timber cart bridge section: driven piles, stringers, deck planks, wheel kerbs & braced rails."""
+    if lod == 2:
+        # Four heavy piles + wide timber deck + two top handrails (84 tris)
+        for px in (-1.25, 1.25):
+            for py in (-1.45, 1.45):
+                b.add_box((px, py, 0.28), (0.28, 0.28, 0.56), (0, 0, 0), "bark_dark", 0, "root")
+        b.add_box((0.0, 0.0, 0.56), (2.96, 4.40, 0.24), (0, 0, 0), "wood", 0, "root")
+        b.add_box((-1.36, 0.0, 1.06), (0.16, 4.40, 0.36), (0, 0, 0), "wood", 0, "root")
+        b.add_box((1.36, 0.0, 1.06), (0.16, 4.40, 0.36), (0, 0, 0), "wood", 0, "root")
+        return
+
+    pile_seg = 6 if lod == 0 else 5
+    # Driven support pile bents anchored at z = 0 supporting crosshead caps (z = 0.42 m).
+    for py in (-1.65, 1.65):
+        for px in (-1.20, 0.0, 1.20):
+            b.add_cylinder((px, py, 0.0), (px, py, 0.46), 0.16, 0.14, pile_seg, "bark_dark", 0, "root")
+        b.add_box((0.0, py, 0.42), (2.85, 0.24, 0.20), (0, 0, 0), "bark_dark", 0, "root")
+
+    # Three longitudinal heavy stringer beams spanning Y = -2.22..+2.22 m.
+    for sx in (-1.05, 0.0, 1.05):
+        b.add_box((sx, 0.0, 0.55), (0.22, 4.46, 0.20), (0, 0, 0), "bark_dark", 0, "root")
+
+    # Crosswise oak carriageway deck planks with subtle plank camber & joints.
+    plank_count = 13 if lod == 0 else 6
+    plank_span = 4.42
+    pitch_y = plank_span / plank_count
+    for i in range(plank_count):
+        py = -plank_span * 0.5 + (i + 0.5) * pitch_y
+        arch_z = 0.03 * (1.0 - (py / 2.25) ** 2)
+        cell = "wood" if i % 4 != 2 else "bark_dark"
+        b.add_box((0.0, py, 0.70 + arch_z), (2.94, pitch_y * 0.90, 0.11), (0, 0, 0), cell, 0, "root")
+
+    # Wheel-guard kerb timbers & parapet handrail assemblies along both X edges.
+    for sx in (-1.34, 1.34):
+        b.add_box((sx * 0.94, 0.0, 0.80), (0.14, 4.40, 0.14), (0, 0, 0), "bark_dark", 0, "root")
+        b.add_box((sx, 0.0, 1.24), (0.12, 4.44, 0.10), (0, 0, 0), "wood", 0, "root")
+        b.add_box((sx, 0.0, 1.00), (0.08, 4.38, 0.07), (0, 0, 0), "wood", 0, "root")
+        post_ys = (-1.85, -0.62, 0.62, 1.85) if lod == 0 else (-1.65, 0.0, 1.65)
+        for py in post_ys:
+            b.add_box((sx, py, 0.98), (0.14, 0.14, 0.62), (0, 0, 0), "bark_dark", 0, "root")
+            if lod == 0:
+                b.add_box((sx, py, 0.74), (0.18, 0.18, 0.08), (0, 0, 0), "metal", 0, "root")
+        if lod == 0:
+            # Diagonal knee braces & iron strap gussets on outside of posts
+            for py in (-1.85, 0.62):
+                b.add_cylinder((sx, py, 0.80), (sx, py + 0.72, 1.20), 0.045, 0.045, 4, "wood", 0, "root")
+            for py in (-1.65, 1.65):
+                b.add_box((sx, py, 0.56), (0.18, 0.26, 0.18), (0, 0, 0), "metal", 0, "root")
+
+
+def build_bridge_foot(b: PropBuilder, lod: int):
+    """~1.8 m wide x 3.0 m long lightweight plank footbridge: slender trestle piers, twin poles, slatted deck, single rope rail."""
+    if lod == 2:
+        b.add_box((-0.65, 0.0, 0.18), (0.16, 1.60, 0.36), (0, 0, 0), "bark_dark", 0, "root")
+        b.add_box((0.65, 0.0, 0.18), (0.16, 1.60, 0.36), (0, 0, 0), "bark_dark", 0, "root")
+        b.add_box((0.0, 0.0, 0.42), (1.76, 2.94, 0.14), (0, 0, 0), "wood", 0, "root")
+        b.add_box((-0.78, -1.10, 0.78), (0.10, 0.10, 0.68), (0, 0, 0), "bark_dark", 0, "root")
+        b.add_box((-0.78, 1.10, 0.78), (0.10, 0.10, 0.68), (0, 0, 0), "bark_dark", 0, "root")
+        b.add_box((-0.78, 0.0, 1.04), (0.08, 2.50, 0.08), (0, 0, 0), "straw", 0, "root")
+        return
+
+    leg_seg = 5 if lod == 0 else 4
+    # Two lightweight trestle frames grounded at z = 0.
+    for py in (-1.05, 1.05):
+        b.add_cylinder((-0.64, py, 0.0), (-0.54, py, 0.42), 0.075, 0.065, leg_seg, "bark_dark", 0, "root")
+        b.add_cylinder((0.64, py, 0.0), (0.54, py, 0.42), 0.075, 0.065, leg_seg, "bark_dark", 0, "root")
+        b.add_cylinder((-0.58, py, 0.14), (0.58, py, 0.36), 0.045, 0.045, 4, "bark_dark", 0, "root")
+        b.add_box((0.0, py, 0.39), (1.42, 0.12, 0.10), (0, 0, 0), "bark_dark", 0, "root")
+
+    # Twin longitudinal pole stringers.
+    for sx in (-0.48, 0.48):
+        b.add_cylinder((sx, -1.48, 0.46), (sx, 1.48, 0.46), 0.065, 0.065, leg_seg, "wood", 0, "root")
+
+    # Narrow slatted wooden walkway planks across twin stringers.
+    slat_count = 11 if lod == 0 else 7
+    slat_span = 2.90
+    pitch_y = slat_span / slat_count
+    for i in range(slat_count):
+        py = -slat_span * 0.5 + (i + 0.5) * pitch_y
+        b.add_box((0.0, py, 0.54), (1.72, pitch_y * 0.80, 0.07), (0, 0, 1.5 if i % 2 else -1.5), "wood", 0, "root")
+
+    # Single-sided upright posts with sagged hemp rope handrail along X = -0.76 m.
+    post_ys = (-1.28, -0.42, 0.42, 1.28) if lod == 0 else (-1.20, 0.0, 1.20)
+    for py in post_ys:
+        b.add_cylinder((-0.76, py, 0.42), (-0.78, py, 1.08), 0.055, 0.048, leg_seg, "bark_dark", 0, "root")
+        b.add_cylinder((-0.78, py, 0.96), (-0.78, py, 1.03), 0.072, 0.072, 4, "straw", 0, "root")
+        b.add_cylinder((-0.76, py, 0.50), (-0.76, py, 0.57), 0.072, 0.072, 4, "straw", 0, "root")
+
+    rope_pts = []
+    rope_steps = 8 if lod == 0 else 4
+    for i in range(rope_steps + 1):
+        u = -1.28 + 2.56 * (i / rope_steps)
+        seg_u = ((u + 1.28) % 0.853) / 0.853
+        sag = 0.06 * math.sin(seg_u * math.pi)
+        rope_pts.append((-0.78, u, 1.00 - sag))
+    b.add_arc_tube(rope_pts, 0.028, 5 if lod == 0 else 4, "straw", 0, "root")
+
+    if lod == 0:
+        # Timber side cleats fastening slats to stringers
+        for sx in (-0.66, 0.66):
+            b.add_box((sx, 0.0, 0.59), (0.08, 2.86, 0.05), (0, 0, 0), "bark_dark", 0, "root")
+
+
+def build_boulder(b: PropBuilder, lod: int):
+    """~3.0 m x 3.0 m x 2.0 m craggy limestone boulder mass: flat-bottomed main crag, fractured rock slabs, mossy caps."""
+    if lod == 2:
+        b.add_sphere((0.0, 0.0, 0.72), (1.38, 1.28, 0.92), 6, 4, "stone", 0, "root")
+        b.add_sphere((-0.68, 0.52, 0.54), (0.82, 0.76, 0.62), 5, 3, "charred", 0, "root")
+        b.add_sphere((0.24, -0.18, 1.42), (0.76, 0.68, 0.28), 5, 3, "foliage_dark", 0, "root")
+        return
+
+    # Flat-bottomed base plinth & faceted crag slabs grounded cleanly at z = 0.
+    b.add_tapered_box((0.0, 0.0, 0.36), (2.72, 2.48), (2.15, 1.98), 0.72, (0, 0, 14), "charred", 0, "root")
+
+    s_seg, s_ring = (8, 5) if lod == 0 else (6, 4)
+    # Primary fractured stone core and interlocking rock shelves (kept above z = 0).
+    lobes = [
+        ((0.0, 0.0, 0.88), (1.28, 1.18, 0.92), "stone"),
+        ((-0.72, -0.44, 0.68), (0.86, 0.82, 0.68), "stone"),
+        ((0.78, 0.38, 0.64), (0.82, 0.78, 0.64), "charred"),
+        ((-0.42, 0.74, 0.58), (0.76, 0.72, 0.58), "stone"),
+        ((0.52, -0.68, 0.52), (0.72, 0.68, 0.52), "cloth_cream"),
+        ((-0.10, 0.12, 1.38), (0.88, 0.78, 0.54), "stone"),
+    ]
+    for idx, (ctr, rad, cell) in enumerate(lobes):
+        if lod == 1 and idx == 4:
+            continue
+        b.add_sphere(ctr, rad, s_seg, s_ring, cell, 0, "root")
+
+    # Angular cleft & strata blocks jutting out for crisp low-poly crag planes.
+    strata = [
+        ((-0.62, 0.18, 0.96), (0.92, 0.84, 0.62), (18, -22, 32), "stone"),
+        ((0.46, -0.22, 1.04), (0.88, 0.74, 0.58), (-14, 24, -18), "charred"),
+        ((0.08, 0.56, 0.86), (0.96, 0.68, 0.54), (24, 12, 8), "stone"),
+        ((-0.24, -0.64, 0.74), (0.84, 0.64, 0.48), (-22, -16, 42), "stone"),
+    ]
+    for ctr, sz, rot, cell in strata:
+        b.add_box(ctr, sz, rot, cell, 0, "root")
+
+    if lod == 0:
+        # Loose scree boulders nestled around the foot at z = 0..0.38 m
+        scree = [
+            ((-1.18, -0.78, 0.20), (0.48, 0.42, 0.32), (8, 12, 24), "stone"),
+            ((1.16, 0.62, 0.18), (0.44, 0.46, 0.28), (-6, 14, -30), "charred"),
+            ((0.92, -0.92, 0.16), (0.42, 0.36, 0.26), (12, -8, 15), "stone"),
+            ((-0.96, 0.94, 0.19), (0.46, 0.38, 0.30), (-10, 6, 40), "cloth_cream"),
+        ]
+        for ctr, sz, rot, cell in scree:
+            b.add_box(ctr, sz, rot, cell, 0, "root")
+
+    # Moss & lichen cap cushions on sheltered north/upper ledges.
+    moss_caps = [
+        ((-0.18, 0.22, 1.82), (0.58, 0.48, 0.18), "foliage_dark"),
+        ((0.36, 0.38, 1.38), (0.48, 0.42, 0.16), "foliage_mid"),
+        ((-0.78, 0.56, 1.02), (0.42, 0.38, 0.15), "foliage_dark"),
+    ]
+    for idx, (ctr, rad, cell) in enumerate(moss_caps):
+        if lod == 1 and idx >= 2:
+            continue
+        b.add_sphere(ctr, rad, 6 if lod == 0 else 5, 3, cell, 0, "root")
+
+
+def build_pen_herd(b: PropBuilder, lod: int):
+    """~1.5 m x 1.5 m rustic split-rail livestock herd pen corner & swung gate bay with trough and hay."""
+    if lod == 2:
+        for px, py in ((-0.65, -0.65), (0.65, -0.65), (-0.65, 0.65), (0.65, 0.65)):
+            b.add_box((px, py, 0.64), (0.16, 0.16, 1.28), (0, 0, 0), "bark_dark", 0, "root")
+        b.add_box((0.0, -0.65, 0.96), (1.38, 0.10, 0.14), (0, 0, 0), "wood", 0, "root")
+        b.add_box((0.0, -0.65, 0.50), (1.38, 0.10, 0.14), (0, 0, 0), "wood", 0, "root")
+        b.add_box((-0.65, 0.0, 0.74), (0.10, 1.38, 0.48), (0, 0, 0), "wood", 0, "root")
+        return
+
+    post_seg = 6 if lod == 0 else 5
+    # Heavy oak fence posts driven vertically at z = 0..1.32 m around corner + gate opening.
+    posts = [
+        ((-0.66, -0.66), 1.32),
+        ((0.02, -0.66), 1.26),
+        ((0.66, -0.66), 1.30),
+        ((-0.66, 0.02), 1.24),
+        ((-0.66, 0.66), 1.32),
+        ((0.66, 0.66), 1.28),
+    ]
+    for idx, ((px, py), ph) in enumerate(posts):
+        if lod == 1 and idx in (1, 3):
+            continue
+        b.add_cylinder((px, py, 0.0), (px, py, ph), 0.095, 0.08, post_seg, "bark_dark", 0, "root")
+        # Rope lashing collars at top & middle rail heights
+        b.add_cylinder((px, py, 0.96), (px, py, 1.05), 0.105, 0.105, 5, "straw", 0, "root")
+        if lod == 0:
+            b.add_cylinder((px, py, 0.56), (px, py, 0.64), 0.105, 0.105, 5, "straw", 0, "root")
+
+    # Two fixed split-rail fence sides along back (-Y) and left (-X).
+    rail_heights = (0.36, 0.68, 1.02)
+    for rz in rail_heights:
+        b.add_box((0.0, -0.66, rz), (1.38, 0.08, 0.11), (0, 0, 0), "wood", 0, "root")
+        b.add_box((-0.66, 0.0, rz), (0.08, 1.38, 0.11), (0, 0, 0), "wood", 0, "root")
+
+    # Hinged hurdle gate along front/right edge (+Y, slightly ajar inward at 18 deg) with diagonal Z-brace.
+    for rz in (0.38, 0.72, 1.02):
+        b.add_box((0.04, 0.56, rz), (1.28, 0.07, 0.10), (0, 0, -14), "wood", 0, "root")
+    b.add_cylinder((-0.56, 0.68, 0.34), (0.58, 0.42, 1.04), 0.045, 0.045, 4, "bark_dark", 0, "root")
+    if lod == 0:
+        b.add_box((-0.54, 0.66, 0.98), (0.14, 0.10, 0.08), (0, 0, -14), "metal", 0, "root")
+        b.add_box((-0.54, 0.66, 0.42), (0.14, 0.10, 0.08), (0, 0, -14), "metal", 0, "root")
+
+    # Wooden feed/water trough and golden hay bundle inside the pen corner.
+    b.add_box((-0.14, -0.22, 0.16), (0.64, 0.32, 0.16), (0, 0, 8), "wood", 0, "root")
+    b.add_box((-0.14, -0.22, 0.25), (0.56, 0.24, 0.08), (0, 0, 8), "straw", 0, "root")
+    b.add_sphere((0.34, -0.18, 0.18), (0.28, 0.24, 0.20), 6 if lod == 0 else 5, 4 if lod == 0 else 3, "straw", 0, "root")
+
+
 UNIT_SPECS = [
     ("crew", "U_crew_a", make_units.HUMANOID_BONES, "RIG_humanoid", make_units.make_humanoid_anims, build_crew,
      "Siege and pontoon crewman with leather matross apron, coiled rope baldric, padded engineer cap and heavy handspike."),
@@ -689,6 +1036,12 @@ PROP_SPECS = [
     ("P_trunk_felled", "P_trunk", build_trunk_felled, "Felled grove trunk along +Y with jagged splintered butt and wide crushed leafy crown."),
     ("P_wreck_siege", "P_wreck", build_wreck_siege, "Smashed siege engine wreck with canted charred frame, snapped arm, buckled/detached wheels and stone ammo."),
     ("P_fire_small", "P_fire", build_fire_small, "Small 1.5 m burning ground patch with charred logs, glowing embers and layered orange/yellow flames."),
+    ("P_hedgerow_a", "P_hedgerow", build_hedgerow, "Dense hawthorn/briar hedgerow barrier segment with gnarled woody stems and layered foliage clusters."),
+    ("P_wall_drystone", "P_drystone", build_wall_drystone, "Battered coursed fieldstone drystone wall segment with rubble core and upright coping stones."),
+    ("P_bridge_wood", "P_bridgewood", build_bridge_wood, "Heavy timber cart bridge span with pile piers, longitudinal stringers, deck planks, wheel kerbs and braced handrails."),
+    ("P_bridge_foot", "P_bridgefoot", build_bridge_foot, "Narrow lightweight plank footbridge with trestle legs, slatted walkway and rope-lashed single handrail."),
+    ("P_boulder_a", "P_boulder", build_boulder, "Craggy flat-bottomed limestone/granite boulder mass with fractured stone facets, flanking slabs and mossy cap patches."),
+    ("P_pen_herd", "P_herdpen", build_pen_herd, "Rustic split-rail livestock herd pen corner and hinged gate section with oak posts, diagonal brace and rope lashings."),
 ]
 
 

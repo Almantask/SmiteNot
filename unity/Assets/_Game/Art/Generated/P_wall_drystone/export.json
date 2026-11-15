@@ -1,0 +1,29 @@
+{
+  "animations": null,
+  "asset": "P_wall_drystone",
+  "blender": "5.3.0",
+  "lods": [
+    {
+      "file": "P_wall_drystone_LOD0.fbx",
+      "lod": "LOD0",
+      "objects": [
+        "P_drystone_lod0"
+      ]
+    },
+    {
+      "file": "P_wall_drystone_LOD1.fbx",
+      "lod": "LOD1",
+      "objects": [
+        "P_drystone_lod1"
+      ]
+    },
+    {
+      "file": "P_wall_drystone_LOD2.fbx",
+      "lod": "LOD2",
+      "objects": [
+        "P_drystone_lod2"
+      ]
+    }
+  ],
+  "source": "art/source/P_wall_drystone.blend"
+}

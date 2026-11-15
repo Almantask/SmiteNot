@@ -1,0 +1,29 @@
+{
+  "animations": null,
+  "asset": "P_pen_herd",
+  "blender": "5.3.0",
+  "lods": [
+    {
+      "file": "P_pen_herd_LOD0.fbx",
+      "lod": "LOD0",
+      "objects": [
+        "P_herdpen_lod0"
+      ]
+    },
+    {
+      "file": "P_pen_herd_LOD1.fbx",
+      "lod": "LOD1",
+      "objects": [
+        "P_herdpen_lod1"
+      ]
+    },
+    {
+      "file": "P_pen_herd_LOD2.fbx",
+      "lod": "LOD2",
+      "objects": [
+        "P_herdpen_lod2"
+      ]
+    }
+  ],
+  "source": "art/source/P_pen_herd.blend"
+}

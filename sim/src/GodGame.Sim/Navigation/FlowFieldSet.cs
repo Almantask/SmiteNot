@@ -32,7 +32,8 @@ namespace GodGame.Sim
             {
                 var f = _fields[i];
                 if (
-                    f.MovementClass == movementClass
+                    f.SlotKey == 0
+                    && f.MovementClass == movementClass
                     && f.Goal.MinX == goal.MinX
                     && f.Goal.MinY == goal.MinY
                     && f.Goal.MaxX == goal.MaxX
@@ -58,6 +59,34 @@ namespace GodGame.Sim
                 Array.Resize(ref _fields, _fields.Length * 2);
             }
             _fields[Count] = new FlowField(_costs, movementClass, goal);
+            return Count++;
+        }
+
+        /// <summary>
+        /// Gets or creates the shared multi-goal field for (<paramref name="movementClass"/>, <paramref name="slotKey"/>)
+        /// and updates its goal rects when they changed. Keeps one field per movement class regardless of how many
+        /// targets exist; call <see cref="BuildPending"/> before reading it.
+        /// </summary>
+        public int GetOrUpdateMultiGoal(
+            MovementClass movementClass,
+            int slotKey,
+            ReadOnlySpan<CellRect> goals
+        )
+        {
+            for (int i = 0; i < Count; i++)
+            {
+                var f = _fields[i];
+                if (f.SlotKey == slotKey && f.MovementClass == movementClass)
+                {
+                    f.SetGoals(goals);
+                    return i;
+                }
+            }
+            if (Count == _fields.Length)
+            {
+                Array.Resize(ref _fields, _fields.Length * 2);
+            }
+            _fields[Count] = new FlowField(_costs, movementClass, slotKey, goals);
             return Count++;
         }
 

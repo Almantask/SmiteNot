@@ -67,6 +67,8 @@ namespace GodGame.Sim
         private readonly Terrain _terrain;
         private readonly long[] _distance;
         private readonly byte[] _direction;
+        private CellRect[]? _goals;
+        private int _goalCount;
 
         // Scratch, reused by every rebuild: never read before it is written in the same rebuild.
         private readonly CellHeap _heap;
@@ -112,9 +114,71 @@ namespace GodGame.Sim
             _heap = new CellHeap(1024);
         }
 
+        /// <summary>
+        /// A shared dynamic multi-goal field (e.g. one per movement class targeting all living defenders). Seeded from
+        /// all passable cells across every rect in <paramref name="goals"/>; call <see cref="SetGoals"/> to update.
+        /// </summary>
+        public FlowField(
+            CostFields costs,
+            MovementClass movementClass,
+            int slotKey,
+            ReadOnlySpan<CellRect> goals
+        )
+            : this(costs, movementClass, goals[0])
+        {
+            SlotKey = slotKey;
+            SetGoals(goals);
+        }
+
         public MovementClass MovementClass { get; }
 
-        public CellRect Goal { get; }
+        public CellRect Goal { get; private set; }
+
+        /// <summary>0 for fixed single-rect fields; positive for shared dynamic multi-goal slots.</summary>
+        internal int SlotKey { get; }
+
+        /// <summary>
+        /// Replaces the multi-goal rects when they differ from the current canonical list. Marks the field pending so
+        /// <see cref="FlowFieldSet.BuildPending"/> rebuilds it; returns false with zero work when unchanged.
+        /// </summary>
+        internal bool SetGoals(ReadOnlySpan<CellRect> goals)
+        {
+            if (_goals != null && _goalCount == goals.Length)
+            {
+                bool same = true;
+                for (int i = 0; i < _goalCount; i++)
+                {
+                    var a = _goals[i];
+                    var b = goals[i];
+                    if (
+                        a.MinX != b.MinX
+                        || a.MinY != b.MinY
+                        || a.MaxX != b.MaxX
+                        || a.MaxY != b.MaxY
+                    )
+                    {
+                        same = false;
+                        break;
+                    }
+                }
+                if (same)
+                {
+                    return false;
+                }
+            }
+            if (_goals == null || _goals.Length < goals.Length)
+            {
+                _goals = new CellRect[System.Math.Max(4, goals.Length)];
+            }
+            for (int i = 0; i < goals.Length; i++)
+            {
+                _goals[i] = goals[i];
+            }
+            _goalCount = goals.Length;
+            Goal = goals[0];
+            BuiltFromRebuild = -1;
+            return true;
+        }
 
         /// <summary>The cost-field rebuild (<see cref="CostFields.RebuildCount"/>) the field last caught up with; -1 before the first build.</summary>
         public int BuiltFromRebuild { get; private set; } = -1;
@@ -217,16 +281,39 @@ namespace GodGame.Sim
                 _bucketHead[b] = -1;
             }
             int queued = 0;
-            for (int y = Goal.MinY; y <= Goal.MaxY; y++)
+            if (_goals != null)
             {
-                for (int x = Goal.MinX; x <= Goal.MaxX; x++)
+                for (int g = 0; g < _goalCount; g++)
                 {
-                    int i = _terrain.Index(x, y);
-                    if (costs[i] != CostFields.Impassable)
+                    var rect = _goals[g];
+                    for (int y = rect.MinY; y <= rect.MaxY; y++)
                     {
-                        _distance[i] = 0;
-                        Link(i, 0, ring);
-                        queued++;
+                        for (int x = rect.MinX; x <= rect.MaxX; x++)
+                        {
+                            int i = _terrain.Index(x, y);
+                            if (costs[i] != CostFields.Impassable && _distance[i] != 0)
+                            {
+                                _distance[i] = 0;
+                                Link(i, 0, ring);
+                                queued++;
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (int y = Goal.MinY; y <= Goal.MaxY; y++)
+                {
+                    for (int x = Goal.MinX; x <= Goal.MaxX; x++)
+                    {
+                        int i = _terrain.Index(x, y);
+                        if (costs[i] != CostFields.Impassable)
+                        {
+                            _distance[i] = 0;
+                            Link(i, 0, ring);
+                            queued++;
+                        }
                     }
                 }
             }
@@ -491,7 +578,7 @@ namespace GodGame.Sim
             {
                 return NoDirection;
             }
-            if (InGoal(x, y))
+            if (_distance[i] == 0)
             {
                 return AtGoal;
             }
@@ -570,8 +657,22 @@ namespace GodGame.Sim
             return (from + to) * 7L;
         }
 
-        private bool InGoal(int x, int y) =>
-            x >= Goal.MinX && x <= Goal.MaxX && y >= Goal.MinY && y <= Goal.MaxY;
+        private bool InGoal(int x, int y)
+        {
+            if (_goals == null)
+            {
+                return x >= Goal.MinX && x <= Goal.MaxX && y >= Goal.MinY && y <= Goal.MaxY;
+            }
+            for (int g = 0; g < _goalCount; g++)
+            {
+                var r = _goals[g];
+                if (x >= r.MinX && x <= r.MaxX && y >= r.MinY && y <= r.MaxY)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         private int NextStamp()
         {

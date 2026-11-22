@@ -223,6 +223,46 @@ public class CombatTests
         b.Step(15 * SimConstants.TicksPerSecond);
         Assert.That(b.StateHash(), Is.EqualTo(a.StateHash()));
     }
+
+    [Test]
+    public void Decision_2026_10_09_PvpRoundsAreWonByWipingOutTheDefender_OffAxisCavalryConvergesAndFightsInsteadOfMarchingToEdge()
+    {
+        // Cavalry starts 130 m north of the defender — well outside both the 80 m charge range and 30 m engage range.
+        // The shared multi-goal flow field must steer them into the defender rather than straight to the eastern edge.
+        var map = Flat(columns: 240, rows: 150, zoneMetres: 150); // 360 m × 225 m
+        var battle = TestBattles.Battle(
+            map,
+            new[]
+            {
+                ("attacker", "cavalry", 60, 60.0, 180.0),
+                ("defender", "infantry", 80, 220.0, 50.0),
+            },
+            seed: 3
+        );
+        var simulation = battle.Start(new SerialRunner());
+        var world = simulation.World;
+        simulation.Step(90 * SimConstants.TicksPerSecond);
+
+        Assert.That(
+            Events(world, CauseKind.ChargeStarted),
+            Is.Not.Empty,
+            "off-axis cavalry wheeled into charge range instead of marching past to the map edge"
+        );
+        Assert.That(
+            world.Counters.Killed,
+            Is.GreaterThan(0),
+            "cavalry engaged and fought the defenders"
+        );
+        double cavMeanX = TestBattles
+            .LiveUnits(world)
+            .Where(u => world.UnitRegiment[u] == 0)
+            .Average(u => world.Position[u].X());
+        Assert.That(
+            cavMeanX,
+            Is.LessThan(300.0),
+            "cavalry stayed in the fight instead of riding off into the empty eastern edge"
+        );
+    }
 }
 
 /// <summary>Combat determinism at a size that splits every parallel pass into several chunks (the audit's ask).</summary>

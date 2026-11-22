@@ -374,4 +374,40 @@ public class FlowFieldTests
 
         Assert.That(hash.Digest(), Is.EqualTo(PinnedHashes.FlowFieldSeed41));
     }
+
+    [Test]
+    public void MultiGoalField_RoutesToNearestGoal_AndRepairsBitForBit()
+    {
+        var (t, costs) = Ground((x, y) => 0, 40, 30);
+        var set = new FlowFieldSet(costs);
+        var goals = new[] { new CellRect(32, 3, 35, 6), new CellRect(32, 23, 35, 26) };
+        int idx = set.GetOrUpdateMultiGoal(MovementClass.Horse, 1, goals);
+        set.BuildPending(new SerialRunner());
+        var field = set[idx];
+
+        // Northern cell heads toward the northern goal, southern cell toward the southern goal.
+        Assert.That(field.Distance(10, 4), Is.LessThan(field.Distance(10, 14)));
+        Assert.That(field.Distance(10, 24), Is.LessThan(field.Distance(10, 14)));
+        Assert.That(field.Direction(33, 4), Is.EqualTo(FlowField.AtGoal));
+        Assert.That(field.Direction(33, 24), Is.EqualTo(FlowField.AtGoal));
+
+        // Identical goal list keeps the field built (zero rebuilds).
+        int rebuildBefore = field.BuiltFromRebuild;
+        set.GetOrUpdateMultiGoal(MovementClass.Horse, 1, goals);
+        Assert.That(field.BuiltFromRebuild, Is.EqualTo(rebuildBefore));
+
+        // Repair after a wall edit matches a fresh full rebuild bit-for-bit.
+        for (int y = 0; y < 12; y++)
+        {
+            t.SetHeight(20, y, Wall);
+        }
+        var dirty = t.DirtyAround(20, 0, 20, 11);
+        costs.Rebuild(dirty, new SerialRunner());
+        set.Repair(dirty, new SerialRunner());
+
+        var fresh = new FlowField(costs, MovementClass.Horse, 1, goals);
+        fresh.Rebuild();
+        Assert.That(field.Distances.ToArray(), Is.EqualTo(fresh.Distances.ToArray()));
+        Assert.That(field.Directions.ToArray(), Is.EqualTo(fresh.Directions.ToArray()));
+    }
 }

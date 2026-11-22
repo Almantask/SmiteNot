@@ -18,9 +18,16 @@ namespace GodGame.Sim
     public sealed class Navigation
     {
         private int[] _regimentField = new int[0];
+        private readonly int[] _classDefenderField = new int[4];
+        private CellRect[] _goalScratch = new CellRect[16];
 
         /// <summary>A working specialist's field leads to the map-aligned block of this many cells square holding its work point.</summary>
         public const int WorkBlockCells = 8;
+
+        /// <summary>An attacking army's shared multi-goal field seeds map-aligned blocks of this many cells square around each living defender (18 m: inside the 30 m engage range, coarse enough to avoid thrashing).</summary>
+        public const int TargetBlockCells = 12;
+
+        private const int DefenderGoalsSlotKey = 1;
         private int[] _codes = new int[0]; // scratch: freshly computed speed codes
         private bool _builtFromWorld; // false until the derived data has been built from the world's stored codes
 
@@ -679,6 +686,10 @@ namespace GodGame.Sim
             {
                 _regimentField[r] = -1;
             }
+            for (int c = 0; c < _classDefenderField.Length; c++)
+            {
+                _classDefenderField[c] = -2;
+            }
             bool hasTarget = TryZone(Side.Defender, out var target);
             var goal = hasTarget ? Terrain.CellsOf(FarQuarter(target)) : default;
             for (int r = 0; r < world.Regiments.HighWater; r++)
@@ -721,12 +732,123 @@ namespace GodGame.Sim
                 {
                     continue;
                 }
+                int defenderField = _classDefenderField[(int)movementClass];
+                if (defenderField == -2)
+                {
+                    defenderField = ResolveDefenderField(world, movementClass);
+                    _classDefenderField[(int)movementClass] = defenderField;
+                }
+                if (defenderField >= 0)
+                {
+                    _regimentField[r] = defenderField;
+                    continue;
+                }
                 // A far quarter this class can't stand in at all (a lake, a cliff) would leave the field without a
                 // goal: march for the whole zone instead, which the reachability check measures too.
                 var classGoal = AnyPassable(movementClass, goal) ? goal : Terrain.CellsOf(target);
                 _regimentField[r] = FlowFields.GetOrAdd(movementClass, classGoal);
             }
             FlowFields.BuildPending(runner);
+        }
+
+        /// <summary>
+        /// Builds or reuses the single shared multi-goal field for <paramref name="movementClass"/> targeting every
+        /// living, unwiped defender regiment's coarse block, so attackers converge on the defenders rather than
+        /// marching past them into an empty corner of the defender zone. Returns -1 when no passable defender blocks
+        /// exist (attacker-only maps keep the far-quarter zone goal).
+        /// </summary>
+        private int ResolveDefenderField(World world, MovementClass movementClass)
+        {
+            int count = 0;
+            for (int e = 0; e < world.Regiments.HighWater; e++)
+            {
+                if (
+                    !world.Regiments.IsAlive(e)
+                    || world.RegimentSide[e] != Side.Defender
+                    || world.RegimentAlive[e] == 0
+                    || world.Army.Wiped[e]
+                )
+                {
+                    continue;
+                }
+                int anchor = world.RegimentAnchor[e];
+                if (anchor < 0 || !world.Units.IsAlive(anchor))
+                {
+                    continue;
+                }
+                Terrain.CellOf(world.Position[anchor], out int px, out int py);
+                int bx = px / TargetBlockCells * TargetBlockCells;
+                int by = py / TargetBlockCells * TargetBlockCells;
+                var block = new CellRect(
+                    bx,
+                    by,
+                    System.Math.Min(Terrain.Columns - 1, bx + TargetBlockCells - 1),
+                    System.Math.Min(Terrain.Rows - 1, by + TargetBlockCells - 1)
+                );
+                if (!AnyPassable(movementClass, block))
+                {
+                    block = new CellRect(
+                        System.Math.Max(0, bx - TargetBlockCells),
+                        System.Math.Max(0, by - TargetBlockCells),
+                        System.Math.Min(Terrain.Columns - 1, bx + 2 * TargetBlockCells - 1),
+                        System.Math.Min(Terrain.Rows - 1, by + 2 * TargetBlockCells - 1)
+                    );
+                    if (!AnyPassable(movementClass, block))
+                    {
+                        continue;
+                    }
+                }
+                if (count == _goalScratch.Length)
+                {
+                    Array.Resize(ref _goalScratch, _goalScratch.Length * 2);
+                }
+                _goalScratch[count++] = block;
+            }
+            if (count == 0)
+            {
+                return -1;
+            }
+            // Canonical total order (insertion sort) + deduplication so the goal list is a pure function of world state.
+            for (int i = 1; i < count; i++)
+            {
+                var key = _goalScratch[i];
+                int j = i - 1;
+                while (j >= 0 && CompareRect(_goalScratch[j], key) > 0)
+                {
+                    _goalScratch[j + 1] = _goalScratch[j];
+                    j--;
+                }
+                _goalScratch[j + 1] = key;
+            }
+            int unique = 1;
+            for (int i = 1; i < count; i++)
+            {
+                if (CompareRect(_goalScratch[i], _goalScratch[unique - 1]) != 0)
+                {
+                    _goalScratch[unique++] = _goalScratch[i];
+                }
+            }
+            return FlowFields.GetOrUpdateMultiGoal(
+                movementClass,
+                DefenderGoalsSlotKey,
+                _goalScratch.AsSpan(0, unique)
+            );
+        }
+
+        private static int CompareRect(CellRect a, CellRect b)
+        {
+            int c = a.MinY.CompareTo(b.MinY);
+            if (c != 0)
+            {
+                return c;
+            }
+            c = a.MinX.CompareTo(b.MinX);
+            if (c != 0)
+            {
+                return c;
+            }
+            c = a.MaxY.CompareTo(b.MaxY);
+            return c != 0 ? c : a.MaxX.CompareTo(b.MaxX);
         }
 
         /// <summary>

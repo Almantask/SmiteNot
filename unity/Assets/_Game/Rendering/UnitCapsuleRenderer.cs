@@ -25,9 +25,25 @@ namespace GodGame.Rendering
         private static readonly int VatClipCountId = Shader.PropertyToID("_VatClipCount");
         private static readonly int BaseInstanceId = Shader.PropertyToID("_BaseInstance");
         private static readonly int IsGhostId = Shader.PropertyToID("_IsGhost");
+        private static readonly int ShadowInstancesId = Shader.PropertyToID("_ShadowInstances");
+        private static readonly int ShadowStatesId = Shader.PropertyToID("_ShadowStates");
+
+        private const float Lod2DistanceM = 420f;
 
         private readonly Mesh _capsule;
         private readonly Mesh[] _typeMeshes;
+        private readonly Mesh[] _typeMeshesLod2;
+        private readonly Mesh _shadowQuad;
+        private readonly Material _shadowMaterial;
+        private readonly GraphicsBuffer _shadowInstances;
+        private readonly GraphicsBuffer _shadowStates;
+        private readonly GraphicsBuffer _shadowArgs;
+        private readonly GraphicsBuffer.IndirectDrawIndexedArgs[] _shadowArgsData =
+            new GraphicsBuffer.IndirectDrawIndexedArgs[1];
+        private readonly MaterialPropertyBlock _shadowProps = new MaterialPropertyBlock();
+        private readonly Vector4[] _shadowInstData;
+        private readonly Vector4[] _shadowStateData;
+        private readonly float[] _typeShadowRadius;
         private readonly GraphicsBuffer[] _vatPositions;
         private readonly GraphicsBuffer[] _vatNormals;
         private readonly int[] _vatVertexCounts;
@@ -90,7 +106,9 @@ namespace GodGame.Rendering
             Shader shader,
             BattleHost host,
             Mesh[] typeMeshes,
-            UnitVatData[] typeVats = null
+            UnitVatData[] typeVats = null,
+            Mesh[] typeMeshesLod2 = null,
+            Shader shadowShader = null
         )
             : this(
                 shader,
@@ -100,7 +118,9 @@ namespace GodGame.Rendering
                 host.Map,
                 null,
                 typeMeshes,
-                typeVats
+                typeVats,
+                typeMeshesLod2,
+                shadowShader
             ) { }
 
         private static int CapacityOf(BattleHost host)
@@ -123,7 +143,9 @@ namespace GodGame.Rendering
             MapData map,
             Color? tint,
             Mesh[] typeMeshes = null,
-            UnitVatData[] typeVats = null
+            UnitVatData[] typeVats = null,
+            Mesh[] typeMeshesLod2 = null,
+            Shader shadowShader = null
         )
         {
             if (shader == null)
@@ -155,6 +177,49 @@ namespace GodGame.Rendering
                 {
                     _typeMeshes[t] = typeMeshes[t];
                 }
+            }
+            _typeMeshesLod2 = new Mesh[typeCount];
+            if (typeMeshesLod2 != null)
+            {
+                int copyCount = Math.Min(typeCount, typeMeshesLod2.Length);
+                for (int t = 0; t < copyCount; t++)
+                {
+                    _typeMeshesLod2[t] = typeMeshesLod2[t];
+                }
+            }
+
+            _shadowQuad = WorldMarkerRenderer.BuildShadowQuadMesh();
+            Shader resolvedShadow =
+                shadowShader != null ? shadowShader : Shader.Find("GodGame/ContactShadow");
+            _shadowMaterial =
+                resolvedShadow != null && !tint.HasValue
+                    ? new Material(resolvedShadow) { enableInstancing = true }
+                    : null;
+            _shadowInstData = new Vector4[safeCapacity];
+            _shadowStateData = new Vector4[safeCapacity];
+            _shadowInstances = new GraphicsBuffer(
+                GraphicsBuffer.Target.Structured,
+                safeCapacity,
+                16
+            );
+            _shadowStates = new GraphicsBuffer(GraphicsBuffer.Target.Structured, safeCapacity, 16);
+            _shadowArgs = new GraphicsBuffer(
+                GraphicsBuffer.Target.IndirectArguments,
+                1,
+                GraphicsBuffer.IndirectDrawIndexedArgs.size
+            );
+            _typeShadowRadius = new float[typeCount];
+            for (int t = 0; t < rules.UnitTypes.Count; t++)
+            {
+                string uid = rules.UnitTypes[t].Id;
+                _typeShadowRadius[t] = uid switch
+                {
+                    "siege" => 2.35f,
+                    "pontoontrain" or "pontoon-train" => 1.85f,
+                    "cavalry" => 1.18f,
+                    "cattle" => 1.05f,
+                    _ => 0.68f,
+                };
             }
 
             _vatPositions = new GraphicsBuffer[typeCount];
@@ -346,6 +411,8 @@ namespace GodGame.Rendering
             };
 
         public int DrawnLastFrame { get; private set; }
+        public int DrawnShadowsLastFrame { get; private set; }
+        public bool UsedLod2LastFrame { get; private set; }
 
         /// <summary>Gets the configured capsule/shape metadata for unit type <paramref name="typeIndex"/>.</summary>
         public Vector4 GetTypeShape(int typeIndex) =>
@@ -480,10 +547,10 @@ namespace GodGame.Rendering
             return false;
         }
 
-        public void Draw(BattleHost host)
+        public void Draw(BattleHost host, float cameraDistance = 120f)
         {
             host.Read(out var previous, out var current, out float alpha);
-            Draw(previous, current, alpha, null, null, 0f);
+            Draw(previous, current, alpha, null, null, 0f, cameraDistance);
         }
 
         /// <summary>Draws every live soldier of <paramref name="current"/>, blended from <paramref name="previous"/> by <paramref name="alpha"/>.</summary>
@@ -493,9 +560,14 @@ namespace GodGame.Rendering
             float alpha,
             TrackReader reader = null,
             PlaybackTrack track = null,
-            float scrubSeconds = 0f
+            float scrubSeconds = 0f,
+            float cameraDistance = 120f
         )
         {
+            bool useLod2Pass = cameraDistance > Lod2DistanceM;
+            UsedLod2LastFrame = useLod2Pass;
+            int shadowCount = 0;
+            bool emitShadows = _shadowMaterial != null && !_isGhost;
             float exactTick = scrubSeconds * SimConstants.TicksPerSecond;
             bool checkContinuousLaunches =
                 reader != null && track != null && reader.HasAnyActiveLaunchAt(track, exactTick);
@@ -566,7 +638,10 @@ namespace GodGame.Rendering
                     const float DeathFallDuration = 1.15f;
                     const float CorpseLingerDuration = 18.0f;
                     const float CorpseSinkDuration = 2.0f;
-                    if (_deathTimer[u] > CorpseLingerDuration + CorpseSinkDuration)
+                    if (
+                        _deathTimer[u] > CorpseLingerDuration + CorpseSinkDuration
+                        || (useLod2Pass && _typeMeshesLod2[type] != null)
+                    )
                     {
                         continue;
                     }
@@ -828,8 +903,22 @@ namespace GodGame.Rendering
                     current.Flags[u],
                     (u * 0.618034f) % 1f
                 );
-                bool useMesh = _typeMeshes[type] != null;
-                bool useVat = useMesh && _vatFrameCounts[type] > 0;
+                if (emitShadows)
+                {
+                    float sr = _typeShadowRadius[type];
+                    float shadowAlpha = airborne ? 0.22f : 0.42f;
+                    _shadowInstData[shadowCount] = new Vector4(x, y, z, sr);
+                    _shadowStateData[shadowCount] = new Vector4(
+                        sr * 1.48f,
+                        shadowAlpha,
+                        0f,
+                        sr * 0.42f
+                    );
+                    shadowCount++;
+                }
+                bool hasLod2 = useLod2Pass && _typeMeshesLod2[type] != null;
+                bool useMesh = hasLod2 || _typeMeshes[type] != null;
+                bool useVat = !hasLod2 && useMesh && _vatFrameCounts[type] > 0;
                 if (useVat)
                 {
                     float clampedPhase = Mathf.Clamp(_animPhase[u], 0.0005f, 0.9995f);
@@ -855,9 +944,33 @@ namespace GodGame.Rendering
 
             _lastTick = current.Tick;
             DrawnLastFrame = count;
+            DrawnShadowsLastFrame = shadowCount;
             if (count == 0)
             {
                 return;
+            }
+
+            if (emitShadows && shadowCount > 0)
+            {
+                _shadowInstances.SetData(_shadowInstData, 0, 0, shadowCount);
+                _shadowStates.SetData(_shadowStateData, 0, 0, shadowCount);
+                _shadowArgsData[0].indexCountPerInstance = _shadowQuad.GetIndexCount(0);
+                _shadowArgsData[0].instanceCount = (uint)shadowCount;
+                _shadowArgsData[0].startIndex = _shadowQuad.GetIndexStart(0);
+                _shadowArgsData[0].baseVertexIndex = _shadowQuad.GetBaseVertex(0);
+                _shadowArgsData[0].startInstance = 0;
+                _shadowArgs.SetData(_shadowArgsData);
+
+                _shadowProps.SetBuffer(ShadowInstancesId, _shadowInstances);
+                _shadowProps.SetBuffer(ShadowStatesId, _shadowStates);
+                var shadowRp = new RenderParams(_shadowMaterial)
+                {
+                    worldBounds = _bounds,
+                    matProps = _shadowProps,
+                    shadowCastingMode = ShadowCastingMode.Off,
+                    receiveShadows = false,
+                };
+                Graphics.RenderMeshIndirect(shadowRp, _shadowQuad, _shadowArgs, 1, 0);
             }
 
             int running = 0;
@@ -887,7 +1000,11 @@ namespace GodGame.Rendering
                 {
                     continue;
                 }
-                Mesh mesh = _typeMeshes[t] != null ? _typeMeshes[t] : _capsule;
+                bool hasLod2 = useLod2Pass && _typeMeshesLod2[t] != null;
+                Mesh mesh =
+                    hasLod2 ? _typeMeshesLod2[t]
+                    : _typeMeshes[t] != null ? _typeMeshes[t]
+                    : _capsule;
                 _argsData[t].indexCountPerInstance = mesh.GetIndexCount(0);
                 _argsData[t].instanceCount = (uint)typeCountThis;
                 _argsData[t].startIndex = mesh.GetIndexStart(0);
@@ -903,7 +1020,11 @@ namespace GodGame.Rendering
                 {
                     continue;
                 }
-                Mesh mesh = _typeMeshes[t] != null ? _typeMeshes[t] : _capsule;
+                bool hasLod2 = useLod2Pass && _typeMeshesLod2[t] != null;
+                Mesh mesh =
+                    hasLod2 ? _typeMeshesLod2[t]
+                    : _typeMeshes[t] != null ? _typeMeshes[t]
+                    : _capsule;
                 MaterialPropertyBlock props = _typeProperties[t];
                 props.SetBuffer(UnitsId, _units);
                 props.SetBuffer(ShapesId, _shapes);
@@ -912,12 +1033,15 @@ namespace GodGame.Rendering
                 props.SetBuffer(CellColorsId, _cellColors);
                 props.SetBuffer(
                     VatPositionsId,
-                    _vatPositions[t] != null ? _vatPositions[t] : _emptyVat
+                    !hasLod2 && _vatPositions[t] != null ? _vatPositions[t] : _emptyVat
                 );
-                props.SetBuffer(VatNormalsId, _vatNormals[t] != null ? _vatNormals[t] : _emptyVat);
-                props.SetInt(VatVertexCountId, _vatVertexCounts[t]);
-                props.SetInt(VatFrameCountId, _vatFrameCounts[t]);
-                props.SetInt(VatClipCountId, _vatClipCounts[t]);
+                props.SetBuffer(
+                    VatNormalsId,
+                    !hasLod2 && _vatNormals[t] != null ? _vatNormals[t] : _emptyVat
+                );
+                props.SetInt(VatVertexCountId, hasLod2 ? 0 : _vatVertexCounts[t]);
+                props.SetInt(VatFrameCountId, hasLod2 ? 0 : _vatFrameCounts[t]);
+                props.SetInt(VatClipCountId, hasLod2 ? 0 : _vatClipCounts[t]);
                 props.SetInt(BaseInstanceId, _typeOffsets[t]);
                 props.SetFloat(IsGhostId, isGhost);
 
@@ -941,6 +1065,9 @@ namespace GodGame.Rendering
             _cellColors.Dispose();
             _args.Dispose();
             _emptyVat.Dispose();
+            _shadowInstances.Dispose();
+            _shadowStates.Dispose();
+            _shadowArgs.Dispose();
             for (int t = 0; t < _vatPositions.Length; t++)
             {
                 _vatPositions[t]?.Dispose();
@@ -950,11 +1077,21 @@ namespace GodGame.Rendering
             {
                 UnityEngine.Object.Destroy(_capsule);
                 UnityEngine.Object.Destroy(_material);
+                UnityEngine.Object.Destroy(_shadowQuad);
+                if (_shadowMaterial != null)
+                {
+                    UnityEngine.Object.Destroy(_shadowMaterial);
+                }
             }
             else
             {
                 UnityEngine.Object.DestroyImmediate(_capsule);
                 UnityEngine.Object.DestroyImmediate(_material);
+                UnityEngine.Object.DestroyImmediate(_shadowQuad);
+                if (_shadowMaterial != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(_shadowMaterial);
+                }
             }
         }
     }

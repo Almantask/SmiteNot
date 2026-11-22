@@ -31,7 +31,7 @@ namespace GodGame.Editor
             var camera = cameraObject.AddComponent<Camera>();
             camera.farClipPlane = 5000f;
             camera.nearClipPlane = 0.5f;
-            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.clearFlags = CameraClearFlags.Skybox;
             camera.backgroundColor = new Color(0.55f, 0.65f, 0.78f);
             cameraObject.AddComponent<CinemachineBrain>();
 
@@ -73,6 +73,15 @@ namespace GodGame.Editor
             serialized.FindProperty("_rainShader").objectReferenceValue = Shader.Find(
                 "GodGame/RainCurtain"
             );
+            serialized.FindProperty("_skyShader").objectReferenceValue = Shader.Find(
+                "GodGame/StylizedSky"
+            );
+            serialized.FindProperty("_skirtShader").objectReferenceValue = Shader.Find(
+                "GodGame/MapSkirt"
+            );
+            serialized.FindProperty("_shadowShader").objectReferenceValue = Shader.Find(
+                "GodGame/ContactShadow"
+            );
             serialized.FindProperty("_panelSettings").objectReferenceValue =
                 BattleDebugScene.PanelSettingsAsset();
             serialized.FindProperty("_camera").objectReferenceValue = strategic;
@@ -89,6 +98,9 @@ namespace GodGame.Editor
                     "_deckShader",
                     "_markerShader",
                     "_rainShader",
+                    "_skyShader",
+                    "_skirtShader",
+                    "_shadowShader",
                     "_panelSettings",
                 }
             )

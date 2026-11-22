@@ -63,6 +63,15 @@ namespace GodGame.Rendering
         private Shader _rainShader;
 
         [SerializeField]
+        private Shader _skyShader;
+
+        [SerializeField]
+        private Shader _skirtShader;
+
+        [SerializeField]
+        private Shader _shadowShader;
+
+        [SerializeField]
         private PanelSettings _panelSettings;
 
         [SerializeField]
@@ -70,6 +79,9 @@ namespace GodGame.Rendering
 
         [SerializeField]
         private Mesh[] _unitMeshes;
+
+        [SerializeField]
+        private Mesh[] _unitMeshesLod2;
 
         [SerializeField]
         private UnitVatData[] _unitVats;
@@ -132,6 +144,10 @@ namespace GodGame.Rendering
         private readonly List<HerdPenPropInstance> _herdPenInstances =
             new List<HerdPenPropInstance>();
         private readonly List<RainCastInstance> _rainInstances = new List<RainCastInstance>();
+        private readonly List<FlyingStoneInstance> _flyingStoneInstances =
+            new List<FlyingStoneInstance>();
+        private readonly List<ArrowVolleyInstance> _arrowInstances =
+            new List<ArrowVolleyInstance>();
         private readonly Dictionary<int, int> _crushCountsScratch = new Dictionary<int, int>();
         private MapData _map;
         private Navigation _navigation;
@@ -141,11 +157,16 @@ namespace GodGame.Rendering
         private Color32[] _pixels;
         private Material _groundMaterial;
         private Material _waterMaterial;
+        private Material _skirtMaterial;
+        private Material _skyMaterial;
+        private Material _previousSkybox;
         private GameObject _ground;
         private GameObject _water;
+        private GameObject _skirt;
         private FieldUpload _fields;
         private FieldView _fieldView = FieldView.WetAndMud;
         private Mesh _groundMeshAsset;
+        private Mesh _skirtMeshAsset;
         private readonly List<GameObject> _lines = new List<GameObject>();
         private OverlayMode _mode = OverlayMode.None;
         private bool _showRoutes = true;
@@ -215,7 +236,14 @@ namespace GodGame.Rendering
             _plan = RepoLoader.LoadPlan(repo, _planFile, _map, _rules);
             var battle = new Battle(_rules, _map, _plan, _seed);
             _host = new BattleHost(battle) { Speed = _speed };
-            _units = new UnitCapsuleRenderer(_unitShader, _host, _unitMeshes, _unitVats);
+            _units = new UnitCapsuleRenderer(
+                _unitShader,
+                _host,
+                _unitMeshes,
+                _unitVats,
+                _unitMeshesLod2,
+                _shadowShader
+            );
             _deckRenderer = new DeckRenderer(
                 battle.PlayedMap,
                 _deckShader != null ? _deckShader : Shader.Find("GodGame/DebugDeck"),
@@ -235,8 +263,17 @@ namespace GodGame.Rendering
                     _wallDrystoneMesh,
                     _herdPenMesh
                 ),
-                _rainShader
+                _rainShader,
+                _shadowShader
             );
+            Shader resolvedSky =
+                _skyShader != null ? _skyShader : Shader.Find("GodGame/StylizedSky");
+            if (resolvedSky != null)
+            {
+                _previousSkybox = RenderSettings.skybox;
+                _skyMaterial = new Material(resolvedSky);
+                RenderSettings.skybox = _skyMaterial;
+            }
             _structures = new StructureSnapshot();
             _regiments = new RegimentSnapshot();
             _blockers = new BlockerSnapshot();
@@ -283,9 +320,23 @@ namespace GodGame.Rendering
             {
                 Destroy(_water);
             }
+            if (_skirt != null)
+            {
+                Destroy(_skirt);
+            }
             if (_waterMaterial != null)
             {
                 Destroy(_waterMaterial);
+            }
+            if (_skirtMaterial != null)
+            {
+                Destroy(_skirtMaterial);
+            }
+            if (_skyMaterial != null)
+            {
+                RenderSettings.skybox = _previousSkybox;
+                Destroy(_skyMaterial);
+                _skyMaterial = null;
             }
             _fields?.Dispose();
             _fields = null;
@@ -305,6 +356,10 @@ namespace GodGame.Rendering
             if (_groundMeshAsset != null)
             {
                 Destroy(_groundMeshAsset);
+            }
+            if (_skirtMeshAsset != null)
+            {
+                Destroy(_skirtMeshAsset);
             }
             _host = null;
             _units = null;
@@ -417,6 +472,18 @@ namespace GodGame.Rendering
                 renderer.sharedMaterial = _waterMaterial;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
+            Shader resolvedSkirt =
+                _skirtShader != null ? _skirtShader : Shader.Find("GodGame/MapSkirt");
+            if (resolvedSkirt != null)
+            {
+                _skirtMeshAsset = GroundMesh.BuildSkirt(terrain, step, minH);
+                _skirtMaterial = new Material(resolvedSkirt);
+                _skirt = new GameObject("Map skirt");
+                _skirt.AddComponent<MeshFilter>().sharedMesh = _skirtMeshAsset;
+                var skirtRenderer = _skirt.AddComponent<MeshRenderer>();
+                skirtRenderer.sharedMaterial = _skirtMaterial;
+                skirtRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
             ApplyFieldView();
             RepaintOverlay();
         }
@@ -462,13 +529,9 @@ namespace GodGame.Rendering
             _host.ReadRegiments(_regiments);
             _host.ReadStrikes(_strikes);
             _host.ReadHerds(_herds);
-            _units.UpdateMoralePalette(
-                _regiments,
-                _camera != null ? _camera.Distance : 900f,
-                false,
-                _herds
-            );
-            _units.Draw(_host);
+            float camDist = _camera != null ? _camera.Distance : 900f;
+            _units.UpdateMoralePalette(_regiments, camDist, false, _herds);
+            _units.Draw(_host, camDist);
             _deckRenderer?.Draw(_structures, _host.Map, false);
             _host.ReadBlockers(_blockers);
             var causes = _host.ReadCauses();
@@ -586,6 +649,29 @@ namespace GodGame.Rendering
                 _rainInstances
             );
             _worldMarkers?.DrawRain(_rainInstances, Time.unscaledTime);
+            SalvoAndBlockerProjection.CollectFlyingStones(
+                causes,
+                latestUnits,
+                _plan,
+                _host.Map,
+                _navigation?.Terrain,
+                markerTick,
+                _flyingStoneInstances
+            );
+            SalvoAndBlockerProjection.CollectArrowVolleys(
+                _plan,
+                causes,
+                latestUnits,
+                _host.Map,
+                _navigation?.Terrain,
+                markerTick,
+                _arrowInstances
+            );
+            _worldMarkers?.DrawProjectiles(
+                _flyingStoneInstances,
+                _arrowInstances,
+                Time.unscaledTime
+            );
             float ms = Time.unscaledDeltaTime * 1000f;
             _smoothedFrameMs = Mathf.Lerp(_smoothedFrameMs, ms, 0.05f);
             if (_hud != null && Time.unscaledTime >= _nextHud)

@@ -60,6 +60,15 @@ namespace GodGame.Rendering
         private Shader _rainShader;
 
         [SerializeField]
+        private Shader _skyShader;
+
+        [SerializeField]
+        private Shader _skirtShader;
+
+        [SerializeField]
+        private Shader _shadowShader;
+
+        [SerializeField]
         private PanelSettings _panelSettings;
 
         [SerializeField]
@@ -67,6 +76,9 @@ namespace GodGame.Rendering
 
         [SerializeField]
         private Mesh[] _unitMeshes;
+
+        [SerializeField]
+        private Mesh[] _unitMeshesLod2;
 
         [SerializeField]
         private UnitVatData[] _unitVats;
@@ -150,6 +162,10 @@ namespace GodGame.Rendering
         private readonly List<HerdPenPropInstance> _herdPenInstances =
             new List<HerdPenPropInstance>();
         private readonly List<RainCastInstance> _rainInstances = new List<RainCastInstance>();
+        private readonly List<FlyingStoneInstance> _flyingStoneInstances =
+            new List<FlyingStoneInstance>();
+        private readonly List<ArrowVolleyInstance> _arrowInstances =
+            new List<ArrowVolleyInstance>();
         private readonly Dictionary<int, int> _crushCountsScratch = new Dictionary<int, int>();
         private FieldUpload _fields;
         private uint[] _fieldCells;
@@ -166,9 +182,14 @@ namespace GodGame.Rendering
         private bool _lastOverlayStrain;
         private Material _groundMaterial;
         private Material _waterMaterial;
+        private Material _skirtMaterial;
+        private Material _skyMaterial;
+        private Material _previousSkybox;
         private GameObject _ground;
         private GameObject _water;
+        private GameObject _skirt;
         private Mesh _mesh;
+        private Mesh _skirtMesh;
         private LineRenderer _objectiveLine;
         private readonly List<LineRenderer> _rings = new List<LineRenderer>();
         private readonly List<LineRenderer> _castCircles = new List<LineRenderer>();
@@ -326,6 +347,10 @@ namespace GodGame.Rendering
             _results = null;
             Destroy(_ground);
             Destroy(_water);
+            if (_skirt != null)
+            {
+                Destroy(_skirt);
+            }
             Destroy(_overlayTexture);
             if (_terrainMask != null)
             {
@@ -334,19 +359,37 @@ namespace GodGame.Rendering
             }
             Destroy(_groundMaterial);
             Destroy(_waterMaterial);
+            if (_skirtMaterial != null)
+            {
+                Destroy(_skirtMaterial);
+            }
+            if (_skyMaterial != null)
+            {
+                RenderSettings.skybox = _previousSkybox;
+                Destroy(_skyMaterial);
+                _skyMaterial = null;
+            }
             Destroy(_mesh);
+            if (_skirtMesh != null)
+            {
+                Destroy(_skirtMesh);
+            }
             _worker = null;
         }
 
         private void BuildScene(Battle battle)
         {
             _terrain = new Terrain(battle.PlayedMap);
-            _mesh = GroundMesh.Build(
-                _terrain,
-                _terrain.CellCount > 200_000 ? 2 : 1,
-                out float minH,
-                out float maxH
-            );
+            int step = _terrain.CellCount > 200_000 ? 2 : 1;
+            _mesh = GroundMesh.Build(_terrain, step, out float minH, out float maxH);
+            Shader resolvedSky =
+                _skyShader != null ? _skyShader : Shader.Find("GodGame/StylizedSky");
+            if (resolvedSky != null)
+            {
+                _previousSkybox = RenderSettings.skybox;
+                _skyMaterial = new Material(resolvedSky);
+                RenderSettings.skybox = _skyMaterial;
+            }
             _groundMaterial = new Material(_groundShader);
             GroundMesh.BindTerrainTextures(_groundMaterial);
             _terrainMask = GroundMesh.BuildTerrainMask(battle.PlayedMap);
@@ -381,6 +424,18 @@ namespace GodGame.Rendering
             _water = new GameObject("Planning water");
             _water.AddComponent<MeshFilter>().sharedMesh = _mesh;
             _water.AddComponent<MeshRenderer>().sharedMaterial = _waterMaterial;
+            Shader resolvedSkirt =
+                _skirtShader != null ? _skirtShader : Shader.Find("GodGame/MapSkirt");
+            if (resolvedSkirt != null)
+            {
+                _skirtMesh = GroundMesh.BuildSkirt(_terrain, step, minH);
+                _skirtMaterial = new Material(resolvedSkirt);
+                _skirt = new GameObject("Planning skirt");
+                _skirt.AddComponent<MeshFilter>().sharedMesh = _skirtMesh;
+                var skirtRenderer = _skirt.AddComponent<MeshRenderer>();
+                skirtRenderer.sharedMaterial = _skirtMaterial;
+                skirtRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
             _deckRenderer = new DeckRenderer(
                 battle.PlayedMap,
                 _deckShader != null ? _deckShader : Shader.Find("GodGame/DebugDeck"),
@@ -400,7 +455,8 @@ namespace GodGame.Rendering
                     _wallDrystoneMesh,
                     _herdPenMesh
                 ),
-                _rainShader
+                _rainShader,
+                _shadowShader
             );
             _structures = new StructureSnapshot();
             _regiments = new RegimentSnapshot();
@@ -443,7 +499,9 @@ namespace GodGame.Rendering
                 _map,
                 null,
                 _unitMeshes,
-                _unitVats
+                _unitVats,
+                _unitMeshesLod2,
+                _shadowShader
             );
             _reader = reader;
             if (_groundMaterial != null && battle.PlayedMap != null)
@@ -610,12 +668,8 @@ namespace GodGame.Rendering
             BuildScrubHerds(causes, scrubTick);
             _reader.ReadStructures(track, _scrubSeconds, _structures);
             _reader.ReadRegiments(track, _scrubSeconds, _regiments);
-            _units.UpdateMoralePalette(
-                _regiments,
-                _camera != null ? _camera.Distance : 900f,
-                _boostMoraleTints,
-                _scrubHerds
-            );
+            float camDist = _camera != null ? _camera.Distance : 900f;
+            _units.UpdateMoralePalette(_regiments, camDist, _boostMoraleTints, _scrubHerds);
             bool hasCurrent = _reader.Read(
                 track,
                 _scrubSeconds,
@@ -625,7 +679,7 @@ namespace GodGame.Rendering
             );
             if (hasCurrent)
             {
-                _units.Draw(previous, current, alpha, _reader, track, _scrubSeconds);
+                _units.Draw(previous, current, alpha, _reader, track, _scrubSeconds, camDist);
             }
             if (
                 _showGhost
@@ -640,7 +694,7 @@ namespace GodGame.Rendering
                 )
             )
             {
-                _ghost.Draw(gp, gc, ga, _ghostReader, _ghostTrack, _scrubSeconds);
+                _ghost.Draw(gp, gc, ga, _ghostReader, _ghostTrack, _scrubSeconds, camDist);
             }
             MapData activeMap = _reader.Map ?? _map;
             Terrain activeTerrain = _reader.Terrain ?? _terrain;
@@ -749,6 +803,29 @@ namespace GodGame.Rendering
                 _rainInstances
             );
             _worldMarkers?.DrawRain(_rainInstances, Time.unscaledTime);
+            SalvoAndBlockerProjection.CollectFlyingStones(
+                causes,
+                hasCurrent ? current : null,
+                plan,
+                activeMap,
+                activeTerrain,
+                scrubTick,
+                _flyingStoneInstances
+            );
+            SalvoAndBlockerProjection.CollectArrowVolleys(
+                plan,
+                causes,
+                hasCurrent ? current : null,
+                activeMap,
+                activeTerrain,
+                scrubTick,
+                _arrowInstances
+            );
+            _worldMarkers?.DrawProjectiles(
+                _flyingStoneInstances,
+                _arrowInstances,
+                Time.unscaledTime
+            );
             UploadFields(track);
             UpdateOverlay(track);
             DrawRings(track);

@@ -54,6 +54,8 @@ namespace GodGame.Rendering
         private static readonly int StatesId = Shader.PropertyToID("_MarkerStates");
         private static readonly int RainInstancesId = Shader.PropertyToID("_RainInstances");
         private static readonly int RainStatesId = Shader.PropertyToID("_RainStates");
+        private static readonly int ShadowInstancesId = Shader.PropertyToID("_ShadowInstances");
+        private static readonly int ShadowStatesId = Shader.PropertyToID("_ShadowStates");
         private static readonly int CellColorsId = Shader.PropertyToID("_CellColors");
         private static readonly int IsAuthoredFbxId = Shader.PropertyToID("_IsAuthoredFbx");
         private static readonly int TimeSecondsId = Shader.PropertyToID("_TimeSeconds");
@@ -163,6 +165,35 @@ namespace GodGame.Rendering
                 Graphics.RenderMeshIndirect(rp, _mesh, _args, 1, 0);
             }
 
+            public void DrawShadows(Material shadowMaterial, Bounds bounds, int count)
+            {
+                if (count <= 0 || _mesh == null || shadowMaterial == null)
+                {
+                    return;
+                }
+                _instances.SetData(InstanceData, 0, 0, count);
+                _states.SetData(StateData, 0, 0, count);
+
+                _argsData[0].indexCountPerInstance = _mesh.GetIndexCount(0);
+                _argsData[0].instanceCount = (uint)count;
+                _argsData[0].startIndex = _mesh.GetIndexStart(0);
+                _argsData[0].baseVertexIndex = _mesh.GetBaseVertex(0);
+                _argsData[0].startInstance = 0;
+                _args.SetData(_argsData);
+
+                _props.SetBuffer(ShadowInstancesId, _instances);
+                _props.SetBuffer(ShadowStatesId, _states);
+
+                var rp = new RenderParams(shadowMaterial)
+                {
+                    worldBounds = bounds,
+                    matProps = _props,
+                    shadowCastingMode = ShadowCastingMode.Off,
+                    receiveShadows = false,
+                };
+                Graphics.RenderMeshIndirect(rp, _mesh, _args, 1, 0);
+            }
+
             private void Allocate(int capacity)
             {
                 _instances?.Dispose();
@@ -194,6 +225,7 @@ namespace GodGame.Rendering
 
         private readonly Material _material;
         private readonly Material _rainMaterial;
+        private readonly Material _shadowMaterial;
         private readonly GraphicsBuffer _cellColors;
         private readonly Bounds _bounds;
 
@@ -209,18 +241,23 @@ namespace GodGame.Rendering
         private readonly MarkerBatch _walls;
         private readonly MarkerBatch _herdPens;
         private readonly MarkerBatch _rainCurtains;
+        private readonly MarkerBatch _flyingStones;
+        private readonly MarkerBatch _arrows;
+        private readonly MarkerBatch _propShadows;
+        private int _pendingShadowCount;
 
         public WorldMarkerRenderer(MapData map, Shader shader)
-            : this(map, shader, default, null) { }
+            : this(map, shader, default, null, null) { }
 
         public WorldMarkerRenderer(MapData map, Shader shader, WorldMarkerMeshes meshes)
-            : this(map, shader, meshes, null) { }
+            : this(map, shader, meshes, null, null) { }
 
         public WorldMarkerRenderer(
             MapData map,
             Shader shader,
             WorldMarkerMeshes meshes,
-            Shader rainShader
+            Shader rainShader,
+            Shader shadowShader = null
         )
         {
             if (map == null)
@@ -245,6 +282,12 @@ namespace GodGame.Rendering
             _rainMaterial =
                 resolvedRain != null
                     ? new Material(resolvedRain) { enableInstancing = true }
+                    : null;
+            Shader resolvedShadow =
+                shadowShader != null ? shadowShader : Shader.Find("GodGame/ContactShadow");
+            _shadowMaterial =
+                resolvedShadow != null
+                    ? new Material(resolvedShadow) { enableInstancing = true }
                     : null;
             _cellColors = PaletteCells.CreateBuffer();
 
@@ -322,6 +365,19 @@ namespace GodGame.Rendering
                 isAuthoredFbx: false,
                 16
             );
+            _flyingStones = new MarkerBatch(
+                BuildFlyingStoneMesh(),
+                ownsMesh: true,
+                isAuthoredFbx: false,
+                64
+            );
+            _arrows = new MarkerBatch(BuildArrowMesh(), ownsMesh: true, isAuthoredFbx: false, 256);
+            _propShadows = new MarkerBatch(
+                BuildShadowQuadMesh(),
+                ownsMesh: true,
+                isAuthoredFbx: false,
+                512
+            );
 
             var size = new Vector3(map.WidthMm / 1000f, 160f, map.DepthMm / 1000f);
             _bounds = new Bounds(size * 0.5f, size + Vector3.one * 50f);
@@ -339,6 +395,9 @@ namespace GodGame.Rendering
         public int DrawnWallsLastFrame { get; private set; }
         public int DrawnHerdPensLastFrame { get; private set; }
         public int DrawnRainLastFrame { get; private set; }
+        public int DrawnFlyingStonesLastFrame { get; private set; }
+        public int DrawnArrowsLastFrame { get; private set; }
+        public int DrawnPropShadowsLastFrame { get; private set; }
 
         public bool UsesAuthoredWreckMesh => _wrecks.IsAuthoredFbx;
         public bool UsesAuthoredTreeMesh => _trees.IsAuthoredFbx;
@@ -365,6 +424,7 @@ namespace GodGame.Rendering
             float timeSeconds = 0f
         )
         {
+            _pendingShadowCount = 0;
             DrawnWrecksLastFrame = DrawWrecks(wrecks, timeSeconds);
             DrawnSalvosLastFrame = DrawSalvos(salvos, timeSeconds);
             DrawnTreesLastFrame = DrawTrees(trees, timeSeconds);
@@ -374,7 +434,7 @@ namespace GodGame.Rendering
             DrawnHerdsLastFrame = DrawHerds(herds, timeSeconds);
         }
 
-        /// <summary>Draws static terrain props: placed boulders, hedgerows, drystone walls, and rustic herd pens.</summary>
+        /// <summary>Draws static terrain props: placed boulders, hedgerows, drystone walls, and rustic herd pens, plus all prop contact shadows.</summary>
         public void DrawTerrainProps(
             IReadOnlyList<BoulderPropInstance> boulders,
             IReadOnlyList<LineBarrierInstance> barriers,
@@ -387,6 +447,85 @@ namespace GodGame.Rendering
             DrawnHedgerowsLastFrame = hedgeCount;
             DrawnWallsLastFrame = wallCount;
             DrawnHerdPensLastFrame = DrawHerdPens(herdPens, timeSeconds);
+            FlushPropShadows();
+        }
+
+        /// <summary>Draws mid-air ballistic siege boulders and feathered ranged arrow volleys.</summary>
+        public void DrawProjectiles(
+            IReadOnlyList<FlyingStoneInstance> flyingStones,
+            IReadOnlyList<ArrowVolleyInstance> arrows,
+            float timeSeconds = 0f
+        )
+        {
+            DrawnFlyingStonesLastFrame = DrawFlyingStones(flyingStones, timeSeconds);
+            DrawnArrowsLastFrame = DrawArrows(arrows, timeSeconds);
+        }
+
+        private void AddPropShadow(
+            float wx,
+            float wy,
+            float wz,
+            float radiusX,
+            float radiusZ,
+            float opacity,
+            float yawRad = 0f,
+            float sunOffsetM = 0f
+        )
+        {
+            if (_shadowMaterial == null)
+            {
+                return;
+            }
+            int idx = _pendingShadowCount++;
+            _propShadows.EnsureCapacity(_pendingShadowCount);
+            _propShadows.InstanceData[idx] = new Vector4(wx, wy, wz, radiusX);
+            _propShadows.StateData[idx] = new Vector4(radiusZ, opacity, yawRad, sunOffsetM);
+        }
+
+        private void FlushPropShadows()
+        {
+            DrawnPropShadowsLastFrame = _pendingShadowCount;
+            if (_pendingShadowCount > 0 && _shadowMaterial != null)
+            {
+                _propShadows.DrawShadows(_shadowMaterial, _bounds, _pendingShadowCount);
+            }
+            _pendingShadowCount = 0;
+        }
+
+        private int DrawFlyingStones(IReadOnlyList<FlyingStoneInstance> stones, float timeSeconds)
+        {
+            int count = stones != null ? stones.Count : 0;
+            if (count == 0)
+            {
+                return 0;
+            }
+            _flyingStones.EnsureCapacity(count);
+            for (int i = 0; i < count; i++)
+            {
+                FlyingStoneInstance s = stones[i];
+                _flyingStones.InstanceData[i] = new Vector4(s.WorldX, s.WorldY, s.WorldZ, 0f);
+                _flyingStones.StateData[i] = new Vector4(s.Scale, s.Progress, 9.0f, s.SpinRad);
+            }
+            _flyingStones.Draw(_material, _bounds, _cellColors, timeSeconds, count);
+            return count;
+        }
+
+        private int DrawArrows(IReadOnlyList<ArrowVolleyInstance> arrows, float timeSeconds)
+        {
+            int count = arrows != null ? arrows.Count : 0;
+            if (count == 0)
+            {
+                return 0;
+            }
+            _arrows.EnsureCapacity(count);
+            for (int i = 0; i < count; i++)
+            {
+                ArrowVolleyInstance a = arrows[i];
+                _arrows.InstanceData[i] = new Vector4(a.WorldX, a.WorldY, a.WorldZ, a.Progress);
+                _arrows.StateData[i] = new Vector4(a.DirX, a.DirY, 10.0f, a.DirZ);
+            }
+            _arrows.Draw(_material, _bounds, _cellColors, timeSeconds, count);
+            return count;
         }
 
         /// <summary>Draws translucent falling rain curtains and gathering storm-cloud shadows for active Rain casts.</summary>
@@ -432,6 +571,16 @@ namespace GodGame.Rendering
                 BoulderPropInstance b = boulders[i];
                 _boulders.InstanceData[i] = new Vector4(b.WorldX, b.WorldY, b.WorldZ, b.YawRad);
                 _boulders.StateData[i] = new Vector4(b.Scale, b.Scale, 8.0f, 0.0f);
+                AddPropShadow(
+                    b.WorldX,
+                    b.WorldY + 0.14f,
+                    b.WorldZ,
+                    b.Scale * 2.15f,
+                    b.Scale * 2.65f,
+                    0.42f,
+                    0f,
+                    b.Scale * 0.65f
+                );
             }
             _boulders.Draw(_material, _bounds, _cellColors, timeSeconds, count);
             return count;
@@ -479,6 +628,16 @@ namespace GodGame.Rendering
                     _walls.InstanceData[wIdx] = new Vector4(b.WorldX, b.WorldY, b.WorldZ, b.YawRad);
                     _walls.StateData[wIdx] = new Vector4(b.ScaleX, b.ScaleY, 8.0f, 0.0f);
                     wIdx++;
+                    AddPropShadow(
+                        b.WorldX,
+                        b.WorldY + 0.05f,
+                        b.WorldZ,
+                        b.ScaleX * 1.05f,
+                        0.95f,
+                        0.36f,
+                        b.YawRad,
+                        0.45f
+                    );
                 }
                 else
                 {
@@ -490,6 +649,16 @@ namespace GodGame.Rendering
                     );
                     _hedgerows.StateData[hIdx] = new Vector4(b.ScaleX, b.ScaleY, 8.0f, 0.045f);
                     hIdx++;
+                    AddPropShadow(
+                        b.WorldX,
+                        b.WorldY + 0.05f,
+                        b.WorldZ,
+                        b.ScaleX * 1.12f,
+                        1.25f,
+                        0.38f,
+                        b.YawRad,
+                        0.55f
+                    );
                 }
             }
             if (hedgeCount > 0)
@@ -581,6 +750,16 @@ namespace GodGame.Rendering
                 TreePropInstance t = trees[i];
                 _trees.InstanceData[i] = new Vector4(t.WorldX, t.WorldY, t.WorldZ, t.YawRad);
                 _trees.StateData[i] = new Vector4(t.Scale, 0.0f, 3.0f, t.FallProgress);
+                AddPropShadow(
+                    t.WorldX,
+                    t.WorldY,
+                    t.WorldZ,
+                    t.Scale * 3.8f,
+                    t.Scale * 5.2f,
+                    0.44f * (1f - t.FallProgress * 0.45f),
+                    0f,
+                    t.Scale * 2.4f
+                );
             }
             _trees.Draw(_material, _bounds, _cellColors, timeSeconds, count);
             return count;
@@ -740,6 +919,7 @@ namespace GodGame.Rendering
 
             Color stoneCol = new Color(0.49f, 0.50f, 0.53f, 1f);
             Color ringMarker = new Color(0.60f, 0.55f, 0.48f, 0.45f);
+            Color dustCol = new Color(0.80f, 0.72f, 0.58f, 0.75f);
             Color crushMarker = new Color(0.90f, 0.20f, 0.15f, 1f);
 
             AddBox(
@@ -752,6 +932,24 @@ namespace GodGame.Rendering
                 stoneCol
             );
             AddRing(verts, cols, tris, 0.85f, 1.38f, 0.08f, 14, ringMarker);
+            // Impact dust plume lobes that burst upward on landing and dissipate over 2.2 s.
+            for (int i = 0; i < 6; i++)
+            {
+                float a = i * (MathF.PI * 2f / 6f);
+                AddBox(
+                    verts,
+                    cols,
+                    tris,
+                    new Vector3(
+                        MathF.Cos(a) * 0.62f,
+                        0.48f + (i & 1) * 0.22f,
+                        MathF.Sin(a) * 0.62f
+                    ),
+                    new Vector3(0.55f, 0.52f, 0.55f),
+                    Quaternion.Euler(18f, i * 47f, -14f),
+                    dustCol
+                );
+            }
             AddBox(
                 verts,
                 cols,
@@ -763,6 +961,109 @@ namespace GodGame.Rendering
             );
 
             return FinalizeMesh("StoneImpactMarkerMesh", verts, cols, tris);
+        }
+
+        private static Mesh BuildFlyingStoneMesh()
+        {
+            var verts = new List<Vector3>();
+            var cols = new List<Color>();
+            var tris = new List<int>();
+            Color stone = new Color(0.56f, 0.55f, 0.52f, 1f);
+            Color accent = new Color(0.42f, 0.40f, 0.38f, 1f);
+            AddBox(
+                verts,
+                cols,
+                tris,
+                Vector3.zero,
+                new Vector3(0.86f, 0.78f, 0.82f),
+                Quaternion.Euler(18f, 25f, 12f),
+                stone
+            );
+            AddBox(
+                verts,
+                cols,
+                tris,
+                new Vector3(0.18f, 0.14f, -0.12f),
+                new Vector3(0.64f, 0.68f, 0.62f),
+                Quaternion.Euler(-24f, 40f, 32f),
+                accent
+            );
+            return FinalizeMesh("FlyingStoneMesh", verts, cols, tris);
+        }
+
+        private static Mesh BuildArrowMesh()
+        {
+            var verts = new List<Vector3>();
+            var cols = new List<Color>();
+            var tris = new List<int>();
+            Color shaft = new Color(0.62f, 0.45f, 0.24f, 1f);
+            Color tip = new Color(0.82f, 0.86f, 0.90f, 1f);
+            Color fletch = new Color(0.96f, 0.92f, 0.80f, 1f);
+            // Aligned along +Z so tangent orientation points tip straight forward.
+            AddBox(
+                verts,
+                cols,
+                tris,
+                new Vector3(0f, 0f, 0f),
+                new Vector3(0.06f, 0.06f, 1.35f),
+                Quaternion.identity,
+                shaft
+            );
+            AddBox(
+                verts,
+                cols,
+                tris,
+                new Vector3(0f, 0f, 0.74f),
+                new Vector3(0.14f, 0.09f, 0.26f),
+                Quaternion.identity,
+                tip
+            );
+            AddBox(
+                verts,
+                cols,
+                tris,
+                new Vector3(0f, 0f, -0.58f),
+                new Vector3(0.24f, 0.05f, 0.34f),
+                Quaternion.identity,
+                fletch
+            );
+            AddBox(
+                verts,
+                cols,
+                tris,
+                new Vector3(0f, 0f, -0.58f),
+                new Vector3(0.05f, 0.24f, 0.34f),
+                Quaternion.identity,
+                fletch
+            );
+            return FinalizeMesh("ArrowProjectileMesh", verts, cols, tris);
+        }
+
+        public static Mesh BuildShadowQuadMesh()
+        {
+            var mesh = new Mesh { name = "ContactShadowQuad" };
+            mesh.SetVertices(
+                new[]
+                {
+                    new Vector3(-1f, 0f, -1f),
+                    new Vector3(1f, 0f, -1f),
+                    new Vector3(1f, 0f, 1f),
+                    new Vector3(-1f, 0f, 1f),
+                }
+            );
+            mesh.SetUVs(
+                0,
+                new[]
+                {
+                    new Vector2(0f, 0f),
+                    new Vector2(1f, 0f),
+                    new Vector2(1f, 1f),
+                    new Vector2(0f, 1f),
+                }
+            );
+            mesh.SetTriangles(new[] { 0, 2, 1, 0, 3, 2 }, 0);
+            mesh.RecalculateBounds();
+            return mesh;
         }
 
         private static Mesh BuildFallbackTreeMesh()
@@ -1301,6 +1602,9 @@ namespace GodGame.Rendering
             _walls.Dispose();
             _herdPens.Dispose();
             _rainCurtains.Dispose();
+            _flyingStones.Dispose();
+            _arrows.Dispose();
+            _propShadows.Dispose();
             _cellColors?.Dispose();
             if (Application.isPlaying)
             {
@@ -1309,6 +1613,10 @@ namespace GodGame.Rendering
                 {
                     UnityEngine.Object.Destroy(_rainMaterial);
                 }
+                if (_shadowMaterial != null)
+                {
+                    UnityEngine.Object.Destroy(_shadowMaterial);
+                }
             }
             else
             {
@@ -1316,6 +1624,10 @@ namespace GodGame.Rendering
                 if (_rainMaterial != null)
                 {
                     UnityEngine.Object.DestroyImmediate(_rainMaterial);
+                }
+                if (_shadowMaterial != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(_shadowMaterial);
                 }
             }
         }

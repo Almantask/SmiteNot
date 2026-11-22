@@ -72,6 +72,108 @@ namespace GodGame.Rendering
             return mesh;
         }
 
+        /// <summary>
+        /// Builds a bevelled tabletop diorama cutaway skirt around all four borders of the terrain mesh down to
+        /// <paramref name="minHeight"/> minus <paramref name="skirtDepth"/>, matching the exact border heights of
+        /// <see cref="Build"/>. Presentation only.
+        /// </summary>
+        public static Mesh BuildSkirt(
+            Terrain terrain,
+            int step,
+            float minHeight,
+            float skirtDepth = 18f
+        )
+        {
+            int columns = terrain.Columns / step + 1;
+            int rows = terrain.Rows / step + 1;
+            float cell = terrain.CellSizeMm / 1000f;
+            float bottomY = minHeight - Mathf.Max(4f, skirtDepth);
+            const float BevelOutM = 7.5f;
+
+            int edgeCount = (columns + rows) * 2;
+            var vertices = new Vector3[edgeCount * 2];
+            var normals = new Vector3[edgeCount * 2];
+            var uvs = new Vector2[edgeCount * 2];
+            var triangles = new int[((columns - 1) * 2 + (rows - 1) * 2) * 6];
+            int vIdx = 0;
+            int tIdx = 0;
+
+            float CornerH(int x, int y) =>
+                (
+                    terrain.HeightMm(x - 1, y - 1)
+                    + terrain.HeightMm(x, y - 1)
+                    + terrain.HeightMm(x - 1, y)
+                    + terrain.HeightMm(x, y)
+                ) / 4000f;
+
+            void AddBorder(int count, System.Func<int, (int gx, int gy)> gridAt, Vector3 outward)
+            {
+                int start = vIdx;
+                Vector3 bevelNormal = (outward * skirtDepth + Vector3.up * BevelOutM).normalized;
+                for (int k = 0; k < count; k++)
+                {
+                    var (gx, gy) = gridAt(k);
+                    float wx = gx * cell;
+                    float wz = gy * cell;
+                    float wy = CornerH(gx, gy);
+                    float along = k * step * cell;
+
+                    vertices[vIdx] = new Vector3(wx, wy, wz);
+                    normals[vIdx] = bevelNormal;
+                    uvs[vIdx] = new Vector2(along, 0f);
+                    vIdx++;
+
+                    // Flare corners slightly along both axes so adjacent bevelled sides meet cleanly with zero gaps.
+                    float cornerX = (
+                        gx == 0
+                            ? -BevelOutM
+                            : (gx == terrain.Columns ? BevelOutM : outward.x * BevelOutM)
+                    );
+                    float cornerZ = (
+                        gy == 0
+                            ? -BevelOutM
+                            : (gy == terrain.Rows ? BevelOutM : outward.z * BevelOutM)
+                    );
+                    vertices[vIdx] = new Vector3(wx + cornerX, bottomY, wz + cornerZ);
+                    normals[vIdx] = bevelNormal;
+                    uvs[vIdx] = new Vector2(along, 1f);
+                    vIdx++;
+                }
+                for (int k = 0; k < count - 1; k++)
+                {
+                    int a = start + k * 2;
+                    triangles[tIdx++] = a;
+                    triangles[tIdx++] = a + 1;
+                    triangles[tIdx++] = a + 2;
+                    triangles[tIdx++] = a + 2;
+                    triangles[tIdx++] = a + 1;
+                    triangles[tIdx++] = a + 3;
+                }
+            }
+
+            // South (y = 0, facing -Z), North (y = rows-1, facing +Z), West (x = 0, facing -X), East (x = cols-1, facing +X).
+            AddBorder(columns, i => (Mathf.Min(i * step, terrain.Columns), 0), Vector3.back);
+            AddBorder(
+                columns,
+                i => (Mathf.Min((columns - 1 - i) * step, terrain.Columns), terrain.Rows),
+                Vector3.forward
+            );
+            AddBorder(rows, j => (0, Mathf.Min((rows - 1 - j) * step, terrain.Rows)), Vector3.left);
+            AddBorder(
+                rows,
+                j => (terrain.Columns, Mathf.Min(j * step, terrain.Rows)),
+                Vector3.right
+            );
+
+            var mesh = new Mesh { name = "Map skirt", indexFormat = IndexFormat.UInt32 };
+            mesh.vertices = vertices;
+            mesh.normals = normals;
+            mesh.uv = uvs;
+            mesh.triangles = triangles;
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
         private static readonly (string Prop, string ResourcePath)[] TerrainTextureBindings =
         {
             ("_GrassTex", "Terrain/T_terrain_grass_a"),

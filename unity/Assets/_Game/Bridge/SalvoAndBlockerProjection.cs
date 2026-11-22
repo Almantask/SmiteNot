@@ -383,6 +383,68 @@ namespace GodGame.Bridge
         public float WindZMps { get; }
     }
 
+    /// <summary>One mid-air siege boulder projected along its ballistic arc before a <see cref="CauseKind.StoneLanded"/> tick.</summary>
+    public readonly struct FlyingStoneInstance
+    {
+        public FlyingStoneInstance(
+            int eventIndex,
+            float worldX,
+            float worldY,
+            float worldZ,
+            float spinRad,
+            float progress,
+            float scale
+        )
+        {
+            EventIndex = eventIndex;
+            WorldX = worldX;
+            WorldY = worldY;
+            WorldZ = worldZ;
+            SpinRad = spinRad;
+            Progress = progress;
+            Scale = scale;
+        }
+
+        public int EventIndex { get; }
+        public float WorldX { get; }
+        public float WorldY { get; }
+        public float WorldZ { get; }
+        public float SpinRad { get; }
+        public float Progress { get; }
+        public float Scale { get; }
+    }
+
+    /// <summary>One mid-air arrow in a ranged regiment's volley arc projected from <see cref="CauseKind.SoldierKilled"/> events.</summary>
+    public readonly struct ArrowVolleyInstance
+    {
+        public ArrowVolleyInstance(
+            float worldX,
+            float worldY,
+            float worldZ,
+            float dirX,
+            float dirY,
+            float dirZ,
+            float progress
+        )
+        {
+            WorldX = worldX;
+            WorldY = worldY;
+            WorldZ = worldZ;
+            DirX = dirX;
+            DirY = dirY;
+            DirZ = dirZ;
+            Progress = progress;
+        }
+
+        public float WorldX { get; }
+        public float WorldY { get; }
+        public float WorldZ { get; }
+        public float DirX { get; }
+        public float DirY { get; }
+        public float DirZ { get; }
+        public float Progress { get; }
+    }
+
     /// <summary>
     /// Pure bridge projections from <see cref="BlockerSnapshot"/> and <see cref="CauseEvent"/> logs into world-space
     /// draw records for both live (<see cref="BattleHost"/>) and scrubbable (<see cref="PreviewWorker"/>) views.
@@ -1709,6 +1771,337 @@ namespace GodGame.Bridge
                         windZ
                     )
                 );
+            }
+        }
+
+        /// <summary>
+        /// Collects mid-air ballistic siege boulders approaching their <see cref="CauseKind.StoneLanded"/> impact
+        /// within the next 2.2 seconds (44 ticks), giving scrubbable live projectile arcs.
+        /// </summary>
+        public static void CollectFlyingStones(
+            CauseEvent[] causes,
+            BattleHost.UnitSnapshot units,
+            BattlePlan plan,
+            MapData map,
+            Terrain terrain,
+            int atTick,
+            List<FlyingStoneInstance> output
+        )
+        {
+            if (output == null)
+            {
+                throw new ArgumentNullException(nameof(output));
+            }
+            output.Clear();
+            if (causes == null || causes.Length == 0 || map == null)
+            {
+                return;
+            }
+
+            const int FlightTicks = 44; // 2.2 s ballistic arc
+            int totalCells = map.Columns * map.Rows;
+            float cellM = map.CellSizeMm / 1000f;
+            float[] regX = null;
+            float[] regY = null;
+            float[] regZ = null;
+            int[] regN = null;
+
+            for (int i = 0; i < causes.Length; i++)
+            {
+                CauseEvent e = causes[i];
+                if (e.Kind != CauseKind.StoneLanded)
+                {
+                    continue;
+                }
+                int remaining = e.Tick - atTick;
+                if (remaining <= 0 || remaining > FlightTicks)
+                {
+                    continue;
+                }
+                int cell = e.Detail;
+                if ((uint)cell >= (uint)totalCells)
+                {
+                    continue;
+                }
+
+                if (regX == null)
+                {
+                    ComputeRegimentCentroids(
+                        units,
+                        plan,
+                        map,
+                        terrain,
+                        out regX,
+                        out regY,
+                        out regZ,
+                        out regN
+                    );
+                }
+
+                CellWorldCenter(
+                    map,
+                    terrain,
+                    cell,
+                    cellM,
+                    out float tx,
+                    out float ty,
+                    out float tz
+                );
+                int r = e.Subject;
+                float sx,
+                    sy,
+                    sz;
+                if (regN != null && (uint)r < (uint)regN.Length && regN[r] > 0)
+                {
+                    sx = regX[r];
+                    sy = regY[r] + 3.2f;
+                    sz = regZ[r];
+                }
+                else
+                {
+                    sx = Math.Max(10f, tx - 90f);
+                    sy = ty + 3.2f;
+                    sz = tz;
+                }
+
+                float t = 1f - remaining / (float)FlightTicks;
+                float dx = tx - sx;
+                float dz = tz - sz;
+                float horiz = (float)Math.Sqrt(dx * dx + dz * dz);
+                float arcHeight = Math.Max(12f, Math.Min(46f, horiz * 0.25f));
+                float wx = sx + dx * t;
+                float wz = sz + dz * t;
+                float wy = sy + (ty - sy) * t + 4f * arcHeight * t * (1f - t);
+                float spin = t * 14f + (i & 7) * 0.8f;
+
+                output.Add(new FlyingStoneInstance(i, wx, wy, wz, spin, t, 1.15f));
+            }
+        }
+
+        /// <summary>
+        /// Collects mid-air feathered arrow volleys fired by ranged regiments before <see cref="CauseKind.SoldierKilled"/>
+        /// ticks, fanned into readable parabolic arcs for both live playback and scrubbing.
+        /// </summary>
+        public static void CollectArrowVolleys(
+            BattlePlan plan,
+            CauseEvent[] causes,
+            BattleHost.UnitSnapshot units,
+            MapData map,
+            Terrain terrain,
+            int atTick,
+            List<ArrowVolleyInstance> output
+        )
+        {
+            if (output == null)
+            {
+                throw new ArgumentNullException(nameof(output));
+            }
+            output.Clear();
+            if (
+                plan == null
+                || plan.Army == null
+                || causes == null
+                || causes.Length == 0
+                || map == null
+            )
+            {
+                return;
+            }
+
+            const int FlightTicks = 26; // 1.3 s arrow flight
+            const int ArrowsPerVolley = 10;
+            int regCount = plan.Army.Count;
+            float[] regX = null;
+            float[] regY = null;
+            float[] regZ = null;
+            int[] regN = null;
+            HashSet<long> seenVolleys = null;
+
+            for (int i = 0; i < causes.Length; i++)
+            {
+                CauseEvent e = causes[i];
+                if (e.Kind != CauseKind.SoldierKilled)
+                {
+                    continue;
+                }
+                int remaining = e.Tick - atTick;
+                if (remaining < 0 || remaining > FlightTicks)
+                {
+                    continue;
+                }
+                int killer = e.Detail;
+                int victim = e.Subject;
+                if ((uint)killer >= (uint)regCount || (uint)victim >= (uint)regCount)
+                {
+                    continue;
+                }
+                if (
+                    !string.Equals(
+                        plan.Army[killer].UnitType,
+                        "ranged",
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                )
+                {
+                    continue;
+                }
+
+                seenVolleys ??= new HashSet<long>();
+                long key = ((long)killer << 32) | ((long)victim << 16) | (uint)(e.Tick / 20);
+                if (!seenVolleys.Add(key))
+                {
+                    continue;
+                }
+
+                if (regX == null)
+                {
+                    ComputeRegimentCentroids(
+                        units,
+                        plan,
+                        map,
+                        terrain,
+                        out regX,
+                        out regY,
+                        out regZ,
+                        out regN
+                    );
+                }
+                if (regN[killer] <= 0 || regN[victim] <= 0)
+                {
+                    continue;
+                }
+
+                float sx = regX[killer];
+                float sy = regY[killer] + 1.85f;
+                float sz = regZ[killer];
+                float tx = regX[victim];
+                float ty = regY[victim] + 1.1f;
+                float tz = regZ[victim];
+
+                float baseDx = tx - sx;
+                float baseDz = tz - sz;
+                float horiz = (float)Math.Sqrt(baseDx * baseDx + baseDz * baseDz);
+                if (horiz < 12f)
+                {
+                    continue;
+                }
+                float perpX = -baseDz / horiz;
+                float perpZ = baseDx / horiz;
+                float baseT = 1f - remaining / (float)FlightTicks;
+                float arcHeight = Math.Max(6f, Math.Min(32f, horiz * 0.20f));
+
+                for (int a = 0; a < ArrowsPerVolley; a++)
+                {
+                    int h = ((killer * 73 + victim * 37 + (e.Tick / 20) * 19 + a * 53) & 0xFF);
+                    float spreadLateral = (((h & 15) / 15f) - 0.5f) * 14f;
+                    float spreadDepth = ((((h >> 4) & 15) / 15f) - 0.5f) * 8f;
+                    float tJitter = ((((a * 31 + h) & 15) / 15f) - 0.5f) * 0.14f;
+                    float t = baseT + tJitter;
+                    if (t < 0.02f || t > 0.99f)
+                    {
+                        continue;
+                    }
+
+                    float ax = sx + perpX * spreadLateral;
+                    float az = sz + perpZ * spreadLateral;
+                    float bx =
+                        tx + perpX * (spreadLateral * 0.85f) + (baseDx / horiz) * spreadDepth;
+                    float bz =
+                        tz + perpZ * (spreadLateral * 0.85f) + (baseDz / horiz) * spreadDepth;
+
+                    float dx = bx - ax;
+                    float dz = bz - az;
+                    float dy = ty - sy;
+
+                    float wx = ax + dx * t;
+                    float wz = az + dz * t;
+                    float wy = sy + dy * t + 4f * arcHeight * t * (1f - t);
+
+                    // Analytical derivative of parabolic arc gives exact arrow pitch tangent.
+                    float vx = dx;
+                    float vz = dz;
+                    float vy = dy + 4f * arcHeight * (1f - 2f * t);
+                    float vLen = (float)Math.Sqrt(vx * vx + vy * vy + vz * vz);
+                    if (vLen < 1e-4f)
+                    {
+                        continue;
+                    }
+                    float inv = 1f / vLen;
+                    output.Add(
+                        new ArrowVolleyInstance(wx, wy, wz, vx * inv, vy * inv, vz * inv, t)
+                    );
+                }
+            }
+        }
+
+        private static void ComputeRegimentCentroids(
+            BattleHost.UnitSnapshot units,
+            BattlePlan plan,
+            MapData map,
+            Terrain terrain,
+            out float[] regX,
+            out float[] regY,
+            out float[] regZ,
+            out int[] regN
+        )
+        {
+            int count = plan?.Army != null ? plan.Army.Count : 0;
+            if (units != null)
+            {
+                for (int u = 0; u < units.Count; u++)
+                {
+                    if (units.Regiment[u] + 1 > count)
+                    {
+                        count = units.Regiment[u] + 1;
+                    }
+                }
+            }
+            regX = new float[count];
+            regY = new float[count];
+            regZ = new float[count];
+            regN = new int[count];
+
+            if (units != null)
+            {
+                for (int u = 0; u < units.Count; u++)
+                {
+                    if (!units.Alive[u])
+                    {
+                        continue;
+                    }
+                    int r = units.Regiment[u];
+                    if ((uint)r >= (uint)count)
+                    {
+                        continue;
+                    }
+                    regX[r] += units.X[u];
+                    regY[r] += units.Y[u];
+                    regZ[r] += units.Z[u];
+                    regN[r]++;
+                }
+                for (int r = 0; r < count; r++)
+                {
+                    if (regN[r] > 0)
+                    {
+                        regX[r] /= regN[r];
+                        regY[r] /= regN[r];
+                        regZ[r] /= regN[r];
+                    }
+                }
+            }
+
+            if (plan?.Army != null)
+            {
+                for (int r = 0; r < plan.Army.Count; r++)
+                {
+                    if (regN[r] == 0)
+                    {
+                        regX[r] = plan.Army[r].XMm / 1000f;
+                        regZ[r] = plan.Army[r].YMm / 1000f;
+                        regY[r] = WorldYAtMm(map, terrain, plan.Army[r].XMm, plan.Army[r].YMm);
+                        regN[r] = 1;
+                    }
+                }
             }
         }
 

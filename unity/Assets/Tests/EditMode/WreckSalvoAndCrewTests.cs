@@ -1164,5 +1164,151 @@ namespace GodGame.Tests.EditMode
                 UnityEngine.Object.DestroyImmediate(mask);
             }
         }
+
+        [Test]
+        public void SkySkirtAndContactShadowShaders_LoadAndSkirtBuildsCleanly()
+        {
+            Assert.That(Shader.Find("GodGame/StylizedSky"), Is.Not.Null);
+            Assert.That(Shader.Find("GodGame/MapSkirt"), Is.Not.Null);
+            Assert.That(Shader.Find("GodGame/ContactShadow"), Is.Not.Null);
+
+            var map = FlatMap(widthMm: 120_000, depthMm: 90_000);
+            var terrain = new GodGame.Sim.Terrain(map);
+            Mesh skirt = GroundMesh.BuildSkirt(terrain, step: 2, minHeight: 0f, skirtDepth: 16f);
+            try
+            {
+                Assert.That(skirt.vertexCount, Is.GreaterThan(0));
+                Assert.That(skirt.triangles.Length, Is.GreaterThan(0));
+                Assert.That(skirt.bounds.min.y, Is.EqualTo(-16f).Within(0.05f));
+                Assert.That(skirt.bounds.max.y, Is.EqualTo(0f).Within(0.05f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(skirt);
+            }
+        }
+
+        [Test]
+        public void ProjectileProjection_AndRenderers_CoverFlyingStonesArrowsShadowsAndLod2()
+        {
+            var rules = RepoLoader.LoadRules(RepoLoader.EditorRepoRoot);
+            var map = FlatMap(widthMm: 300_000, depthMm: 180_000);
+            string planJson =
+                "{\"version\":0,\"map\":\""
+                + map.Id
+                + "\",\"army\":["
+                + "{\"id\":\"att-ranged\",\"side\":\"attacker\",\"unitType\":\"ranged\",\"soldiers\":60,\"xMm\":40000,\"yMm\":90000,\"facingCentiDegrees\":0},"
+                + "{\"id\":\"att-siege\",\"side\":\"attacker\",\"unitType\":\"siege\",\"soldiers\":1,\"xMm\":45000,\"yMm\":110000,\"facingCentiDegrees\":0},"
+                + "{\"id\":\"def-inf\",\"side\":\"defender\",\"unitType\":\"infantry\",\"soldiers\":60,\"xMm\":250000,\"yMm\":90000,\"facingCentiDegrees\":18000}"
+                + "],\"terrain\":[],\"casts\":[]}";
+            var plan = BattlePlan.Load(planJson, map, rules);
+            var terrain = new GodGame.Sim.Terrain(map);
+
+            int targetCell = 60 * map.Columns + 160;
+            var causes = new[]
+            {
+                new CauseEvent(
+                    CauseKind.StoneLanded,
+                    tick: 120,
+                    subject: 1,
+                    detail: targetCell,
+                    -1,
+                    -1
+                ),
+                new CauseEvent(CauseKind.SoldierKilled, tick: 112, subject: 2, detail: 0, -1, -1),
+            };
+
+            var stones = new List<FlyingStoneInstance>();
+            SalvoAndBlockerProjection.CollectFlyingStones(
+                causes,
+                null,
+                plan,
+                map,
+                terrain,
+                atTick: 100,
+                stones
+            );
+            Assert.That(stones.Count, Is.EqualTo(1));
+            Assert.That(
+                stones[0].WorldY,
+                Is.GreaterThan(10f),
+                "Mid-air stone should arc well above ground"
+            );
+
+            var arrows = new List<ArrowVolleyInstance>();
+            SalvoAndBlockerProjection.CollectArrowVolleys(
+                plan,
+                causes,
+                null,
+                map,
+                terrain,
+                atTick: 100,
+                arrows
+            );
+            Assert.That(arrows.Count, Is.GreaterThanOrEqualTo(6));
+            float dirLen = Mathf.Sqrt(
+                arrows[0].DirX * arrows[0].DirX
+                    + arrows[0].DirY * arrows[0].DirY
+                    + arrows[0].DirZ * arrows[0].DirZ
+            );
+            Assert.That(dirLen, Is.EqualTo(1f).Within(0.01f));
+
+            using var markers = new WorldMarkerRenderer(map, Shader.Find("GodGame/DebugMarkers"));
+            markers.Draw(
+                Array.Empty<WreckCellInstance>(),
+                Array.Empty<StoneLandingInstance>(),
+                new[] { new TreePropInstance(0, 120f, 0f, 80f, 1f, 0f, 0f, 14f) }
+            );
+            markers.DrawTerrainProps(
+                new[] { new BoulderPropInstance(0, 130f, 0f, 90f, 1f, 0f) },
+                new[] { new LineBarrierInstance(0, false, 140f, 0f, 90f, 1f, 1f, 0f) },
+                Array.Empty<HerdPenPropInstance>()
+            );
+            markers.DrawProjectiles(stones, arrows, timeSeconds: 5f);
+            Assert.That(markers.DrawnPropShadowsLastFrame, Is.EqualTo(3));
+            Assert.That(markers.DrawnFlyingStonesLastFrame, Is.EqualTo(1));
+            Assert.That(markers.DrawnArrowsLastFrame, Is.EqualTo(arrows.Count));
+
+            var lod0 = new Mesh[rules.UnitTypes.Count];
+            var lod2 = new Mesh[rules.UnitTypes.Count];
+            Mesh inf0 = UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(
+                "Assets/_Game/Art/Generated/U_infantry_a/U_infantry_a_LOD0.fbx"
+            );
+            Mesh inf2 = UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(
+                "Assets/_Game/Art/Generated/U_infantry_a/U_infantry_a_LOD2.fbx"
+            );
+            Assert.That(inf0, Is.Not.Null);
+            Assert.That(inf2, Is.Not.Null);
+            Assert.That(inf2.vertexCount, Is.LessThan(inf0.vertexCount));
+            lod0[0] = inf0;
+            lod2[0] = inf2;
+
+            using var units = new UnitCapsuleRenderer(
+                Shader.Find("GodGame/DebugUnits"),
+                16,
+                rules,
+                new[] { Side.Attacker },
+                map,
+                tint: null,
+                typeMeshes: lod0,
+                typeVats: null,
+                typeMeshesLod2: lod2
+            );
+            var snap = new BattleHost.UnitSnapshot(16) { Tick = 1, Count = 2 };
+            snap.Alive[0] = true;
+            snap.Alive[1] = true;
+            snap.X[0] = 50f;
+            snap.Z[0] = 50f;
+            snap.X[1] = 55f;
+            snap.Z[1] = 50f;
+
+            units.Draw(snap, snap, 1f, cameraDistance: 120f);
+            Assert.That(units.UsedLod2LastFrame, Is.False);
+            Assert.That(units.DrawnShadowsLastFrame, Is.EqualTo(2));
+
+            units.Draw(snap, snap, 1f, cameraDistance: 600f);
+            Assert.That(units.UsedLod2LastFrame, Is.True);
+            Assert.That(units.DrawnShadowsLastFrame, Is.EqualTo(2));
+        }
     }
 }

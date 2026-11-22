@@ -35,7 +35,7 @@ namespace GodGame.Editor
             var camera = cameraObject.AddComponent<Camera>();
             camera.farClipPlane = 5000f;
             camera.nearClipPlane = 0.5f;
-            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.clearFlags = CameraClearFlags.Skybox;
             camera.backgroundColor = new Color(0.55f, 0.65f, 0.78f);
             cameraObject.AddComponent<CinemachineBrain>();
 
@@ -77,6 +77,15 @@ namespace GodGame.Editor
             serialized.FindProperty("_rainShader").objectReferenceValue = Shader.Find(
                 "GodGame/RainCurtain"
             );
+            serialized.FindProperty("_skyShader").objectReferenceValue = Shader.Find(
+                "GodGame/StylizedSky"
+            );
+            serialized.FindProperty("_skirtShader").objectReferenceValue = Shader.Find(
+                "GodGame/MapSkirt"
+            );
+            serialized.FindProperty("_shadowShader").objectReferenceValue = Shader.Find(
+                "GodGame/ContactShadow"
+            );
             serialized.FindProperty("_panelSettings").objectReferenceValue = PanelSettingsAsset();
             serialized.FindProperty("_camera").objectReferenceValue = strategic;
             AssignUnitMeshes(serialized, "Battle debug scene");
@@ -92,6 +101,9 @@ namespace GodGame.Editor
                     "_deckShader",
                     "_markerShader",
                     "_rainShader",
+                    "_skyShader",
+                    "_skirtShader",
+                    "_shadowShader",
                     "_panelSettings",
                 }
             )
@@ -115,8 +127,13 @@ namespace GodGame.Editor
                 GodGame.Bridge.RepoLoader.EditorRepoRoot
             );
             SerializedProperty meshesProp = serialized.FindProperty("_unitMeshes");
+            SerializedProperty lod2Prop = serialized.FindProperty("_unitMeshesLod2");
             SerializedProperty vatsProp = serialized.FindProperty("_unitVats");
             meshesProp.arraySize = rules.UnitTypes.Count;
+            if (lod2Prop != null)
+            {
+                lod2Prop.arraySize = rules.UnitTypes.Count;
+            }
             if (vatsProp != null)
             {
                 vatsProp.arraySize = rules.UnitTypes.Count;
@@ -127,6 +144,10 @@ namespace GodGame.Editor
                 {
                     // No model yet: drawn as a capsule.
                     meshesProp.GetArrayElementAtIndex(i).objectReferenceValue = null;
+                    if (lod2Prop != null)
+                    {
+                        lod2Prop.GetArrayElementAtIndex(i).objectReferenceValue = null;
+                    }
                     if (vatsProp != null)
                     {
                         vatsProp.GetArrayElementAtIndex(i).objectReferenceValue = null;
@@ -143,6 +164,13 @@ namespace GodGame.Editor
                     );
                 }
                 meshesProp.GetArrayElementAtIndex(i).objectReferenceValue = mesh;
+                if (lod2Prop != null)
+                {
+                    string lod2Path =
+                        $"Assets/_Game/Art/Generated/U_{cleanId}_a/U_{cleanId}_a_LOD2.fbx";
+                    lod2Prop.GetArrayElementAtIndex(i).objectReferenceValue =
+                        AssetDatabase.LoadAssetAtPath<Mesh>(lod2Path);
+                }
                 if (vatsProp != null)
                 {
                     vatsProp.GetArrayElementAtIndex(i).objectReferenceValue =

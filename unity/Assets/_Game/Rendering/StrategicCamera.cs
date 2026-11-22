@@ -50,6 +50,7 @@ namespace GodGame.Rendering
         {
             _customPose = true;
             Vector3 dir = lookAt - position;
+            _distance = Mathf.Clamp(dir.magnitude, MinDistance, MaxDistance);
             Quaternion rot =
                 dir.sqrMagnitude > 1e-6f
                     ? Quaternion.LookRotation(dir, Vector3.up)

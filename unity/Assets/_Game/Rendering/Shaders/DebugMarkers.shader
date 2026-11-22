@@ -30,6 +30,8 @@ Shader "GodGame/DebugMarkers"
             //   6 = lightning strike (x=ageSeconds, y=0, z=6, w=0)
             //   7 = herd marker (x=mode 0..3, y=driven 0/1, z=7, w=yawRad)
             //   8 = terrain prop: boulder / hedgerow / drystone wall / herd pen (x=scaleXZ, y=scaleY, z=8, w=sway)
+            //   9 = flying siege stone (x=scale, y=progress, z=9, w=spinRad)
+            //  10 = flying arrow (x=dirX, y=dirY, z=10, w=dirZ; inst.w = progress)
             StructuredBuffer<float4> _MarkerStates;
             StructuredBuffer<float4> _CellColors;
             float _IsAuthoredFbx;
@@ -116,12 +118,13 @@ Shader "GodGame/DebugMarkers"
                 }
                 else if (st.z < 2.5)
                 {
-                    // Stone landing salvo marker: flash pulse near impact time, crater & stone core stay readable.
+                    // Stone landing salvo marker: flash pulse near impact time, billowing impact dust cloud, crater & stone core.
                     float age = max(0.0, st.x);
                     float crushed = st.y;
                     float flash = saturate(1.0 - age / 1.8);
                     float ringPulse = 1.0 + 0.55 * flash;
                     bool isRing = input.color.a < 0.6;
+                    bool isDust = input.color.a >= 0.6 && input.color.a < 0.9;
                     bool isCrushCrest = input.color.r > 0.8 && input.color.g < 0.35;
 
                     if (isCrushCrest)
@@ -136,6 +139,26 @@ Shader "GodGame/DebugMarkers"
                             p.xz *= crestScale;
                             p.y *= crestScale;
                             tint = lerp(half3(0.88, 0.16, 0.12), half3(1.0, 0.52, 0.18), (half)flash);
+                        }
+                    }
+                    else if (isDust)
+                    {
+                        float dustLife = saturate(1.0 - age / 2.2);
+                        if (dustLife <= 0.01)
+                        {
+                            p = 0.0;
+                        }
+                        else
+                        {
+                            float grow = 0.6 + (1.0 - dustLife) * 2.4;
+                            p.xz *= grow;
+                            p.y = p.y * (0.7 + (1.0 - dustLife) * 1.9) + (1.0 - dustLife) * 1.4;
+                            p *= dustLife;
+                            p = RotateY(p, yaw);
+                            n = RotateY(n, yaw);
+                            tint = half3(0.82, 0.74, 0.60);
+                            selfLit = 0.55h;
+                            vfx = float4(2.0, saturate(p.y / 2.5), age * 3.0 + p.x, 0.8);
                         }
                     }
                     else if (isRing)
@@ -351,7 +374,7 @@ Shader "GodGame/DebugMarkers"
                         }
                     }
                 }
-                else
+                else if (st.z < 8.5)
                 {
                     // Static terrain props: boulders, hedgerows (with gentle wind sway), drystone walls, herd pens.
                     uint cx;
@@ -368,6 +391,33 @@ Shader "GodGame/DebugMarkers"
                     }
                     p = RotateY(p, yaw);
                     n = RotateY(n, yaw);
+                }
+                else if (st.z < 9.5)
+                {
+                    // Mid-air tumbling siege stone projectile.
+                    float spin = st.w;
+                    p *= st.x;
+                    p = PitchForwardZ(p, spin);
+                    n = PitchForwardZ(n, spin);
+                    p = RotateY(p, spin * 0.65);
+                    n = RotateY(n, spin * 0.65);
+                    tint = lerp(tint, half3(0.85, 0.78, 0.68), 0.25h);
+                    selfLit = 0.45h;
+                }
+                else
+                {
+                    // Mid-air feathered arrow oriented along exact 3D parabolic tangent (st.x, st.y, st.w).
+                    float3 fwd = normalize(float3(st.x, st.y, st.w) + float3(0.0, 0.0, 1e-5));
+                    float3 upRef = abs(fwd.y) > 0.95 ? float3(1.0, 0.0, 0.0) : float3(0.0, 1.0, 0.0);
+                    float3 right = normalize(cross(upRef, fwd));
+                    float3 up = cross(fwd, right);
+                    // Scale slightly with camera distance so arrow volleys read cleanly at strategic zoom too.
+                    float camDist = length(_WorldSpaceCameraPos - inst.xyz);
+                    float arrowScale = lerp(1.0, 2.2, smoothstep(120.0, 520.0, camDist));
+                    float3 sp = p * arrowScale;
+                    p = right * sp.x + up * sp.y + fwd * sp.z;
+                    n = normalize(right * n.x + up * n.y + fwd * n.z);
+                    selfLit = 0.72h;
                 }
 
                 float3 worldPos = inst.xyz + p;

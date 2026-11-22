@@ -61,4 +61,36 @@ float FieldMudSmooth(float2 uv)
     return lerp(lerp(m00, m10, f.x), lerp(m01, m11, f.x), f.y);
 }
 
+float FieldWaterDepthSmoothM(float2 uv)
+{
+    if (_FieldSize.x < 1.0 || _FieldSize.y < 1.0)
+    {
+        return 0.0;
+    }
+    float2 coord = uv * _FieldSize.xy - 0.5;
+    int2 c0 = (int2)floor(coord);
+    float2 f = frac(coord);
+    float d00 = FieldWaterDepthM(FieldAtCell(c0));
+    float d10 = FieldWaterDepthM(FieldAtCell(c0 + int2(1, 0)));
+    float d01 = FieldWaterDepthM(FieldAtCell(c0 + int2(0, 1)));
+    float d11 = FieldWaterDepthM(FieldAtCell(c0 + int2(1, 1)));
+    return lerp(lerp(d00, d10, f.x), lerp(d01, d11, f.x), f.y);
+}
+
+float2 FieldFlowSmoothMPerS(float2 uv)
+{
+    if (_FieldSize.x < 1.0 || _FieldSize.y < 1.0)
+    {
+        return float2(0.0, 0.0);
+    }
+    float2 coord = uv * _FieldSize.xy - 0.5;
+    int2 c0 = (int2)floor(coord);
+    float2 f = frac(coord);
+    float2 v00 = FieldFlowMPerS(FieldAtCell(c0));
+    float2 v10 = FieldFlowMPerS(FieldAtCell(c0 + int2(1, 0)));
+    float2 v01 = FieldFlowMPerS(FieldAtCell(c0 + int2(0, 1)));
+    float2 v11 = FieldFlowMPerS(FieldAtCell(c0 + int2(1, 1)));
+    return lerp(lerp(v00, v10, f.x), lerp(v01, v11, f.x), f.y);
+}
+
 #endif

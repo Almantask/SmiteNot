@@ -70,6 +70,9 @@ namespace GodGame.Editor
             serialized.FindProperty("_markerShader").objectReferenceValue = Shader.Find(
                 "GodGame/DebugMarkers"
             );
+            serialized.FindProperty("_rainShader").objectReferenceValue = Shader.Find(
+                "GodGame/RainCurtain"
+            );
             serialized.FindProperty("_panelSettings").objectReferenceValue =
                 BattleDebugScene.PanelSettingsAsset();
             serialized.FindProperty("_camera").objectReferenceValue = strategic;
@@ -85,6 +88,7 @@ namespace GodGame.Editor
                     "_lineShader",
                     "_deckShader",
                     "_markerShader",
+                    "_rainShader",
                     "_panelSettings",
                 }
             )

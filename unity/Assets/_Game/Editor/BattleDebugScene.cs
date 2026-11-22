@@ -74,6 +74,9 @@ namespace GodGame.Editor
             serialized.FindProperty("_markerShader").objectReferenceValue = Shader.Find(
                 "GodGame/DebugMarkers"
             );
+            serialized.FindProperty("_rainShader").objectReferenceValue = Shader.Find(
+                "GodGame/RainCurtain"
+            );
             serialized.FindProperty("_panelSettings").objectReferenceValue = PanelSettingsAsset();
             serialized.FindProperty("_camera").objectReferenceValue = strategic;
             AssignUnitMeshes(serialized, "Battle debug scene");
@@ -88,6 +91,7 @@ namespace GodGame.Editor
                     "_lineShader",
                     "_deckShader",
                     "_markerShader",
+                    "_rainShader",
                     "_panelSettings",
                 }
             )
@@ -158,6 +162,21 @@ namespace GodGame.Editor
                     "Assets/_Game/Art/Generated/P_trunk_felled/P_trunk_felled_LOD0.fbx"
                 ),
                 ("_fireMesh", "Assets/_Game/Art/Generated/P_fire_small/P_fire_small_LOD0.fbx"),
+                ("_boulderMesh", "Assets/_Game/Art/Generated/P_boulder_a/P_boulder_a_LOD0.fbx"),
+                ("_hedgerowMesh", "Assets/_Game/Art/Generated/P_hedgerow_a/P_hedgerow_a_LOD0.fbx"),
+                (
+                    "_wallDrystoneMesh",
+                    "Assets/_Game/Art/Generated/P_wall_drystone/P_wall_drystone_LOD0.fbx"
+                ),
+                ("_herdPenMesh", "Assets/_Game/Art/Generated/P_pen_herd/P_pen_herd_LOD0.fbx"),
+                (
+                    "_woodenBridgeMesh",
+                    "Assets/_Game/Art/Generated/P_bridge_wood/P_bridge_wood_LOD0.fbx"
+                ),
+                (
+                    "_footbridgeMesh",
+                    "Assets/_Game/Art/Generated/P_bridge_foot/P_bridge_foot_LOD0.fbx"
+                ),
             };
             foreach (var (property, path) in mappings)
             {

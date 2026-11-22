@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using GodGame.Sim;
 using GodGame.Sim.Math;
+using GodGame.Sim.Rules;
 
 namespace GodGame.Bridge
 {
@@ -253,6 +254,133 @@ namespace GodGame.Bridge
         public float WorldY { get; }
         public float WorldZ { get; }
         public float RadiusM { get; }
+    }
+
+    /// <summary>One placed boulder prop projected from <see cref="MapData.Boulders"/>.</summary>
+    public readonly struct BoulderPropInstance
+    {
+        public BoulderPropInstance(
+            int boulderIndex,
+            float worldX,
+            float worldY,
+            float worldZ,
+            float scale,
+            float yawRad
+        )
+        {
+            BoulderIndex = boulderIndex;
+            WorldX = worldX;
+            WorldY = worldY;
+            WorldZ = worldZ;
+            Scale = scale;
+            YawRad = yawRad;
+        }
+
+        public int BoulderIndex { get; }
+        public float WorldX { get; }
+        public float WorldY { get; }
+        public float WorldZ { get; }
+        public float Scale { get; }
+        public float YawRad { get; }
+    }
+
+    /// <summary>One 1.5 m hedgerow or drystone-wall segment projected along a <see cref="PieceKind.Line"/> polyline.</summary>
+    public readonly struct LineBarrierInstance
+    {
+        public LineBarrierInstance(
+            int pieceIndex,
+            bool isWall,
+            float worldX,
+            float worldY,
+            float worldZ,
+            float scaleX,
+            float scaleY,
+            float yawRad
+        )
+        {
+            PieceIndex = pieceIndex;
+            IsWall = isWall;
+            WorldX = worldX;
+            WorldY = worldY;
+            WorldZ = worldZ;
+            ScaleX = scaleX;
+            ScaleY = scaleY;
+            YawRad = yawRad;
+        }
+
+        public int PieceIndex { get; }
+        public bool IsWall { get; }
+        public float WorldX { get; }
+        public float WorldY { get; }
+        public float WorldZ { get; }
+        public float ScaleX { get; }
+        public float ScaleY { get; }
+        public float YawRad { get; }
+    }
+
+    /// <summary>One rustic herd pen fence/gate section projected around a <see cref="MapData.Herds"/> grazing circle.</summary>
+    public readonly struct HerdPenPropInstance
+    {
+        public HerdPenPropInstance(
+            int herdIndex,
+            float worldX,
+            float worldY,
+            float worldZ,
+            float scale,
+            float yawRad
+        )
+        {
+            HerdIndex = herdIndex;
+            WorldX = worldX;
+            WorldY = worldY;
+            WorldZ = worldZ;
+            Scale = scale;
+            YawRad = yawRad;
+        }
+
+        public int HerdIndex { get; }
+        public float WorldX { get; }
+        public float WorldY { get; }
+        public float WorldZ { get; }
+        public float Scale { get; }
+        public float YawRad { get; }
+    }
+
+    /// <summary>One active or winding-up Rain cast ready for falling rain curtain rendering.</summary>
+    public readonly struct RainCastInstance
+    {
+        public RainCastInstance(
+            int castIndex,
+            float worldX,
+            float worldY,
+            float worldZ,
+            float radiusM,
+            float activeIntensity,
+            float windUpProgress,
+            float windXMps,
+            float windZMps
+        )
+        {
+            CastIndex = castIndex;
+            WorldX = worldX;
+            WorldY = worldY;
+            WorldZ = worldZ;
+            RadiusM = radiusM;
+            ActiveIntensity = activeIntensity;
+            WindUpProgress = windUpProgress;
+            WindXMps = windXMps;
+            WindZMps = windZMps;
+        }
+
+        public int CastIndex { get; }
+        public float WorldX { get; }
+        public float WorldY { get; }
+        public float WorldZ { get; }
+        public float RadiusM { get; }
+        public float ActiveIntensity { get; }
+        public float WindUpProgress { get; }
+        public float WindXMps { get; }
+        public float WindZMps { get; }
     }
 
     /// <summary>
@@ -1290,6 +1418,309 @@ namespace GodGame.Bridge
                     && e.Detail == blockerIndex
                     && e.Tick <= atTick
                 )
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>Collects placed boulder props from <see cref="MapData.Boulders"/>, grounded on their pre-stamp terrain heights.</summary>
+        public static void CollectBoulders(
+            MapData map,
+            Terrain terrain,
+            List<BoulderPropInstance> output
+        )
+        {
+            if (output == null)
+            {
+                throw new ArgumentNullException(nameof(output));
+            }
+            output.Clear();
+            if (map == null || map.Boulders == null || map.Boulders.Count == 0)
+            {
+                return;
+            }
+
+            int totalCells = map.Columns * map.Rows;
+            float cellM = map.CellSizeMm / 1000f;
+
+            for (int b = 0; b < map.Boulders.Count; b++)
+            {
+                BoulderSpec spec = map.Boulders[b];
+                if (spec == null || spec.Cells == null || spec.Cells.Length == 0)
+                {
+                    continue;
+                }
+                float sumX = 0f;
+                float sumZ = 0f;
+                int valid = 0;
+                int maxGroundMm = int.MinValue;
+                bool anyStillRaised = false;
+                for (int i = 0; i < spec.Cells.Length; i++)
+                {
+                    int cell = spec.Cells[i];
+                    if ((uint)cell >= (uint)totalCells)
+                    {
+                        continue;
+                    }
+                    int col = cell % map.Columns;
+                    int row = cell / map.Columns;
+                    sumX += (col + 0.5f) * cellM;
+                    sumZ += (row + 0.5f) * cellM;
+                    valid++;
+                    int groundMm =
+                        spec.GroundHeights != null && i < spec.GroundHeights.Length
+                            ? spec.GroundHeights[i]
+                            : map.HeightMm[cell] - 2000;
+                    if (groundMm > maxGroundMm)
+                    {
+                        maxGroundMm = groundMm;
+                    }
+                    if (terrain == null || terrain.HeightMm(col, row) > groundMm + 300)
+                    {
+                        anyStillRaised = true;
+                    }
+                }
+                if (valid == 0 || !anyStillRaised)
+                {
+                    continue;
+                }
+                float wx = sumX / valid;
+                float wz = sumZ / valid;
+                float wy = maxGroundMm / 1000f - 0.14f;
+                float footprintSpanM = (float)Math.Sqrt(valid) * cellM;
+                float scale = Math.Max(0.65f, footprintSpanM / 2.75f);
+                float yaw = (b * 2.3999632f) % ((float)Math.PI * 2f);
+                output.Add(new BoulderPropInstance(b, wx, wy, wz, scale, yaw));
+            }
+        }
+
+        /// <summary>
+        /// Collects hedgerow and drystone-wall prop segments along every <see cref="PieceKind.Line"/> piece in
+        /// <paramref name="plan"/>.
+        /// </summary>
+        public static void CollectLineBarriers(
+            BattlePlan plan,
+            MapData map,
+            Terrain terrain,
+            List<LineBarrierInstance> output
+        )
+        {
+            if (output == null)
+            {
+                throw new ArgumentNullException(nameof(output));
+            }
+            output.Clear();
+            if (plan == null || plan.Terrain == null || map == null)
+            {
+                return;
+            }
+
+            const float NominalSpacingM = 1.42f;
+            for (int pIdx = 0; pIdx < plan.Terrain.Count; pIdx++)
+            {
+                PlannedPiece piece = plan.Terrain[pIdx];
+                if (piece == null || piece.Rules.Kind != PieceKind.Line || piece.PointCount < 2)
+                {
+                    continue;
+                }
+                bool isWall = string.Equals(
+                    piece.Rules.Material,
+                    "stone",
+                    StringComparison.OrdinalIgnoreCase
+                );
+                int[] pts = piece.PointsMm;
+                for (int seg = 0; seg < piece.PointCount - 1; seg++)
+                {
+                    float ax = pts[seg * 2] / 1000f;
+                    float az = pts[seg * 2 + 1] / 1000f;
+                    float bx = pts[(seg + 1) * 2] / 1000f;
+                    float bz = pts[(seg + 1) * 2 + 1] / 1000f;
+                    float dx = bx - ax;
+                    float dz = bz - az;
+                    float length = (float)Math.Sqrt(dx * dx + dz * dz);
+                    if (length < 0.25f)
+                    {
+                        continue;
+                    }
+                    int count = Math.Max(1, (int)Math.Ceiling(length / NominalSpacingM));
+                    float stepLen = length / count;
+                    // P_hedgerow_a & P_wall_drystone span 1.5 m along local X; RotateY aligns local X with (dx, dz).
+                    float yaw = (float)Math.Atan2(dz, dx);
+                    float scaleX = Math.Max(0.4f, (stepLen * 1.06f) / 1.50f);
+
+                    for (int k = 0; k < count; k++)
+                    {
+                        float t = (k + 0.5f) / count;
+                        float wx = ax + dx * t;
+                        float wz = az + dz * t;
+                        int xMm = Math.Max(0, Math.Min(map.WidthMm - 1, (int)(wx * 1000f)));
+                        int yMm = Math.Max(0, Math.Min(map.DepthMm - 1, (int)(wz * 1000f)));
+                        float wy = WorldYAtMm(map, terrain, xMm, yMm) - 0.05f;
+                        int hash = ((pIdx * 97 + seg * 31 + k * 17) & 15);
+                        float scaleY = isWall
+                            ? 0.96f + (hash / 15f) * 0.08f
+                            : 0.92f + (hash / 15f) * 0.18f;
+                        output.Add(
+                            new LineBarrierInstance(pIdx, isWall, wx, wy, wz, scaleX, scaleY, yaw)
+                        );
+                    }
+                }
+            }
+        }
+
+        /// <summary>Collects rustic split-rail herd pen sections around each <see cref="MapData.Herds"/> grazing ring.</summary>
+        public static void CollectHerdPens(
+            MapData map,
+            Terrain terrain,
+            List<HerdPenPropInstance> output
+        )
+        {
+            if (output == null)
+            {
+                throw new ArgumentNullException(nameof(output));
+            }
+            output.Clear();
+            if (map == null || map.Herds == null || map.Herds.Count == 0)
+            {
+                return;
+            }
+
+            float mapCenterX = map.WidthMm * 0.0005f;
+            float mapCenterZ = map.DepthMm * 0.0005f;
+
+            for (int h = 0; h < map.Herds.Count; h++)
+            {
+                HerdSpec herd = map.Herds[h];
+                float cx = herd.XMm / 1000f;
+                float cz = herd.YMm / 1000f;
+                float radiusM = Math.Max(5f, herd.RadiusMm / 1000f);
+                // Leave a wide pasture opening facing toward the centre of the battlefield so herds clearly run out.
+                float openAngle = (float)Math.Atan2(mapCenterZ - cz, mapCenterX - cx);
+                float circumference = 2f * (float)Math.PI * radiusM;
+                int slots = Math.Max(8, Math.Min(32, (int)(circumference / 5.2f)));
+
+                for (int s = 0; s < slots; s++)
+                {
+                    float a = (s / (float)slots) * (2f * (float)Math.PI);
+                    float diff = (float)
+                        Math.Atan2(Math.Sin(a - openAngle), Math.Cos(a - openAngle));
+                    if (Math.Abs(diff) < 0.58f)
+                    {
+                        continue;
+                    }
+                    float wx = cx + (float)Math.Cos(a) * radiusM;
+                    float wz = cz + (float)Math.Sin(a) * radiusM;
+                    int xMm = (int)(wx * 1000f);
+                    int yMm = (int)(wz * 1000f);
+                    if (xMm < 0 || yMm < 0 || xMm >= map.WidthMm || yMm >= map.DepthMm)
+                    {
+                        continue;
+                    }
+                    float wy = WorldYAtMm(map, terrain, xMm, yMm) - 0.04f;
+                    float yaw = -a + (float)Math.PI * 0.5f;
+                    output.Add(new HerdPenPropInstance(h, wx, wy, wz, 1.35f, yaw));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Collects winding-up and active Rain casts at <paramref name="atTick"/>, excluding any cast that fizzled.
+        /// </summary>
+        public static void CollectActiveRainCasts(
+            BattlePlan plan,
+            CauseEvent[] causes,
+            MapData map,
+            Terrain terrain,
+            int atTick,
+            List<RainCastInstance> output
+        )
+        {
+            if (output == null)
+            {
+                throw new ArgumentNullException(nameof(output));
+            }
+            output.Clear();
+            if (plan == null || plan.Casts == null || plan.Casts.Count == 0 || map == null)
+            {
+                return;
+            }
+
+            float windX = map.WindXMmPerS / 1000f;
+            float windZ = map.WindYMmPerS / 1000f;
+
+            for (int c = 0; c < plan.Casts.Count; c++)
+            {
+                PlannedCast cast = plan.Casts[c];
+                if (
+                    cast == null
+                    || cast.Power == null
+                    || !string.Equals(cast.Power.Id, "rain", StringComparison.OrdinalIgnoreCase)
+                )
+                {
+                    continue;
+                }
+                if (atTick < cast.Tick)
+                {
+                    continue;
+                }
+                if (IsCastFizzled(causes, c))
+                {
+                    continue;
+                }
+
+                int windUpEnd = cast.Tick + cast.Power.WindUpTicks;
+                int rainEnd = windUpEnd + cast.Power.DurationTicks;
+                if (atTick > rainEnd)
+                {
+                    continue;
+                }
+
+                float activeIntensity = 0f;
+                float windUpProgress = 0f;
+                if (atTick < windUpEnd)
+                {
+                    windUpProgress =
+                        (atTick - cast.Tick) / (float)Math.Max(1, cast.Power.WindUpTicks);
+                }
+                else
+                {
+                    windUpProgress = 1f;
+                    float rampIn = Math.Min(1f, (atTick - windUpEnd) / 30f);
+                    float rampOut = Math.Min(1f, (rainEnd - atTick) / 40f);
+                    activeIntensity = Math.Max(0.05f, Math.Min(rampIn, rampOut));
+                }
+
+                float wx = cast.XMm / 1000f;
+                float wz = cast.YMm / 1000f;
+                float wy = WorldYAtMm(map, terrain, cast.XMm, cast.YMm);
+                float radiusM = cast.RadiusMm / 1000f;
+                output.Add(
+                    new RainCastInstance(
+                        c,
+                        wx,
+                        wy,
+                        wz,
+                        radiusM,
+                        activeIntensity,
+                        windUpProgress,
+                        windX,
+                        windZ
+                    )
+                );
+            }
+        }
+
+        private static bool IsCastFizzled(CauseEvent[] causes, int castIndex)
+        {
+            if (causes == null)
+            {
+                return false;
+            }
+            for (int i = 0; i < causes.Length; i++)
+            {
+                if (causes[i].Kind == CauseKind.CastFizzled && causes[i].Subject == castIndex)
                 {
                     return true;
                 }

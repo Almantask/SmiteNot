@@ -1,6 +1,7 @@
-// Debug capsules for every soldier, drawn in one indirect instanced call (M2 debug renderer). Each instance reads its
-// ground position and regiment from _Units and its body size from _Shapes; the regiment picks a colour from
-// _Palette. A plain lambert light keeps shapes readable from the strategic camera. Presentation only.
+// Instanced unit renderer (authored VAT meshes + capsule fallback). Reads per-soldier positions from _Units,
+// orientation/VAT phase from _Shapes, and tumble/status flags from _UnitExtras. Uses shared diorama lighting
+// (warm sunlit key, cool sky fill, subtle Fresnel rim, foot grounding AO, horizon haze) plus readable visual cues
+// for swept, teetering, stunned and burning soldiers. Presentation only.
 Shader "GodGame/DebugUnits"
 {
     SubShader
@@ -18,10 +19,11 @@ Shader "GodGame/DebugUnits"
             #pragma target 4.5
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Lighting.hlsl"
 
             StructuredBuffer<float4> _Units;       // xyz: feet on the ground (m), w: palette index
             StructuredBuffer<float4> _Shapes;      // capsule: x=radius, y=height (>0); mesh: x=scale or animPhase, y<=0 (-animBlend), z=cosYaw, w=sinYaw
-            StructuredBuffer<float4> _UnitExtras;  // x: tumble pitch spin (rad), y: launched flag (>0)
+            StructuredBuffer<float4> _UnitExtras;  // x: tumble pitch spin (rad), y: launched flag (>0), z: UnitFlags bitmask, w: per-unit phase (0..1)
             StructuredBuffer<float4> _Palette;     // rgb per side/regiment (linear)
             StructuredBuffer<float4> _CellColors;  // 256 linear RGB entries for 16x16 palette grid (cy * 16 + cx)
             StructuredBuffer<float4> _VatPositions;
@@ -48,6 +50,8 @@ Shader "GodGame/DebugUnits"
                 float3 normalWS : TEXCOORD0;
                 float3 color : TEXCOORD1;
                 float2 capsuleInfo : TEXCOORD2; // x: variant (>0.5 = crew), y: normalised height 0..1
+                float3 worldPos : TEXCOORD3;
+                float4 status : TEXCOORD4;      // x: localY, y: swept, z: burning, w: phase
             };
 
             float3 PitchTumble(float3 v, float pivotY, float sinT, float cosT, bool isPos)
@@ -63,21 +67,70 @@ Shader "GodGame/DebugUnits"
                 return v;
             }
 
+            float3 RollLean(float3 v, float pivotY, float sinR, float cosR, bool isPos)
+            {
+                if (isPos)
+                {
+                    v.y -= pivotY;
+                }
+                float rx = v.x * cosR - v.y * sinR;
+                float ry = v.x * sinR + v.y * cosR;
+                v.x = rx;
+                v.y = isPos ? ry + pivotY : ry;
+                return v;
+            }
+
             Varyings Vert(Attributes input)
             {
                 uint idx = (uint)_BaseInstance + input.instanceID;
                 float4 unit = _Units[idx];
                 float4 shape = _Shapes[idx];
                 float4 extra = _UnitExtras[idx];
+                uint flags = (uint)(extra.z + 0.5);
+                bool isLaunched = extra.y > 0.5 || ((flags & 1u) != 0u);
+                bool isStunned = (flags & 2u) != 0u;
+                bool isTeetering = (flags & 4u) != 0u;
+                bool isSwept = (flags & 8u) != 0u;
+                bool isBurning = (flags & 16u) != 0u;
+                float unitPhase = extra.w;
+
                 float tumble = extra.x;
-                float sinT;
-                float cosT;
+                float leanRoll = 0.0;
+                float bobY = 0.0;
+                if (!isLaunched)
+                {
+                    if (isSwept)
+                    {
+                        float sw = _Time.y * 7.5 + unitPhase * 6.283185;
+                        tumble += 0.35 + 0.22 * sin(sw);
+                        leanRoll = 0.28 * cos(sw * 1.17);
+                        bobY = -0.25 + 0.14 * sin(sw * 1.4);
+                    }
+                    else if (isTeetering)
+                    {
+                        float wt = _Time.y * 14.0 + unitPhase * 6.283185;
+                        leanRoll = 0.32 * sin(wt);
+                        tumble += 0.18 * cos(wt * 0.7);
+                    }
+                    else if (isStunned)
+                    {
+                        float st = _Time.y * 4.5 + unitPhase * 6.283185;
+                        leanRoll = 0.42 + 0.12 * sin(st);
+                        bobY = -0.18;
+                    }
+                }
+
+                float sinT, cosT;
                 sincos(tumble, sinT, cosT);
+                float sinR, cosR;
+                sincos(leanRoll, sinR, cosR);
+
                 float3 localPos;
                 float3 normalWS;
                 half3 albedo;
                 float capsuleVariant = 0.0;
                 float capsuleHeight01 = 0.5;
+                float localHeightY = 1.0;
 
                 if (shape.y > 0.0)
                 {
@@ -88,6 +141,7 @@ Shader "GodGame/DebugUnits"
                         input.positionOS.x * shape.x * 2.0,
                         (input.positionOS.y + 1.0) * shape.y * 0.5,
                         input.positionOS.z * shape.x * 2.0);
+                    localHeightY = localPos.y;
                     normalWS = input.normalOS;
                     if (abs(tumble) > 0.0001)
                     {
@@ -95,6 +149,12 @@ Shader "GodGame/DebugUnits"
                         localPos = PitchTumble(localPos, pivotY, sinT, cosT, true);
                         normalWS = PitchTumble(normalWS, 0.0, sinT, cosT, false);
                     }
+                    if (abs(leanRoll) > 0.0001)
+                    {
+                        localPos = RollLean(localPos, shape.y * 0.25, sinR, cosR, true);
+                        normalWS = RollLean(normalWS, 0.0, sinR, cosR, false);
+                    }
+                    localPos.y += bobY;
                     albedo = (half3)_Palette[(uint)unit.w].rgb;
                 }
                 else
@@ -179,11 +239,18 @@ Shader "GodGame/DebugUnits"
                         float3 nRaw = input.normalOS;
                         n = float3(nRaw.x, -nRaw.z, nRaw.y);
                     }
+                    localHeightY = p.y;
                     if (abs(tumble) > 0.0001)
                     {
                         p = PitchTumble(p, 0.9, sinT, cosT, true);
                         n = PitchTumble(n, 0.0, sinT, cosT, false);
                     }
+                    if (abs(leanRoll) > 0.0001)
+                    {
+                        p = RollLean(p, 0.45, sinR, cosR, true);
+                        n = RollLean(n, 0.0, sinR, cosR, false);
+                    }
+                    p.y += bobY;
                     float cosY = shape.z;
                     float sinY = shape.w;
                     localPos = float3(
@@ -207,11 +274,18 @@ Shader "GodGame/DebugUnits"
                     albedo = lerp(albedo, team, (half)(_IsGhost * 0.7));
                 }
 
+                // Gentle strategic-zoom silhouette boost so regiments stay crisp & readable from 500+ m up while
+                // remaining exact 1:1 scale up close.
+                float camDist = length(_WorldSpaceCameraPos - unit.xyz);
+                float strategicScale = lerp(1.0, 1.38, smoothstep(260.0, 760.0, camDist));
+                float3 worldPos = unit.xyz + localPos * strategicScale;
                 Varyings output;
-                output.positionCS = TransformWorldToHClip(unit.xyz + localPos);
+                output.positionCS = TransformWorldToHClip(worldPos);
                 output.normalWS = normalWS;
                 output.color = albedo;
                 output.capsuleInfo = float2(capsuleVariant, capsuleHeight01);
+                output.worldPos = worldPos;
+                output.status = float4(localHeightY, isSwept ? 1.0 : 0.0, isBurning ? 1.0 : 0.0, unitPhase);
                 return output;
             }
 
@@ -237,8 +311,35 @@ Shader "GodGame/DebugUnits"
                     }
                     albedo = lerp(crewAlbedo, albedo, (half)(_IsGhost * 0.7));
                 }
-                float light = 0.45 + 0.55 * saturate(dot(normalize(input.normalWS), normalize(float3(0.4, 1.0, 0.3))));
-                return half4(albedo * (half)light, 1.0);
+
+                // Subtle vertical grounding AO near feet so toy soldiers anchor cleanly onto terrain.
+                float footAo = lerp(0.76, 1.0, saturate(input.status.x / 0.55));
+                albedo *= (half)footAo;
+
+                // Swept in water: foamy splash band near waist/shoulders so swept soldiers pop clearly.
+                if (input.status.y > 0.5)
+                {
+                    float foamBand = 1.0 - smoothstep(0.35, 1.15, abs(input.status.x - 0.65));
+                    float splashPulse = 0.65 + 0.35 * sin(_Time.y * 10.0 + input.status.w * 6.283185);
+                    albedo = lerp(albedo, half3(0.84, 0.94, 0.99), (half)(foamBand * 0.58 * splashPulse));
+                }
+
+                // Burning (cartoon soot + pulsing ember glow, no gore).
+                half3 lit;
+                if (input.status.z > 0.5)
+                {
+                    float flicker = 0.5 + 0.5 * sin(_Time.y * 12.0 + input.status.w * 12.56637);
+                    albedo = lerp(albedo * 0.35h, half3(1.0, 0.48, 0.10), (half)(0.45 + 0.45 * flicker));
+                    lit = max(GodGameShade(input.normalWS, input.worldPos, albedo, 0.18), albedo * 0.85h);
+                }
+                else
+                {
+                    float rim = _IsGhost > 0.5 ? 0.0 : 0.22;
+                    lit = GodGameShade(input.normalWS, input.worldPos, albedo, rim);
+                }
+
+                lit = GodGameApplyHaze(lit, input.worldPos, 0.55);
+                return half4(lit, 1.0h);
             }
             ENDHLSL
         }

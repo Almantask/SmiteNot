@@ -104,5 +104,185 @@ namespace GodGame.Rendering
                 }
             }
         }
+
+        /// <summary>
+        /// Builds a per-cell biome and map-feature mask texture (<c>_TerrainMask</c>) from <see cref="MapData"/>:
+        /// R = packed road soil, G = woodland/fuel floor, B = deployment zone (128 attacker, 255 defender),
+        /// A = boulder scree/gravel base. Presentation only.
+        /// </summary>
+        public static Texture2D BuildTerrainMask(MapData map)
+        {
+            int cols = map.Columns;
+            int rows = map.Rows;
+            int cellSizeMm = System.Math.Max(1, map.CellSizeMm);
+            var pixels = new Color32[cols * rows];
+
+            if (map.SoilAreas != null)
+            {
+                for (int s = 0; s < map.SoilAreas.Count; s++)
+                {
+                    SoilArea area = map.SoilAreas[s];
+                    if (
+                        !string.Equals(area.Soil, "road", System.StringComparison.OrdinalIgnoreCase)
+                    )
+                    {
+                        continue;
+                    }
+                    int c0 = Mathf.Clamp(area.Area.MinX / cellSizeMm, 0, cols - 1);
+                    int c1 = Mathf.Clamp((area.Area.MaxX - 1) / cellSizeMm, 0, cols - 1);
+                    int r0 = Mathf.Clamp(area.Area.MinY / cellSizeMm, 0, rows - 1);
+                    int r1 = Mathf.Clamp((area.Area.MaxY - 1) / cellSizeMm, 0, rows - 1);
+                    for (int r = r0; r <= r1; r++)
+                    {
+                        int rowOffset = r * cols;
+                        for (int c = c0; c <= c1; c++)
+                        {
+                            pixels[rowOffset + c].r = 255;
+                        }
+                    }
+                }
+            }
+
+            if (map.Fuel != null)
+            {
+                int len = System.Math.Min(pixels.Length, map.Fuel.Length);
+                for (int i = 0; i < len; i++)
+                {
+                    if (map.Fuel[i])
+                    {
+                        pixels[i].g = 255;
+                    }
+                }
+            }
+
+            if (map.Trees != null)
+            {
+                for (int t = 0; t < map.Trees.Count; t++)
+                {
+                    int cell = map.Trees[t].Cell;
+                    if ((uint)cell >= (uint)pixels.Length)
+                    {
+                        continue;
+                    }
+                    int tc = cell % cols;
+                    int tr = cell / cols;
+                    for (int dr = -2; dr <= 2; dr++)
+                    {
+                        int nr = tr + dr;
+                        if ((uint)nr >= (uint)rows)
+                        {
+                            continue;
+                        }
+                        for (int dc = -2; dc <= 2; dc++)
+                        {
+                            int nc = tc + dc;
+                            if ((uint)nc >= (uint)cols)
+                            {
+                                continue;
+                            }
+                            int distSq = dc * dc + dr * dr;
+                            if (distSq > 5)
+                            {
+                                continue;
+                            }
+                            byte shade = distSq <= 1 ? (byte)255 : (byte)165;
+                            int idx = nr * cols + nc;
+                            if (shade > pixels[idx].g)
+                            {
+                                pixels[idx].g = shade;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (map.DeploymentZones != null)
+            {
+                for (int z = 0; z < map.DeploymentZones.Count; z++)
+                {
+                    DeploymentZone zone = map.DeploymentZones[z];
+                    byte code =
+                        zone.Side == Side.Attacker ? (byte)128
+                        : zone.Side == Side.Defender ? (byte)255
+                        : (byte)0;
+                    if (code == 0)
+                    {
+                        continue;
+                    }
+                    int c0 = Mathf.Clamp(zone.Area.MinX / cellSizeMm, 0, cols - 1);
+                    int c1 = Mathf.Clamp((zone.Area.MaxX - 1) / cellSizeMm, 0, cols - 1);
+                    int r0 = Mathf.Clamp(zone.Area.MinY / cellSizeMm, 0, rows - 1);
+                    int r1 = Mathf.Clamp((zone.Area.MaxY - 1) / cellSizeMm, 0, rows - 1);
+                    for (int r = r0; r <= r1; r++)
+                    {
+                        int rowOffset = r * cols;
+                        for (int c = c0; c <= c1; c++)
+                        {
+                            // Mark perimeter band (2 cells wide) so deployment zones read cleanly without tinting grass.
+                            bool border =
+                                (c - c0 < 2) || (c1 - c < 2) || (r - r0 < 2) || (r1 - r < 2);
+                            if (border)
+                            {
+                                pixels[rowOffset + c].b = code;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (map.Boulders != null)
+            {
+                for (int b = 0; b < map.Boulders.Count; b++)
+                {
+                    int[] cells = map.Boulders[b].Cells;
+                    if (cells == null)
+                    {
+                        continue;
+                    }
+                    for (int i = 0; i < cells.Length; i++)
+                    {
+                        int cell = cells[i];
+                        if ((uint)cell >= (uint)pixels.Length)
+                        {
+                            continue;
+                        }
+                        int bc = cell % cols;
+                        int br = cell / cols;
+                        for (int dr = -1; dr <= 1; dr++)
+                        {
+                            int nr = br + dr;
+                            if ((uint)nr >= (uint)rows)
+                            {
+                                continue;
+                            }
+                            for (int dc = -1; dc <= 1; dc++)
+                            {
+                                int nc = bc + dc;
+                                if ((uint)nc >= (uint)cols)
+                                {
+                                    continue;
+                                }
+                                byte val = (dc == 0 && dr == 0) ? (byte)255 : (byte)150;
+                                int idx = nr * cols + nc;
+                                if (val > pixels[idx].a)
+                                {
+                                    pixels[idx].a = val;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            var tex = new Texture2D(cols, rows, TextureFormat.RGBA32, false)
+            {
+                name = "TerrainMask",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+            };
+            tex.SetPixels32(pixels);
+            tex.Apply(false, false);
+            return tex;
+        }
     }
 }

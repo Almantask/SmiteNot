@@ -822,7 +822,12 @@ namespace GodGame.Rendering
                 _animPhase[u] = nextPhase;
 
                 _scratchUnits[count] = new Vector4(x, y, z, reg);
-                _scratchExtras[count] = new Vector4(spinRad, airborne ? 1f : 0f, 0f, 0f);
+                _scratchExtras[count] = new Vector4(
+                    spinRad,
+                    airborne ? 1f : 0f,
+                    current.Flags[u],
+                    (u * 0.618034f) % 1f
+                );
                 bool useMesh = _typeMeshes[type] != null;
                 bool useVat = useMesh && _vatFrameCounts[type] > 0;
                 if (useVat)

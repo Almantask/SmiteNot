@@ -404,7 +404,7 @@ namespace GodGame.Tests.EditMode
         [Test]
         public void ExportedArtAssets_CrewCattleAndProps_ImportCleanly()
         {
-            foreach (string unitAsset in new[] { "U_crew_a", "U_cattle_a" })
+            foreach (string unitAsset in new[] { "U_crew_a", "U_cattle_a", "U_drovers_a" })
             {
                 string lod0 = $"Assets/_Game/Art/Generated/{unitAsset}/{unitAsset}_LOD0.fbx";
                 Mesh mesh = UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(lod0);
@@ -431,7 +431,7 @@ namespace GodGame.Tests.EditMode
                 Assert.That(hasUnmasked, Is.True, unitAsset + " TeamMask==0");
             }
 
-            foreach (string cleanId in new[] { "crew", "cattle" })
+            foreach (string cleanId in new[] { "crew", "cattle", "drovers" })
             {
                 UnitVatData vat = GodGame.Editor.VatBaker.BakeOrLoadUnit(cleanId, forceBake: true);
                 Assert.That(vat.ClipCount, Is.EqualTo(6), cleanId + " clips");
@@ -451,6 +451,12 @@ namespace GodGame.Tests.EditMode
                     "P_trunk_felled",
                     "P_wreck_siege",
                     "P_fire_small",
+                    "P_boulder_a",
+                    "P_hedgerow_a",
+                    "P_wall_drystone",
+                    "P_bridge_wood",
+                    "P_bridge_foot",
+                    "P_pen_herd",
                 }
             )
             {
@@ -831,7 +837,7 @@ namespace GodGame.Tests.EditMode
             Assert.That(crewType, Is.GreaterThanOrEqualTo(0));
             Assert.That(GodGame.Editor.UnitArt.AwaitsModel("crew"), Is.False);
             Assert.That(GodGame.Editor.UnitArt.AwaitsModel("cattle"), Is.False);
-            Assert.That(GodGame.Editor.UnitArt.AwaitsModel("drovers"), Is.True);
+            Assert.That(GodGame.Editor.UnitArt.AwaitsModel("drovers"), Is.False);
 
             using var renderer = new UnitCapsuleRenderer(
                 unitShader,
@@ -942,6 +948,221 @@ namespace GodGame.Tests.EditMode
                 Is.True,
                 "wind-shift stays pending for a later milestone"
             );
+        }
+
+        [Test]
+        public void TerrainPropAndRainProjection_CollectsBouldersBarriersHerdPensAndRainCasts()
+        {
+            var rules = RepoLoader.LoadRules(RepoLoader.EditorRepoRoot);
+            var map = FlatMap(widthMm: 450_000, depthMm: 240_000);
+            string planJson =
+                "{\"version\":0,\"map\":\""
+                + map.Id
+                + "\",\"army\":["
+                + "{\"id\":\"att\",\"side\":\"attacker\",\"unitType\":\"infantry\",\"soldiers\":50,\"xMm\":15000,\"yMm\":120000,\"facingCentiDegrees\":0},"
+                + "{\"id\":\"def\",\"side\":\"defender\",\"unitType\":\"infantry\",\"soldiers\":50,\"xMm\":435000,\"yMm\":120000,\"facingCentiDegrees\":18000}"
+                + "],\"terrain\":["
+                + "{\"id\":\"b0\",\"piece\":\"boulder\",\"xMm\":210000,\"yMm\":120000},"
+                + "{\"id\":\"h0\",\"piece\":\"hedgerow\",\"points\":[[190000,70000],[205000,70000]]},"
+                + "{\"id\":\"w0\",\"piece\":\"drystone-wall\",\"points\":[[190000,150000],[205000,150000]]},"
+                + "{\"id\":\"herd0\",\"piece\":\"herd\",\"xMm\":240000,\"yMm\":175000,\"radiusMm\":18000,\"animals\":30}"
+                + "],\"casts\":["
+                + "{\"id\":\"r0\",\"power\":\"rain\",\"tick\":100,\"xMm\":220000,\"yMm\":120000,\"radiusMm\":50000},"
+                + "{\"id\":\"r1\",\"power\":\"rain\",\"tick\":120,\"xMm\":260000,\"yMm\":120000,\"radiusMm\":50000}"
+                + "]}";
+            var plan = BattlePlan.Load(planJson, map, rules);
+            var battle = new Battle(rules, map, plan, seed: 7);
+            var terrain = new GodGame.Sim.Terrain(battle.PlayedMap);
+
+            var boulders = new List<BoulderPropInstance>();
+            SalvoAndBlockerProjection.CollectBoulders(battle.PlayedMap, terrain, boulders);
+            Assert.That(boulders.Count, Is.EqualTo(1));
+            Assert.That(boulders[0].WorldX, Is.InRange(208f, 214f));
+            Assert.That(
+                boulders[0].WorldY,
+                Is.LessThan(0.5f),
+                "Boulder grounded on pre-stamp terrain"
+            );
+
+            var barriers = new List<LineBarrierInstance>();
+            SalvoAndBlockerProjection.CollectLineBarriers(
+                plan,
+                battle.PlayedMap,
+                terrain,
+                barriers
+            );
+            int hedges = 0;
+            int walls = 0;
+            foreach (var seg in barriers)
+            {
+                if (seg.IsWall)
+                    walls++;
+                else
+                    hedges++;
+            }
+            Assert.That(hedges, Is.GreaterThanOrEqualTo(10));
+            Assert.That(walls, Is.GreaterThanOrEqualTo(10));
+
+            var pens = new List<HerdPenPropInstance>();
+            SalvoAndBlockerProjection.CollectHerdPens(battle.PlayedMap, terrain, pens);
+            Assert.That(pens.Count, Is.GreaterThanOrEqualTo(6));
+
+            // Cast 1 fizzled; Cast 0 winds up at tick 100..299 and rains at tick 300..1499.
+            var causes = new[]
+            {
+                new CauseEvent(CauseKind.CastFizzled, tick: 120, subject: 1, detail: 1, -1, -1),
+            };
+            var rains = new List<RainCastInstance>();
+            SalvoAndBlockerProjection.CollectActiveRainCasts(
+                plan,
+                causes,
+                battle.PlayedMap,
+                terrain,
+                atTick: 200,
+                rains
+            );
+            Assert.That(rains.Count, Is.EqualTo(1));
+            Assert.That(rains[0].CastIndex, Is.EqualTo(0));
+            Assert.That(rains[0].ActiveIntensity, Is.EqualTo(0f));
+            Assert.That(rains[0].WindUpProgress, Is.GreaterThan(0.2f));
+
+            SalvoAndBlockerProjection.CollectActiveRainCasts(
+                plan,
+                causes,
+                battle.PlayedMap,
+                terrain,
+                atTick: 500,
+                rains
+            );
+            Assert.That(rains.Count, Is.EqualTo(1));
+            Assert.That(rains[0].ActiveIntensity, Is.EqualTo(1f).Within(0.01f));
+        }
+
+        [Test]
+        public void WorldMarkerAndDeckRenderers_WireAllNewAuthoredPropsAndRainCurtain()
+        {
+            var map = FlatMap();
+            Shader markerShader = Shader.Find("GodGame/DebugMarkers");
+            Shader rainShader = Shader.Find("GodGame/RainCurtain");
+            Shader deckShader = Shader.Find("GodGame/DebugDeck");
+            Assert.That(markerShader, Is.Not.Null);
+            Assert.That(rainShader, Is.Not.Null);
+            Assert.That(deckShader, Is.Not.Null);
+
+            var meshes = new WorldMarkerMeshes(
+                UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(
+                    "Assets/_Game/Art/Generated/P_wreck_siege/P_wreck_siege_LOD0.fbx"
+                ),
+                UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(
+                    "Assets/_Game/Art/Generated/P_tree_grove/P_tree_grove_LOD0.fbx"
+                ),
+                UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(
+                    "Assets/_Game/Art/Generated/P_trunk_felled/P_trunk_felled_LOD0.fbx"
+                ),
+                UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(
+                    "Assets/_Game/Art/Generated/P_fire_small/P_fire_small_LOD0.fbx"
+                ),
+                UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(
+                    "Assets/_Game/Art/Generated/P_boulder_a/P_boulder_a_LOD0.fbx"
+                ),
+                UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(
+                    "Assets/_Game/Art/Generated/P_hedgerow_a/P_hedgerow_a_LOD0.fbx"
+                ),
+                UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(
+                    "Assets/_Game/Art/Generated/P_wall_drystone/P_wall_drystone_LOD0.fbx"
+                ),
+                UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(
+                    "Assets/_Game/Art/Generated/P_pen_herd/P_pen_herd_LOD0.fbx"
+                )
+            );
+            using var markers = new WorldMarkerRenderer(map, markerShader, meshes, rainShader);
+            Assert.That(markers.UsesAuthoredBoulderMesh, Is.True);
+            Assert.That(markers.UsesAuthoredHedgerowMesh, Is.True);
+            Assert.That(markers.UsesAuthoredWallDrystoneMesh, Is.True);
+            Assert.That(markers.UsesAuthoredHerdPenMesh, Is.True);
+
+            markers.DrawTerrainProps(
+                new[] { new BoulderPropInstance(0, 120f, 0f, 90f, 1f, 0.4f) },
+                new[]
+                {
+                    new LineBarrierInstance(0, false, 100f, 0f, 70f, 1f, 1f, 0f),
+                    new LineBarrierInstance(1, true, 100f, 0f, 110f, 1f, 1f, 0f),
+                },
+                new[] { new HerdPenPropInstance(0, 150f, 0f, 130f, 1.3f, 0.2f) },
+                timeSeconds: 2.0f
+            );
+            Assert.That(markers.DrawnBouldersLastFrame, Is.EqualTo(1));
+            Assert.That(markers.DrawnHedgerowsLastFrame, Is.EqualTo(1));
+            Assert.That(markers.DrawnWallsLastFrame, Is.EqualTo(1));
+            Assert.That(markers.DrawnHerdPensLastFrame, Is.EqualTo(1));
+
+            markers.DrawRain(
+                new[] { new RainCastInstance(0, 140f, 0f, 90f, 50f, 1f, 1f, 2f, -1f) },
+                timeSeconds: 2.0f
+            );
+            Assert.That(markers.DrawnRainLastFrame, Is.EqualTo(1));
+
+            Mesh woodBridge = UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(
+                "Assets/_Game/Art/Generated/P_bridge_wood/P_bridge_wood_LOD0.fbx"
+            );
+            Mesh footBridge = UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(
+                "Assets/_Game/Art/Generated/P_bridge_foot/P_bridge_foot_LOD0.fbx"
+            );
+            using var decks = new DeckRenderer(map, deckShader, woodBridge, footBridge);
+            Assert.That(decks.UsesAuthoredWoodBridgeMesh, Is.True);
+            Assert.That(decks.UsesAuthoredFootbridgeMesh, Is.True);
+
+            var snap = new StructureSnapshot(4) { Tick = 10, Count = 2 };
+            snap.KindIds[0] = "wooden-bridge";
+            snap.DeckHeightM[0] = 2f;
+            snap.StrengthPermille[0] = 700;
+            snap.LoadPermille[0] = 860;
+            snap.Stage[0] = StrainStage.Crack;
+            snap.Cells[0] = new[] { 20 * map.Columns + 30, 20 * map.Columns + 31 };
+
+            snap.KindIds[1] = "footbridge";
+            snap.DeckHeightM[1] = 1.5f;
+            snap.StrengthPermille[1] = 1000;
+            snap.LoadPermille[1] = 400;
+            snap.Stage[1] = StrainStage.Quiet;
+            snap.Cells[1] = new[] { 25 * map.Columns + 30, 25 * map.Columns + 31 };
+
+            decks.Draw(snap, map, showStrainOverlay: false);
+            Assert.That(decks.DrawnBridgeSegmentsLastFrame, Is.EqualTo(2));
+            Assert.That(decks.DrawnCellsLastFrame, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void GroundMesh_BuildTerrainMask_EncodesRoadsWoodlandZonesAndBoulders()
+        {
+            var stampedeMap = RepoLoader.LoadMap(RepoLoader.EditorRepoRoot, "m5-stampede");
+            Texture2D mask = GroundMesh.BuildTerrainMask(stampedeMap);
+            try
+            {
+                Assert.That(mask, Is.Not.Null);
+                Assert.That(mask.width, Is.EqualTo(stampedeMap.Columns));
+                Assert.That(mask.height, Is.EqualTo(stampedeMap.Rows));
+                Color32[] pixels = mask.GetPixels32();
+                bool hasRoad = false;
+                bool hasAttackerZone = false;
+                bool hasDefenderZone = false;
+                for (int i = 0; i < pixels.Length; i++)
+                {
+                    if (pixels[i].r > 200)
+                        hasRoad = true;
+                    if (pixels[i].b == 128)
+                        hasAttackerZone = true;
+                    if (pixels[i].b == 255)
+                        hasDefenderZone = true;
+                }
+                Assert.That(hasRoad, Is.True, "Expected road soil encoded in R channel");
+                Assert.That(hasAttackerZone, Is.True, "Expected attacker zone border in B channel");
+                Assert.That(hasDefenderZone, Is.True, "Expected defender zone border in B channel");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(mask);
+            }
         }
     }
 }

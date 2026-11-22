@@ -17,6 +17,7 @@ Shader "GodGame/DebugMarkers"
             #pragma target 4.5
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Lighting.hlsl"
 
             // xyz: world base position (m), w: yaw radians (or radiusM for herd marker variant 7)
             StructuredBuffer<float4> _MarkerInstances;
@@ -28,6 +29,7 @@ Shader "GodGame/DebugMarkers"
             //   5 = fire cell (x=scale, y=phase, z=5, w=extinguished)
             //   6 = lightning strike (x=ageSeconds, y=0, z=6, w=0)
             //   7 = herd marker (x=mode 0..3, y=driven 0/1, z=7, w=yawRad)
+            //   8 = terrain prop: boulder / hedgerow / drystone wall / herd pen (x=scaleXZ, y=scaleY, z=8, w=sway)
             StructuredBuffer<float4> _MarkerStates;
             StructuredBuffer<float4> _CellColors;
             float _IsAuthoredFbx;
@@ -48,6 +50,7 @@ Shader "GodGame/DebugMarkers"
                 float3 normalWS : TEXCOORD0;
                 half4 color : TEXCOORD1;
                 float4 vfx : TEXCOORD2; // x: 0=default, 1=active fire, 2=herd dust; y: local height01; z: phase; w: intensity/mask
+                float3 worldPos : TEXCOORD3;
             };
 
             float3 RotateY(float3 v, float rad)
@@ -258,7 +261,7 @@ Shader "GodGame/DebugMarkers"
                         selfLit = 1.0h;
                     }
                 }
-                else
+                else if (st.z < 7.5)
                 {
                     // Herd bounding ring, billowing hoof/stampede dust plumes, and driving chevron.
                     float mode = st.x;
@@ -348,12 +351,32 @@ Shader "GodGame/DebugMarkers"
                         }
                     }
                 }
+                else
+                {
+                    // Static terrain props: boulders, hedgerows (with gentle wind sway), drystone walls, herd pens.
+                    uint cx;
+                    uint cy;
+                    tint = SamplePropAlbedo(input.uv, tint, cx, cy);
+                    p.x *= st.x;
+                    p.y *= st.y;
+                    p.z *= st.x;
+                    if (st.w > 0.001)
+                    {
+                        float sway = sin(_TimeSeconds * 2.2 + inst.x * 0.23 + inst.z * 0.19) * st.w * saturate(p.y);
+                        p.x += sway;
+                        p.z += sway * 0.6;
+                    }
+                    p = RotateY(p, yaw);
+                    n = RotateY(n, yaw);
+                }
 
+                float3 worldPos = inst.xyz + p;
                 Varyings output;
-                output.positionCS = TransformWorldToHClip(inst.xyz + p);
+                output.positionCS = TransformWorldToHClip(worldPos);
                 output.normalWS = n;
                 output.color = half4(tint, selfLit);
                 output.vfx = vfx;
+                output.worldPos = worldPos;
                 return output;
             }
 
@@ -389,9 +412,10 @@ Shader "GodGame/DebugMarkers"
                     col = lerp(col, half3(0.95, 0.82, 0.54), (half)(input.vfx.w * 0.25));
                 }
 
-                float light = 0.45 + 0.55 * saturate(dot(normalize(input.normalWS), normalize(float3(0.4, 1.0, 0.3))));
-                float shade = max(light, (float)input.color.a);
-                return half4(col * (half)shade, 1.0h);
+                half3 shaded = GodGameShade(input.normalWS, input.worldPos, col, 0.14);
+                half3 lit = max(shaded, col * input.color.a);
+                lit = GodGameApplyHaze(lit, input.worldPos, 0.65);
+                return half4(lit, 1.0h);
             }
             ENDHLSL
         }

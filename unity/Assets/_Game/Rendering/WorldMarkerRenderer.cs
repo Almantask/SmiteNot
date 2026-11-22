@@ -11,17 +11,37 @@ namespace GodGame.Rendering
     public readonly struct WorldMarkerMeshes
     {
         public WorldMarkerMeshes(Mesh wreckMesh, Mesh treeMesh, Mesh felledTrunkMesh, Mesh fireMesh)
+            : this(wreckMesh, treeMesh, felledTrunkMesh, fireMesh, null, null, null, null) { }
+
+        public WorldMarkerMeshes(
+            Mesh wreckMesh,
+            Mesh treeMesh,
+            Mesh felledTrunkMesh,
+            Mesh fireMesh,
+            Mesh boulderMesh,
+            Mesh hedgerowMesh,
+            Mesh wallDrystoneMesh,
+            Mesh herdPenMesh
+        )
         {
             WreckMesh = wreckMesh;
             TreeMesh = treeMesh;
             FelledTrunkMesh = felledTrunkMesh;
             FireMesh = fireMesh;
+            BoulderMesh = boulderMesh;
+            HedgerowMesh = hedgerowMesh;
+            WallDrystoneMesh = wallDrystoneMesh;
+            HerdPenMesh = herdPenMesh;
         }
 
         public Mesh WreckMesh { get; }
         public Mesh TreeMesh { get; }
         public Mesh FelledTrunkMesh { get; }
         public Mesh FireMesh { get; }
+        public Mesh BoulderMesh { get; }
+        public Mesh HedgerowMesh { get; }
+        public Mesh WallDrystoneMesh { get; }
+        public Mesh HerdPenMesh { get; }
     }
 
     /// <summary>
@@ -32,6 +52,8 @@ namespace GodGame.Rendering
     {
         private static readonly int InstancesId = Shader.PropertyToID("_MarkerInstances");
         private static readonly int StatesId = Shader.PropertyToID("_MarkerStates");
+        private static readonly int RainInstancesId = Shader.PropertyToID("_RainInstances");
+        private static readonly int RainStatesId = Shader.PropertyToID("_RainStates");
         private static readonly int CellColorsId = Shader.PropertyToID("_CellColors");
         private static readonly int IsAuthoredFbxId = Shader.PropertyToID("_IsAuthoredFbx");
         private static readonly int TimeSecondsId = Shader.PropertyToID("_TimeSeconds");
@@ -111,6 +133,36 @@ namespace GodGame.Rendering
                 Graphics.RenderMeshIndirect(rp, _mesh, _args, 1, 0);
             }
 
+            public void DrawRain(Material rainMaterial, Bounds bounds, float timeSeconds, int count)
+            {
+                if (count <= 0 || _mesh == null || rainMaterial == null)
+                {
+                    return;
+                }
+                _instances.SetData(InstanceData, 0, 0, count);
+                _states.SetData(StateData, 0, 0, count);
+
+                _argsData[0].indexCountPerInstance = _mesh.GetIndexCount(0);
+                _argsData[0].instanceCount = (uint)count;
+                _argsData[0].startIndex = _mesh.GetIndexStart(0);
+                _argsData[0].baseVertexIndex = _mesh.GetBaseVertex(0);
+                _argsData[0].startInstance = 0;
+                _args.SetData(_argsData);
+
+                _props.SetBuffer(RainInstancesId, _instances);
+                _props.SetBuffer(RainStatesId, _states);
+                _props.SetFloat(TimeSecondsId, timeSeconds);
+
+                var rp = new RenderParams(rainMaterial)
+                {
+                    worldBounds = bounds,
+                    matProps = _props,
+                    shadowCastingMode = ShadowCastingMode.Off,
+                    receiveShadows = false,
+                };
+                Graphics.RenderMeshIndirect(rp, _mesh, _args, 1, 0);
+            }
+
             private void Allocate(int capacity)
             {
                 _instances?.Dispose();
@@ -141,6 +193,7 @@ namespace GodGame.Rendering
         }
 
         private readonly Material _material;
+        private readonly Material _rainMaterial;
         private readonly GraphicsBuffer _cellColors;
         private readonly Bounds _bounds;
 
@@ -151,11 +204,24 @@ namespace GodGame.Rendering
         private readonly MarkerBatch _fires;
         private readonly MarkerBatch _strikes;
         private readonly MarkerBatch _herds;
+        private readonly MarkerBatch _boulders;
+        private readonly MarkerBatch _hedgerows;
+        private readonly MarkerBatch _walls;
+        private readonly MarkerBatch _herdPens;
+        private readonly MarkerBatch _rainCurtains;
 
         public WorldMarkerRenderer(MapData map, Shader shader)
-            : this(map, shader, default) { }
+            : this(map, shader, default, null) { }
 
         public WorldMarkerRenderer(MapData map, Shader shader, WorldMarkerMeshes meshes)
+            : this(map, shader, meshes, null) { }
+
+        public WorldMarkerRenderer(
+            MapData map,
+            Shader shader,
+            WorldMarkerMeshes meshes,
+            Shader rainShader
+        )
         {
             if (map == null)
             {
@@ -174,6 +240,12 @@ namespace GodGame.Rendering
             }
 
             _material = new Material(shader) { enableInstancing = true };
+            Shader resolvedRain =
+                rainShader != null ? rainShader : Shader.Find("GodGame/RainCurtain");
+            _rainMaterial =
+                resolvedRain != null
+                    ? new Material(resolvedRain) { enableInstancing = true }
+                    : null;
             _cellColors = PaletteCells.CreateBuffer();
 
             _wrecks = new MarkerBatch(
@@ -220,6 +292,36 @@ namespace GodGame.Rendering
                 isAuthoredFbx: false,
                 16
             );
+            _boulders = new MarkerBatch(
+                meshes.BoulderMesh != null ? meshes.BoulderMesh : BuildFallbackBoulderMesh(),
+                ownsMesh: meshes.BoulderMesh == null,
+                isAuthoredFbx: meshes.BoulderMesh != null,
+                32
+            );
+            _hedgerows = new MarkerBatch(
+                meshes.HedgerowMesh != null ? meshes.HedgerowMesh : BuildFallbackHedgerowMesh(),
+                ownsMesh: meshes.HedgerowMesh == null,
+                isAuthoredFbx: meshes.HedgerowMesh != null,
+                128
+            );
+            _walls = new MarkerBatch(
+                meshes.WallDrystoneMesh != null ? meshes.WallDrystoneMesh : BuildFallbackWallMesh(),
+                ownsMesh: meshes.WallDrystoneMesh == null,
+                isAuthoredFbx: meshes.WallDrystoneMesh != null,
+                128
+            );
+            _herdPens = new MarkerBatch(
+                meshes.HerdPenMesh != null ? meshes.HerdPenMesh : BuildFallbackHerdPenMesh(),
+                ownsMesh: meshes.HerdPenMesh == null,
+                isAuthoredFbx: meshes.HerdPenMesh != null,
+                64
+            );
+            _rainCurtains = new MarkerBatch(
+                BuildRainCurtainMesh(),
+                ownsMesh: true,
+                isAuthoredFbx: false,
+                16
+            );
 
             var size = new Vector3(map.WidthMm / 1000f, 160f, map.DepthMm / 1000f);
             _bounds = new Bounds(size * 0.5f, size + Vector3.one * 50f);
@@ -232,11 +334,20 @@ namespace GodGame.Rendering
         public int DrawnFiresLastFrame { get; private set; }
         public int DrawnStrikesLastFrame { get; private set; }
         public int DrawnHerdsLastFrame { get; private set; }
+        public int DrawnBouldersLastFrame { get; private set; }
+        public int DrawnHedgerowsLastFrame { get; private set; }
+        public int DrawnWallsLastFrame { get; private set; }
+        public int DrawnHerdPensLastFrame { get; private set; }
+        public int DrawnRainLastFrame { get; private set; }
 
         public bool UsesAuthoredWreckMesh => _wrecks.IsAuthoredFbx;
         public bool UsesAuthoredTreeMesh => _trees.IsAuthoredFbx;
         public bool UsesAuthoredFelledTrunkMesh => _felledTrees.IsAuthoredFbx;
         public bool UsesAuthoredFireMesh => _fires.IsAuthoredFbx;
+        public bool UsesAuthoredBoulderMesh => _boulders.IsAuthoredFbx;
+        public bool UsesAuthoredHedgerowMesh => _hedgerows.IsAuthoredFbx;
+        public bool UsesAuthoredWallDrystoneMesh => _walls.IsAuthoredFbx;
+        public bool UsesAuthoredHerdPenMesh => _herdPens.IsAuthoredFbx;
 
         public void Draw(
             IReadOnlyList<WreckCellInstance> wrecks,
@@ -261,6 +372,152 @@ namespace GodGame.Rendering
             DrawnFiresLastFrame = DrawFires(fires, timeSeconds);
             DrawnStrikesLastFrame = DrawStrikes(strikes, timeSeconds);
             DrawnHerdsLastFrame = DrawHerds(herds, timeSeconds);
+        }
+
+        /// <summary>Draws static terrain props: placed boulders, hedgerows, drystone walls, and rustic herd pens.</summary>
+        public void DrawTerrainProps(
+            IReadOnlyList<BoulderPropInstance> boulders,
+            IReadOnlyList<LineBarrierInstance> barriers,
+            IReadOnlyList<HerdPenPropInstance> herdPens,
+            float timeSeconds = 0f
+        )
+        {
+            DrawnBouldersLastFrame = DrawBoulders(boulders, timeSeconds);
+            DrawLineBarriers(barriers, timeSeconds, out int hedgeCount, out int wallCount);
+            DrawnHedgerowsLastFrame = hedgeCount;
+            DrawnWallsLastFrame = wallCount;
+            DrawnHerdPensLastFrame = DrawHerdPens(herdPens, timeSeconds);
+        }
+
+        /// <summary>Draws translucent falling rain curtains and gathering storm-cloud shadows for active Rain casts.</summary>
+        public void DrawRain(IReadOnlyList<RainCastInstance> rainCasts, float timeSeconds = 0f)
+        {
+            int count = rainCasts != null ? rainCasts.Count : 0;
+            if (count == 0 || _rainMaterial == null)
+            {
+                DrawnRainLastFrame = 0;
+                return;
+            }
+            _rainCurtains.EnsureCapacity(count);
+            for (int i = 0; i < count; i++)
+            {
+                RainCastInstance r = rainCasts[i];
+                _rainCurtains.InstanceData[i] = new Vector4(
+                    r.WorldX,
+                    r.WorldY,
+                    r.WorldZ,
+                    r.RadiusM
+                );
+                _rainCurtains.StateData[i] = new Vector4(
+                    r.ActiveIntensity,
+                    r.WindUpProgress,
+                    r.WindXMps,
+                    r.WindZMps
+                );
+            }
+            _rainCurtains.DrawRain(_rainMaterial, _bounds, timeSeconds, count);
+            DrawnRainLastFrame = count;
+        }
+
+        private int DrawBoulders(IReadOnlyList<BoulderPropInstance> boulders, float timeSeconds)
+        {
+            int count = boulders != null ? boulders.Count : 0;
+            if (count == 0)
+            {
+                return 0;
+            }
+            _boulders.EnsureCapacity(count);
+            for (int i = 0; i < count; i++)
+            {
+                BoulderPropInstance b = boulders[i];
+                _boulders.InstanceData[i] = new Vector4(b.WorldX, b.WorldY, b.WorldZ, b.YawRad);
+                _boulders.StateData[i] = new Vector4(b.Scale, b.Scale, 8.0f, 0.0f);
+            }
+            _boulders.Draw(_material, _bounds, _cellColors, timeSeconds, count);
+            return count;
+        }
+
+        private void DrawLineBarriers(
+            IReadOnlyList<LineBarrierInstance> barriers,
+            float timeSeconds,
+            out int hedgeCount,
+            out int wallCount
+        )
+        {
+            hedgeCount = 0;
+            wallCount = 0;
+            if (barriers == null || barriers.Count == 0)
+            {
+                return;
+            }
+            for (int i = 0; i < barriers.Count; i++)
+            {
+                if (barriers[i].IsWall)
+                {
+                    wallCount++;
+                }
+                else
+                {
+                    hedgeCount++;
+                }
+            }
+            if (hedgeCount > 0)
+            {
+                _hedgerows.EnsureCapacity(hedgeCount);
+            }
+            if (wallCount > 0)
+            {
+                _walls.EnsureCapacity(wallCount);
+            }
+            int hIdx = 0;
+            int wIdx = 0;
+            for (int i = 0; i < barriers.Count; i++)
+            {
+                LineBarrierInstance b = barriers[i];
+                if (b.IsWall)
+                {
+                    _walls.InstanceData[wIdx] = new Vector4(b.WorldX, b.WorldY, b.WorldZ, b.YawRad);
+                    _walls.StateData[wIdx] = new Vector4(b.ScaleX, b.ScaleY, 8.0f, 0.0f);
+                    wIdx++;
+                }
+                else
+                {
+                    _hedgerows.InstanceData[hIdx] = new Vector4(
+                        b.WorldX,
+                        b.WorldY,
+                        b.WorldZ,
+                        b.YawRad
+                    );
+                    _hedgerows.StateData[hIdx] = new Vector4(b.ScaleX, b.ScaleY, 8.0f, 0.045f);
+                    hIdx++;
+                }
+            }
+            if (hedgeCount > 0)
+            {
+                _hedgerows.Draw(_material, _bounds, _cellColors, timeSeconds, hedgeCount);
+            }
+            if (wallCount > 0)
+            {
+                _walls.Draw(_material, _bounds, _cellColors, timeSeconds, wallCount);
+            }
+        }
+
+        private int DrawHerdPens(IReadOnlyList<HerdPenPropInstance> herdPens, float timeSeconds)
+        {
+            int count = herdPens != null ? herdPens.Count : 0;
+            if (count == 0)
+            {
+                return 0;
+            }
+            _herdPens.EnsureCapacity(count);
+            for (int i = 0; i < count; i++)
+            {
+                HerdPenPropInstance p = herdPens[i];
+                _herdPens.InstanceData[i] = new Vector4(p.WorldX, p.WorldY, p.WorldZ, p.YawRad);
+                _herdPens.StateData[i] = new Vector4(p.Scale, p.Scale, 8.0f, 0.0f);
+            }
+            _herdPens.Draw(_material, _bounds, _cellColors, timeSeconds, count);
+            return count;
         }
 
         private int DrawWrecks(IReadOnlyList<WreckCellInstance> wrecks, float timeSeconds)
@@ -811,6 +1068,225 @@ namespace GodGame.Rendering
             }
         }
 
+        private static Mesh BuildFallbackBoulderMesh()
+        {
+            var verts = new List<Vector3>();
+            var cols = new List<Color>();
+            var tris = new List<int>();
+            Color stone = new Color(0.50f, 0.50f, 0.48f, 1f);
+            Color moss = new Color(0.32f, 0.44f, 0.24f, 1f);
+            AddBox(
+                verts,
+                cols,
+                tris,
+                new Vector3(0f, 0.9f, 0f),
+                new Vector3(2.4f, 1.8f, 2.2f),
+                Quaternion.Euler(4f, 18f, -6f),
+                stone
+            );
+            AddBox(
+                verts,
+                cols,
+                tris,
+                new Vector3(0.2f, 1.85f, 0.1f),
+                new Vector3(1.4f, 0.35f, 1.2f),
+                Quaternion.identity,
+                moss
+            );
+            return FinalizeMesh("BoulderFallbackMesh", verts, cols, tris);
+        }
+
+        private static Mesh BuildFallbackHedgerowMesh()
+        {
+            var verts = new List<Vector3>();
+            var cols = new List<Color>();
+            var tris = new List<int>();
+            Color hedge = new Color(0.24f, 0.42f, 0.18f, 1f);
+            AddBox(
+                verts,
+                cols,
+                tris,
+                new Vector3(0f, 0.72f, 0f),
+                new Vector3(1.5f, 1.44f, 1.0f),
+                Quaternion.identity,
+                hedge
+            );
+            return FinalizeMesh("HedgerowFallbackMesh", verts, cols, tris);
+        }
+
+        private static Mesh BuildFallbackWallMesh()
+        {
+            var verts = new List<Vector3>();
+            var cols = new List<Color>();
+            var tris = new List<int>();
+            Color wall = new Color(0.54f, 0.53f, 0.50f, 1f);
+            AddBox(
+                verts,
+                cols,
+                tris,
+                new Vector3(0f, 0.58f, 0f),
+                new Vector3(1.5f, 1.16f, 0.72f),
+                Quaternion.identity,
+                wall
+            );
+            return FinalizeMesh("WallFallbackMesh", verts, cols, tris);
+        }
+
+        private static Mesh BuildFallbackHerdPenMesh()
+        {
+            var verts = new List<Vector3>();
+            var cols = new List<Color>();
+            var tris = new List<int>();
+            Color rail = new Color(0.46f, 0.32f, 0.18f, 1f);
+            AddBox(
+                verts,
+                cols,
+                tris,
+                new Vector3(-0.65f, 0.62f, 0f),
+                new Vector3(0.14f, 1.24f, 0.14f),
+                Quaternion.identity,
+                rail
+            );
+            AddBox(
+                verts,
+                cols,
+                tris,
+                new Vector3(0.65f, 0.62f, 0f),
+                new Vector3(0.14f, 1.24f, 0.14f),
+                Quaternion.identity,
+                rail
+            );
+            AddBox(
+                verts,
+                cols,
+                tris,
+                new Vector3(0f, 0.90f, 0f),
+                new Vector3(1.42f, 0.12f, 0.08f),
+                Quaternion.identity,
+                rail
+            );
+            AddBox(
+                verts,
+                cols,
+                tris,
+                new Vector3(0f, 0.48f, 0f),
+                new Vector3(1.42f, 0.12f, 0.08f),
+                Quaternion.identity,
+                rail
+            );
+            return FinalizeMesh("HerdPenFallbackMesh", verts, cols, tris);
+        }
+
+        private static Mesh BuildRainCurtainMesh()
+        {
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var cols = new List<Color>();
+            var tris = new List<int>();
+
+            // Ground shadow & splash-ripple disc (color.a = 0.2 -> disc branch in RainCurtain.shader).
+            Color discCol = new Color(1f, 1f, 1f, 0.2f);
+            int discBase = verts.Count;
+            verts.Add(new Vector3(-1f, 0f, -1f));
+            uvs.Add(new Vector2(0f, 0f));
+            cols.Add(discCol);
+            verts.Add(new Vector3(1f, 0f, -1f));
+            uvs.Add(new Vector2(1f, 0f));
+            cols.Add(discCol);
+            verts.Add(new Vector3(1f, 0f, 1f));
+            uvs.Add(new Vector2(1f, 1f));
+            cols.Add(discCol);
+            verts.Add(new Vector3(-1f, 0f, 1f));
+            uvs.Add(new Vector2(0f, 1f));
+            cols.Add(discCol);
+            tris.Add(discBase);
+            tris.Add(discBase + 2);
+            tris.Add(discBase + 1);
+            tris.Add(discBase);
+            tris.Add(discBase + 3);
+            tris.Add(discBase + 2);
+
+            // Outer cylindrical rain wall (24 segments) + inner cylinder (0.58 radius) + 3 crossed interior sheets
+            // so the rain downpour reads with real volumetric depth from any strategic or close camera angle.
+            Color sheetCol = new Color(1f, 1f, 1f, 1f);
+            AddRainCylinder(verts, uvs, cols, tris, 0.98f, 24, 1.0f, sheetCol);
+            AddRainCylinder(verts, uvs, cols, tris, 0.56f, 16, 0.65f, sheetCol);
+
+            for (int c = 0; c < 3; c++)
+            {
+                float angle = c * (MathF.PI / 3f);
+                float dx = MathF.Cos(angle) * 0.92f;
+                float dz = MathF.Sin(angle) * 0.92f;
+                int b = verts.Count;
+                verts.Add(new Vector3(-dx, 0f, -dz));
+                uvs.Add(new Vector2(0f, 0f));
+                cols.Add(sheetCol);
+                verts.Add(new Vector3(dx, 0f, dz));
+                uvs.Add(new Vector2(1f, 0f));
+                cols.Add(sheetCol);
+                verts.Add(new Vector3(dx, 1f, dz));
+                uvs.Add(new Vector2(1f, 1f));
+                cols.Add(sheetCol);
+                verts.Add(new Vector3(-dx, 1f, -dz));
+                uvs.Add(new Vector2(0f, 1f));
+                cols.Add(sheetCol);
+                tris.Add(b);
+                tris.Add(b + 1);
+                tris.Add(b + 2);
+                tris.Add(b);
+                tris.Add(b + 2);
+                tris.Add(b + 3);
+            }
+
+            var mesh = new Mesh { name = "RainCurtainMesh" };
+            mesh.SetVertices(verts);
+            mesh.SetUVs(0, uvs);
+            mesh.SetColors(cols);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        private static void AddRainCylinder(
+            List<Vector3> verts,
+            List<Vector2> uvs,
+            List<Color> cols,
+            List<int> tris,
+            float radius,
+            int segments,
+            float uRepeat,
+            Color color
+        )
+        {
+            int b = verts.Count;
+            for (int i = 0; i <= segments; i++)
+            {
+                float t = i / (float)segments;
+                float a = t * MathF.PI * 2f;
+                float x = MathF.Cos(a) * radius;
+                float z = MathF.Sin(a) * radius;
+                verts.Add(new Vector3(x, 0f, z));
+                uvs.Add(new Vector2(t * uRepeat, 0f));
+                cols.Add(color);
+                verts.Add(new Vector3(x, 1f, z));
+                uvs.Add(new Vector2(t * uRepeat, 1f));
+                cols.Add(color);
+            }
+            for (int i = 0; i < segments; i++)
+            {
+                int i0 = b + i * 2;
+                int i1 = i0 + 1;
+                int i2 = i0 + 2;
+                int i3 = i0 + 3;
+                tris.Add(i0);
+                tris.Add(i2);
+                tris.Add(i3);
+                tris.Add(i0);
+                tris.Add(i3);
+                tris.Add(i1);
+            }
+        }
+
         public void Dispose()
         {
             _wrecks.Dispose();
@@ -820,14 +1296,27 @@ namespace GodGame.Rendering
             _fires.Dispose();
             _strikes.Dispose();
             _herds.Dispose();
+            _boulders.Dispose();
+            _hedgerows.Dispose();
+            _walls.Dispose();
+            _herdPens.Dispose();
+            _rainCurtains.Dispose();
             _cellColors?.Dispose();
             if (Application.isPlaying)
             {
                 UnityEngine.Object.Destroy(_material);
+                if (_rainMaterial != null)
+                {
+                    UnityEngine.Object.Destroy(_rainMaterial);
+                }
             }
             else
             {
                 UnityEngine.Object.DestroyImmediate(_material);
+                if (_rainMaterial != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(_rainMaterial);
+                }
             }
         }
     }

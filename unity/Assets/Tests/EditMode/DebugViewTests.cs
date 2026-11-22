@@ -204,7 +204,7 @@ namespace GodGame.Tests.EditMode
         public void UnitMeshes_AllAuthoredUnitTypes_ImportWithPaletteUvsAndTeamMask()
         {
             var rules = RepoLoader.LoadRules(RepoLoader.EditorRepoRoot);
-            Assert.That(rules.UnitTypes.Count(t => !UnitArt.AwaitsModel(t.Id)), Is.EqualTo(11));
+            Assert.That(rules.UnitTypes.Count(t => !UnitArt.AwaitsModel(t.Id)), Is.EqualTo(12));
 
             foreach (var unitType in rules.UnitTypes.Where(t => !UnitArt.AwaitsModel(t.Id)))
             {
@@ -285,7 +285,7 @@ namespace GodGame.Tests.EditMode
         public void UnitVats_AllAuthoredUnitTypes_BakeWithMovingVerticesAcrossFrames()
         {
             var rules = RepoLoader.LoadRules(RepoLoader.EditorRepoRoot);
-            Assert.That(rules.UnitTypes.Count(t => !UnitArt.AwaitsModel(t.Id)), Is.EqualTo(11));
+            Assert.That(rules.UnitTypes.Count(t => !UnitArt.AwaitsModel(t.Id)), Is.EqualTo(12));
 
             foreach (var unitType in rules.UnitTypes.Where(t => !UnitArt.AwaitsModel(t.Id)))
             {

@@ -57,6 +57,9 @@ namespace GodGame.Rendering
         private Shader _markerShader;
 
         [SerializeField]
+        private Shader _rainShader;
+
+        [SerializeField]
         private PanelSettings _panelSettings;
 
         [SerializeField]
@@ -79,6 +82,24 @@ namespace GodGame.Rendering
 
         [SerializeField]
         private Mesh _fireMesh;
+
+        [SerializeField]
+        private Mesh _boulderMesh;
+
+        [SerializeField]
+        private Mesh _hedgerowMesh;
+
+        [SerializeField]
+        private Mesh _wallDrystoneMesh;
+
+        [SerializeField]
+        private Mesh _herdPenMesh;
+
+        [SerializeField]
+        private Mesh _woodenBridgeMesh;
+
+        [SerializeField]
+        private Mesh _footbridgeMesh;
 
         private enum Tool
         {
@@ -122,12 +143,20 @@ namespace GodGame.Rendering
         private readonly List<LightningStrikeInstance> _strikeInstances =
             new List<LightningStrikeInstance>();
         private readonly List<HerdMarkerInstance> _herdInstances = new List<HerdMarkerInstance>();
+        private readonly List<BoulderPropInstance> _boulderInstances =
+            new List<BoulderPropInstance>();
+        private readonly List<LineBarrierInstance> _barrierInstances =
+            new List<LineBarrierInstance>();
+        private readonly List<HerdPenPropInstance> _herdPenInstances =
+            new List<HerdPenPropInstance>();
+        private readonly List<RainCastInstance> _rainInstances = new List<RainCastInstance>();
         private readonly Dictionary<int, int> _crushCountsScratch = new Dictionary<int, int>();
         private FieldUpload _fields;
         private uint[] _fieldCells;
         private int _fieldTick = -1;
         private PlaybackTrack _fieldTrack;
         private Texture2D _overlayTexture;
+        private Texture2D _terrainMask;
         private Color32[] _overlayPixels;
         private bool _overlayDirty = true;
         private int _lastOverlayTick = int.MinValue;
@@ -253,6 +282,13 @@ namespace GodGame.Rendering
             if (_camera != null)
             {
                 _camera.Frame(_map.WidthMm / 1000f, _map.DepthMm / 1000f);
+                if (
+                    TryParseVec3(CommandLineValue("-cam-pos"), out Vector3 camPos)
+                    && TryParseVec3(CommandLineValue("-cam-look"), out Vector3 camLook)
+                )
+                {
+                    _camera.SetCustomPose(camPos, camLook);
+                }
             }
         }
 
@@ -291,6 +327,11 @@ namespace GodGame.Rendering
             Destroy(_ground);
             Destroy(_water);
             Destroy(_overlayTexture);
+            if (_terrainMask != null)
+            {
+                Destroy(_terrainMask);
+                _terrainMask = null;
+            }
             Destroy(_groundMaterial);
             Destroy(_waterMaterial);
             Destroy(_mesh);
@@ -308,6 +349,8 @@ namespace GodGame.Rendering
             );
             _groundMaterial = new Material(_groundShader);
             GroundMesh.BindTerrainTextures(_groundMaterial);
+            _terrainMask = GroundMesh.BuildTerrainMask(battle.PlayedMap);
+            _groundMaterial.SetTexture("_TerrainMask", _terrainMask);
             _overlayTexture = new Texture2D(_map.Columns, _map.Rows, TextureFormat.RGBA32, false)
             {
                 filterMode = FilterMode.Point,
@@ -339,13 +382,25 @@ namespace GodGame.Rendering
             _water.AddComponent<MeshFilter>().sharedMesh = _mesh;
             _water.AddComponent<MeshRenderer>().sharedMaterial = _waterMaterial;
             _deckRenderer = new DeckRenderer(
-                _map,
-                _deckShader != null ? _deckShader : Shader.Find("GodGame/DebugDeck")
+                battle.PlayedMap,
+                _deckShader != null ? _deckShader : Shader.Find("GodGame/DebugDeck"),
+                _woodenBridgeMesh,
+                _footbridgeMesh
             );
             _worldMarkers = new WorldMarkerRenderer(
-                _map,
+                battle.PlayedMap,
                 _markerShader != null ? _markerShader : Shader.Find("GodGame/DebugMarkers"),
-                new WorldMarkerMeshes(_wreckMesh, _treeMesh, _felledTrunkMesh, _fireMesh)
+                new WorldMarkerMeshes(
+                    _wreckMesh,
+                    _treeMesh,
+                    _felledTrunkMesh,
+                    _fireMesh,
+                    _boulderMesh,
+                    _hedgerowMesh,
+                    _wallDrystoneMesh,
+                    _herdPenMesh
+                ),
+                _rainShader
             );
             _structures = new StructureSnapshot();
             _regiments = new RegimentSnapshot();
@@ -391,6 +446,15 @@ namespace GodGame.Rendering
                 _unitVats
             );
             _reader = reader;
+            if (_groundMaterial != null && battle.PlayedMap != null)
+            {
+                if (_terrainMask != null)
+                {
+                    Destroy(_terrainMask);
+                }
+                _terrainMask = GroundMesh.BuildTerrainMask(battle.PlayedMap);
+                _groundMaterial.SetTexture("_TerrainMask", _terrainMask);
+            }
         }
 
         private void BuildUi()
@@ -662,6 +726,29 @@ namespace GodGame.Rendering
                 _herdInstances,
                 Time.unscaledTime
             );
+            SalvoAndBlockerProjection.CollectBoulders(activeMap, activeTerrain, _boulderInstances);
+            SalvoAndBlockerProjection.CollectLineBarriers(
+                plan,
+                activeMap,
+                activeTerrain,
+                _barrierInstances
+            );
+            SalvoAndBlockerProjection.CollectHerdPens(activeMap, activeTerrain, _herdPenInstances);
+            _worldMarkers?.DrawTerrainProps(
+                _boulderInstances,
+                _barrierInstances,
+                _herdPenInstances,
+                Time.unscaledTime
+            );
+            SalvoAndBlockerProjection.CollectActiveRainCasts(
+                plan,
+                causes,
+                activeMap,
+                activeTerrain,
+                scrubTick,
+                _rainInstances
+            );
+            _worldMarkers?.DrawRain(_rainInstances, Time.unscaledTime);
             UploadFields(track);
             UpdateOverlay(track);
             DrawRings(track);
@@ -1646,6 +1733,45 @@ namespace GodGame.Rendering
             string[] args = Environment.GetCommandLineArgs();
             int i = Array.IndexOf(args, name);
             return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+        }
+
+        private static bool TryParseVec3(string raw, out Vector3 value)
+        {
+            value = Vector3.zero;
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return false;
+            }
+            string[] parts = raw.Split(',');
+            if (parts.Length != 3)
+            {
+                return false;
+            }
+            if (
+                float.TryParse(
+                    parts[0],
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float x
+                )
+                && float.TryParse(
+                    parts[1],
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float y
+                )
+                && float.TryParse(
+                    parts[2],
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float z
+                )
+            )
+            {
+                value = new Vector3(x, y, z);
+                return true;
+            }
+            return false;
         }
     }
 }

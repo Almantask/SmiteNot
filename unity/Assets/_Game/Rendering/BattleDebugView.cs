@@ -60,6 +60,9 @@ namespace GodGame.Rendering
         private Shader _markerShader;
 
         [SerializeField]
+        private Shader _rainShader;
+
+        [SerializeField]
         private PanelSettings _panelSettings;
 
         [SerializeField]
@@ -83,7 +86,26 @@ namespace GodGame.Rendering
         [SerializeField]
         private Mesh _fireMesh;
 
+        [SerializeField]
+        private Mesh _boulderMesh;
+
+        [SerializeField]
+        private Mesh _hedgerowMesh;
+
+        [SerializeField]
+        private Mesh _wallDrystoneMesh;
+
+        [SerializeField]
+        private Mesh _herdPenMesh;
+
+        [SerializeField]
+        private Mesh _woodenBridgeMesh;
+
+        [SerializeField]
+        private Mesh _footbridgeMesh;
+
         private GodGame.Sim.Rules.Ruleset _rules;
+        private BattlePlan _plan;
         private BattleHost _host;
         private UnitCapsuleRenderer _units;
         private DeckRenderer _deckRenderer;
@@ -103,11 +125,19 @@ namespace GodGame.Rendering
         private readonly List<LightningStrikeInstance> _strikeInstances =
             new List<LightningStrikeInstance>();
         private readonly List<HerdMarkerInstance> _herdInstances = new List<HerdMarkerInstance>();
+        private readonly List<BoulderPropInstance> _boulderInstances =
+            new List<BoulderPropInstance>();
+        private readonly List<LineBarrierInstance> _barrierInstances =
+            new List<LineBarrierInstance>();
+        private readonly List<HerdPenPropInstance> _herdPenInstances =
+            new List<HerdPenPropInstance>();
+        private readonly List<RainCastInstance> _rainInstances = new List<RainCastInstance>();
         private readonly Dictionary<int, int> _crushCountsScratch = new Dictionary<int, int>();
         private MapData _map;
         private Navigation _navigation;
         private FlowField _attackerFlow;
         private Texture2D _overlay;
+        private Texture2D _terrainMask;
         private Color32[] _pixels;
         private Material _groundMaterial;
         private Material _waterMaterial;
@@ -182,18 +212,30 @@ namespace GodGame.Rendering
 
             _rules = RepoLoader.LoadRules(repo);
             _map = RepoLoader.LoadMap(repo, _mapId);
-            var plan = RepoLoader.LoadPlan(repo, _planFile, _map, _rules);
-            var battle = new Battle(_rules, _map, plan, _seed);
+            _plan = RepoLoader.LoadPlan(repo, _planFile, _map, _rules);
+            var battle = new Battle(_rules, _map, _plan, _seed);
             _host = new BattleHost(battle) { Speed = _speed };
             _units = new UnitCapsuleRenderer(_unitShader, _host, _unitMeshes, _unitVats);
             _deckRenderer = new DeckRenderer(
                 battle.PlayedMap,
-                _deckShader != null ? _deckShader : Shader.Find("GodGame/DebugDeck")
+                _deckShader != null ? _deckShader : Shader.Find("GodGame/DebugDeck"),
+                _woodenBridgeMesh,
+                _footbridgeMesh
             );
             _worldMarkers = new WorldMarkerRenderer(
                 battle.PlayedMap,
                 _markerShader != null ? _markerShader : Shader.Find("GodGame/DebugMarkers"),
-                new WorldMarkerMeshes(_wreckMesh, _treeMesh, _felledTrunkMesh, _fireMesh)
+                new WorldMarkerMeshes(
+                    _wreckMesh,
+                    _treeMesh,
+                    _felledTrunkMesh,
+                    _fireMesh,
+                    _boulderMesh,
+                    _hedgerowMesh,
+                    _wallDrystoneMesh,
+                    _herdPenMesh
+                ),
+                _rainShader
             );
             _structures = new StructureSnapshot();
             _regiments = new RegimentSnapshot();
@@ -250,6 +292,11 @@ namespace GodGame.Rendering
             if (_overlay != null)
             {
                 Destroy(_overlay);
+            }
+            if (_terrainMask != null)
+            {
+                Destroy(_terrainMask);
+                _terrainMask = null;
             }
             if (_groundMaterial != null)
             {
@@ -347,6 +394,8 @@ namespace GodGame.Rendering
             _pixels = new Color32[terrain.CellCount];
             _groundMaterial = new Material(_groundShader);
             GroundMesh.BindTerrainTextures(_groundMaterial);
+            _terrainMask = GroundMesh.BuildTerrainMask(map);
+            _groundMaterial.SetTexture("_TerrainMask", _terrainMask);
             _groundMaterial.SetTexture("_Overlay", _overlay);
             _groundMaterial.SetVector(
                 "_HeightRange",
@@ -506,6 +555,37 @@ namespace GodGame.Rendering
                 _herdInstances,
                 Time.unscaledTime
             );
+            SalvoAndBlockerProjection.CollectBoulders(
+                _host.Map,
+                _navigation?.Terrain,
+                _boulderInstances
+            );
+            SalvoAndBlockerProjection.CollectLineBarriers(
+                _plan,
+                _host.Map,
+                _navigation?.Terrain,
+                _barrierInstances
+            );
+            SalvoAndBlockerProjection.CollectHerdPens(
+                _host.Map,
+                _navigation?.Terrain,
+                _herdPenInstances
+            );
+            _worldMarkers?.DrawTerrainProps(
+                _boulderInstances,
+                _barrierInstances,
+                _herdPenInstances,
+                Time.unscaledTime
+            );
+            SalvoAndBlockerProjection.CollectActiveRainCasts(
+                _plan,
+                causes,
+                _host.Map,
+                _navigation?.Terrain,
+                markerTick,
+                _rainInstances
+            );
+            _worldMarkers?.DrawRain(_rainInstances, Time.unscaledTime);
             float ms = Time.unscaledDeltaTime * 1000f;
             _smoothedFrameMs = Mathf.Lerp(_smoothedFrameMs, ms, 0.05f);
             if (_hud != null && Time.unscaledTime >= _nextHud)

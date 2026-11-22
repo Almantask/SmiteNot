@@ -456,5 +456,19 @@ namespace GodGame.Tests.EditMode
                 }
             }
         }
+
+        [Test]
+        public void RepoLoader_FindRepoRoot_FindsRootFromStandalonePlayerDataPath()
+        {
+            string expected = RepoLoader.EditorRepoRoot;
+            string standaloneData = System.IO.Path.Combine(
+                expected,
+                "unity",
+                "Builds",
+                "PlanningPlayer",
+                "GodGamePlanning_Data"
+            );
+            Assert.That(RepoLoader.FindRepoRoot(standaloneData), Is.EqualTo(expected));
+        }
     }
 }

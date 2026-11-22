@@ -15,9 +15,27 @@ namespace GodGame.Bridge
     /// </summary>
     public static class RepoLoader
     {
-        /// <summary>The repository root seen from the Unity project (unity/Assets → two levels up).</summary>
-        public static string EditorRepoRoot =>
-            Path.GetFullPath(Path.Combine(Application.dataPath, "..", ".."));
+        /// <summary>
+        /// The repository root found by walking up from <see cref="Application.dataPath"/> until <c>data/rules</c>
+        /// exists (works from both the Unity editor at <c>unity/Assets</c> and standalone builds under
+        /// <c>unity/Builds/&lt;Player&gt;/&lt;Player&gt;_Data</c>). Falls back to two levels up.
+        /// </summary>
+        public static string EditorRepoRoot => FindRepoRoot(Application.dataPath);
+
+        /// <summary>Walks up from <paramref name="startPath"/> until a directory containing <c>data/rules</c> is found.</summary>
+        public static string FindRepoRoot(string startPath)
+        {
+            string dir = startPath;
+            for (int i = 0; i < 8 && !string.IsNullOrEmpty(dir); i++)
+            {
+                if (Directory.Exists(Path.Combine(dir, "data", "rules")))
+                {
+                    return Path.GetFullPath(dir);
+                }
+                dir = Path.GetDirectoryName(dir);
+            }
+            return Path.GetFullPath(Path.Combine(startPath, "..", ".."));
+        }
 
         public static Ruleset LoadRules(string repoRoot) =>
             RulesetLoader.Load(

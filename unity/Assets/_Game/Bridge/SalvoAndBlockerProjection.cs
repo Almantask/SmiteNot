@@ -445,6 +445,46 @@ namespace GodGame.Bridge
         public float Progress { get; }
     }
 
+    /// <summary>One live regiment's heraldic banner/standard projected from unit positions, morale and wind.</summary>
+    public readonly struct RegimentBannerInstance
+    {
+        public RegimentBannerInstance(
+            int regimentIndex,
+            Side side,
+            int emblemKind,
+            float worldX,
+            float worldY,
+            float worldZ,
+            float morale01,
+            float strength01,
+            bool routing,
+            float windYawRad
+        )
+        {
+            RegimentIndex = regimentIndex;
+            Side = side;
+            EmblemKind = emblemKind;
+            WorldX = worldX;
+            WorldY = worldY;
+            WorldZ = worldZ;
+            Morale01 = morale01;
+            Strength01 = strength01;
+            Routing = routing;
+            WindYawRad = windYawRad;
+        }
+
+        public int RegimentIndex { get; }
+        public Side Side { get; }
+        public int EmblemKind { get; }
+        public float WorldX { get; }
+        public float WorldY { get; }
+        public float WorldZ { get; }
+        public float Morale01 { get; }
+        public float Strength01 { get; }
+        public bool Routing { get; }
+        public float WindYawRad { get; }
+    }
+
     /// <summary>
     /// Pure bridge projections from <see cref="BlockerSnapshot"/> and <see cref="CauseEvent"/> logs into world-space
     /// draw records for both live (<see cref="BattleHost"/>) and scrubbable (<see cref="PreviewWorker"/>) views.
@@ -2103,6 +2143,142 @@ namespace GodGame.Bridge
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Collects heraldic standards/banners for every live non-neutral regiment from <paramref name="units"/> and
+        /// <paramref name="regiments"/>, oriented along the map's prevailing wind (or a gentle breeze when calm).
+        /// </summary>
+        public static void CollectRegimentBanners(
+            BattleHost.UnitSnapshot units,
+            RegimentSnapshot regiments,
+            BattlePlan plan,
+            MapData map,
+            List<RegimentBannerInstance> output
+        )
+        {
+            if (output == null)
+            {
+                throw new ArgumentNullException(nameof(output));
+            }
+            output.Clear();
+            if (units == null || units.Count == 0 || plan == null || plan.Army == null)
+            {
+                return;
+            }
+
+            int regCount = plan.Army.Count;
+            if (regCount == 0)
+            {
+                return;
+            }
+
+            var sumX = new float[regCount];
+            var sumY = new float[regCount];
+            var sumZ = new float[regCount];
+            var alive = new int[regCount];
+
+            for (int u = 0; u < units.Count; u++)
+            {
+                if (!units.Alive[u])
+                {
+                    continue;
+                }
+                int r = units.Regiment[u];
+                if ((uint)r >= (uint)regCount)
+                {
+                    continue;
+                }
+                sumX[r] += units.X[u];
+                sumY[r] += units.Y[u];
+                sumZ[r] += units.Z[u];
+                alive[r]++;
+            }
+
+            float windYaw = 0.25f;
+            if (map != null && (map.WindXMmPerS != 0 || map.WindYMmPerS != 0))
+            {
+                windYaw = (float)Math.Atan2(-map.WindYMmPerS, map.WindXMmPerS);
+            }
+
+            for (int r = 0; r < regCount; r++)
+            {
+                if (alive[r] <= 0)
+                {
+                    continue;
+                }
+                PlannedRegiment planned = plan.Army[r];
+                if (planned.Side == Side.Neutral)
+                {
+                    continue;
+                }
+                if (
+                    regiments != null
+                    && r < regiments.Count
+                    && (regiments.Wiped[r] || !regiments.Alive[r])
+                )
+                {
+                    continue;
+                }
+
+                float wx = sumX[r] / alive[r];
+                float wy = sumY[r] / alive[r];
+                float wz = sumZ[r] / alive[r];
+                float morale01 =
+                    regiments != null && r < regiments.Count
+                        ? Math.Min(1f, Math.Max(0f, regiments.Morale[r] / 1000f))
+                        : 1f;
+                int startSize =
+                    regiments != null && r < regiments.Count && regiments.StartingSize[r] > 0
+                        ? regiments.StartingSize[r]
+                        : Math.Max(1, planned.Soldiers);
+                float strength01 = Math.Min(1f, Math.Max(0.1f, alive[r] / (float)startSize));
+                bool routing =
+                    regiments != null
+                    && r < regiments.Count
+                    && (regiments.Routing[r] || regiments.Order[r] == RegimentOrder.Rout);
+                int emblem = EmblemKindOf(planned.UnitType);
+
+                output.Add(
+                    new RegimentBannerInstance(
+                        r,
+                        planned.Side,
+                        emblem,
+                        wx,
+                        wy,
+                        wz,
+                        morale01,
+                        strength01,
+                        routing,
+                        windYaw
+                    )
+                );
+            }
+        }
+
+        private static int EmblemKindOf(string unitType)
+        {
+            if (string.IsNullOrEmpty(unitType))
+            {
+                return 0;
+            }
+            if (string.Equals(unitType, "infantry", StringComparison.OrdinalIgnoreCase))
+            {
+                return 0;
+            }
+            if (string.Equals(unitType, "cavalry", StringComparison.OrdinalIgnoreCase))
+            {
+                return 1;
+            }
+            if (string.Equals(unitType, "ranged", StringComparison.OrdinalIgnoreCase))
+            {
+                return 2;
+            }
+            if (string.Equals(unitType, "siege", StringComparison.OrdinalIgnoreCase))
+            {
+                return 3;
+            }
+            return 4; // specialists
         }
 
         private static bool IsCastFizzled(CauseEvent[] causes, int castIndex)

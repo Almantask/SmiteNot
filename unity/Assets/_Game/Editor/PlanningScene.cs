@@ -82,6 +82,9 @@ namespace GodGame.Editor
             serialized.FindProperty("_shadowShader").objectReferenceValue = Shader.Find(
                 "GodGame/ContactShadow"
             );
+            serialized.FindProperty("_bannerShader").objectReferenceValue = Shader.Find(
+                "GodGame/RegimentBanner"
+            );
             serialized.FindProperty("_panelSettings").objectReferenceValue =
                 BattleDebugScene.PanelSettingsAsset();
             serialized.FindProperty("_camera").objectReferenceValue = strategic;
@@ -101,6 +104,7 @@ namespace GodGame.Editor
                     "_skyShader",
                     "_skirtShader",
                     "_shadowShader",
+                    "_bannerShader",
                     "_panelSettings",
                 }
             )

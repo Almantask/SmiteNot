@@ -56,6 +56,9 @@ namespace GodGame.Rendering
         private static readonly int RainStatesId = Shader.PropertyToID("_RainStates");
         private static readonly int ShadowInstancesId = Shader.PropertyToID("_ShadowInstances");
         private static readonly int ShadowStatesId = Shader.PropertyToID("_ShadowStates");
+        private static readonly int BannerInstancesId = Shader.PropertyToID("_BannerInstances");
+        private static readonly int BannerStatesId = Shader.PropertyToID("_BannerStates");
+        private static readonly int BannerColorsId = Shader.PropertyToID("_BannerColors");
         private static readonly int CellColorsId = Shader.PropertyToID("_CellColors");
         private static readonly int IsAuthoredFbxId = Shader.PropertyToID("_IsAuthoredFbx");
         private static readonly int TimeSecondsId = Shader.PropertyToID("_TimeSeconds");
@@ -194,6 +197,43 @@ namespace GodGame.Rendering
                 Graphics.RenderMeshIndirect(rp, _mesh, _args, 1, 0);
             }
 
+            public void DrawBanners(
+                Material bannerMaterial,
+                Bounds bounds,
+                GraphicsBuffer colorsBuffer,
+                float timeSeconds,
+                int count
+            )
+            {
+                if (count <= 0 || _mesh == null || bannerMaterial == null || colorsBuffer == null)
+                {
+                    return;
+                }
+                _instances.SetData(InstanceData, 0, 0, count);
+                _states.SetData(StateData, 0, 0, count);
+
+                _argsData[0].indexCountPerInstance = _mesh.GetIndexCount(0);
+                _argsData[0].instanceCount = (uint)count;
+                _argsData[0].startIndex = _mesh.GetIndexStart(0);
+                _argsData[0].baseVertexIndex = _mesh.GetBaseVertex(0);
+                _argsData[0].startInstance = 0;
+                _args.SetData(_argsData);
+
+                _props.SetBuffer(BannerInstancesId, _instances);
+                _props.SetBuffer(BannerStatesId, _states);
+                _props.SetBuffer(BannerColorsId, colorsBuffer);
+                _props.SetFloat(TimeSecondsId, timeSeconds);
+
+                var rp = new RenderParams(bannerMaterial)
+                {
+                    worldBounds = bounds,
+                    matProps = _props,
+                    shadowCastingMode = ShadowCastingMode.Off,
+                    receiveShadows = false,
+                };
+                Graphics.RenderMeshIndirect(rp, _mesh, _args, 1, 0);
+            }
+
             private void Allocate(int capacity)
             {
                 _instances?.Dispose();
@@ -226,6 +266,7 @@ namespace GodGame.Rendering
         private readonly Material _material;
         private readonly Material _rainMaterial;
         private readonly Material _shadowMaterial;
+        private readonly Material _bannerMaterial;
         private readonly GraphicsBuffer _cellColors;
         private readonly Bounds _bounds;
 
@@ -244,20 +285,24 @@ namespace GodGame.Rendering
         private readonly MarkerBatch _flyingStones;
         private readonly MarkerBatch _arrows;
         private readonly MarkerBatch _propShadows;
+        private readonly MarkerBatch _banners;
+        private GraphicsBuffer _bannerColorsBuffer;
+        private Vector4[] _bannerColorData;
         private int _pendingShadowCount;
 
         public WorldMarkerRenderer(MapData map, Shader shader)
-            : this(map, shader, default, null, null) { }
+            : this(map, shader, default, null, null, null) { }
 
         public WorldMarkerRenderer(MapData map, Shader shader, WorldMarkerMeshes meshes)
-            : this(map, shader, meshes, null, null) { }
+            : this(map, shader, meshes, null, null, null) { }
 
         public WorldMarkerRenderer(
             MapData map,
             Shader shader,
             WorldMarkerMeshes meshes,
             Shader rainShader,
-            Shader shadowShader = null
+            Shader shadowShader = null,
+            Shader bannerShader = null
         )
         {
             if (map == null)
@@ -288,6 +333,12 @@ namespace GodGame.Rendering
             _shadowMaterial =
                 resolvedShadow != null
                     ? new Material(resolvedShadow) { enableInstancing = true }
+                    : null;
+            Shader resolvedBanner =
+                bannerShader != null ? bannerShader : Shader.Find("GodGame/RegimentBanner");
+            _bannerMaterial =
+                resolvedBanner != null
+                    ? new Material(resolvedBanner) { enableInstancing = true }
                     : null;
             _cellColors = PaletteCells.CreateBuffer();
 
@@ -378,6 +429,14 @@ namespace GodGame.Rendering
                 isAuthoredFbx: false,
                 512
             );
+            _banners = new MarkerBatch(
+                BuildBannerMesh(),
+                ownsMesh: true,
+                isAuthoredFbx: false,
+                128
+            );
+            _bannerColorData = new Vector4[128];
+            _bannerColorsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, 128, 16);
 
             var size = new Vector3(map.WidthMm / 1000f, 160f, map.DepthMm / 1000f);
             _bounds = new Bounds(size * 0.5f, size + Vector3.one * 50f);
@@ -398,6 +457,7 @@ namespace GodGame.Rendering
         public int DrawnFlyingStonesLastFrame { get; private set; }
         public int DrawnArrowsLastFrame { get; private set; }
         public int DrawnPropShadowsLastFrame { get; private set; }
+        public int DrawnBannersLastFrame { get; private set; }
 
         public bool UsesAuthoredWreckMesh => _wrecks.IsAuthoredFbx;
         public bool UsesAuthoredTreeMesh => _trees.IsAuthoredFbx;
@@ -459,6 +519,55 @@ namespace GodGame.Rendering
         {
             DrawnFlyingStonesLastFrame = DrawFlyingStones(flyingStones, timeSeconds);
             DrawnArrowsLastFrame = DrawArrows(arrows, timeSeconds);
+        }
+
+        /// <summary>Draws wind-rippling heraldic standards over every live non-neutral regiment.</summary>
+        public void DrawBanners(
+            IReadOnlyList<RegimentBannerInstance> banners,
+            float timeSeconds = 0f
+        )
+        {
+            int count = banners != null ? banners.Count : 0;
+            if (count == 0 || _bannerMaterial == null)
+            {
+                DrawnBannersLastFrame = 0;
+                return;
+            }
+            _banners.EnsureCapacity(count);
+            if (count > _bannerColorData.Length)
+            {
+                int cap = Math.Max(count, _bannerColorData.Length * 2);
+                _bannerColorData = new Vector4[cap];
+                _bannerColorsBuffer?.Dispose();
+                _bannerColorsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, cap, 16);
+            }
+            for (int i = 0; i < count; i++)
+            {
+                RegimentBannerInstance b = banners[i];
+                _banners.InstanceData[i] = new Vector4(b.WorldX, b.WorldY, b.WorldZ, b.WindYawRad);
+                float packedW =
+                    (b.Side == Side.Defender ? 1f : 0f)
+                    + (b.Routing ? 4f : 0f)
+                    + ((b.RegimentIndex * 37) % 97) * 0.009f;
+                _banners.StateData[i] = new Vector4(
+                    b.Morale01,
+                    b.Strength01,
+                    b.EmblemKind,
+                    packedW
+                );
+                float step = (b.RegimentIndex * 0.618034f) % 1f;
+                float hue = b.Side == Side.Attacker ? 0.02f + 0.05f * step : 0.57f + 0.06f * step;
+                Color c = Color.HSVToRGB(
+                    hue,
+                    0.90f,
+                    0.44f + 0.18f * ((b.RegimentIndex * 0.381966f) % 1f)
+                );
+                Color lin = c.linear;
+                _bannerColorData[i] = new Vector4(lin.r, lin.g, lin.b, 1f);
+            }
+            _bannerColorsBuffer.SetData(_bannerColorData, 0, 0, count);
+            _banners.DrawBanners(_bannerMaterial, _bounds, _bannerColorsBuffer, timeSeconds, count);
+            DrawnBannersLastFrame = count;
         }
 
         private void AddPropShadow(
@@ -1066,6 +1175,142 @@ namespace GodGame.Rendering
             return mesh;
         }
 
+        private static Mesh BuildBannerMesh()
+        {
+            var verts = new List<Vector3>();
+            var normals = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var cols = new List<Color>();
+            var tris = new List<int>();
+
+            // Sturdy ash standard pole (color.r = 0 -> wood) + brass finial spearhead (color.r = 0.5 -> brass).
+            void AddPartBox(Vector3 center, Vector3 size, float partCode)
+            {
+                Vector3 h = size * 0.5f;
+                Vector3[] corners =
+                {
+                    new Vector3(-h.x, -h.y, -h.z),
+                    new Vector3(h.x, -h.y, -h.z),
+                    new Vector3(h.x, h.y, -h.z),
+                    new Vector3(-h.x, h.y, -h.z),
+                    new Vector3(-h.x, -h.y, h.z),
+                    new Vector3(h.x, -h.y, h.z),
+                    new Vector3(h.x, h.y, h.z),
+                    new Vector3(-h.x, h.y, h.z),
+                };
+                int b = verts.Count;
+                Color c = new Color(partCode, 0f, 0f, 1f);
+                for (int i = 0; i < corners.Length; i++)
+                {
+                    verts.Add(center + corners[i]);
+                    normals.Add(corners[i].normalized);
+                    uvs.Add(Vector2.zero);
+                    cols.Add(c);
+                }
+                int[] idx =
+                {
+                    0,
+                    2,
+                    1,
+                    0,
+                    3,
+                    2,
+                    1,
+                    2,
+                    6,
+                    1,
+                    6,
+                    5,
+                    5,
+                    6,
+                    7,
+                    5,
+                    7,
+                    4,
+                    4,
+                    7,
+                    3,
+                    4,
+                    3,
+                    0,
+                    3,
+                    7,
+                    6,
+                    3,
+                    6,
+                    2,
+                    4,
+                    0,
+                    1,
+                    4,
+                    1,
+                    5,
+                };
+                for (int i = 0; i < idx.Length; i++)
+                {
+                    tris.Add(b + idx[i]);
+                }
+            }
+
+            AddPartBox(new Vector3(0f, 2.25f, 0f), new Vector3(0.11f, 4.50f, 0.11f), 0.0f);
+            AddPartBox(new Vector3(0f, 4.66f, 0f), new Vector3(0.20f, 0.42f, 0.20f), 0.5f);
+            AddPartBox(new Vector3(0f, 4.30f, 0f), new Vector3(0.26f, 0.09f, 0.26f), 0.5f);
+
+            // Subdivided swallowtail cloth along +X (8 columns x 2 vertical rows) for smooth wind ripple.
+            const int Cols = 8;
+            const int Rows = 2;
+            float xStart = 0.06f;
+            float xFull = 2.65f;
+            float yBot = 2.68f;
+            float yTop = 4.24f;
+            int clothBase = verts.Count;
+            Color clothCol = new Color(1f, 1f, 1f, 1f);
+
+            for (int r = 0; r <= Rows; r++)
+            {
+                float v = r / (float)Rows;
+                // Swallowtail notch: center row (v = 0.5) recedes 0.48 m at the tail tip.
+                float notch = (1f - MathF.Abs(v - 0.5f) * 2f) * 0.48f;
+                for (int c = 0; c <= Cols; c++)
+                {
+                    float u = c / (float)Cols;
+                    float xMax = xFull - notch * (u * u);
+                    float x = Mathf.Lerp(xStart, xMax, u);
+                    float y = Mathf.Lerp(yBot, yTop, v);
+                    verts.Add(new Vector3(x, y, 0f));
+                    normals.Add(Vector3.forward);
+                    uvs.Add(new Vector2(u, v));
+                    cols.Add(clothCol);
+                }
+            }
+            int stride = Cols + 1;
+            for (int r = 0; r < Rows; r++)
+            {
+                for (int c = 0; c < Cols; c++)
+                {
+                    int i0 = clothBase + r * stride + c;
+                    int i1 = i0 + 1;
+                    int i2 = i0 + stride;
+                    int i3 = i2 + 1;
+                    tris.Add(i0);
+                    tris.Add(i2);
+                    tris.Add(i1);
+                    tris.Add(i1);
+                    tris.Add(i2);
+                    tris.Add(i3);
+                }
+            }
+
+            var mesh = new Mesh { name = "RegimentBannerMesh" };
+            mesh.SetVertices(verts);
+            mesh.SetNormals(normals);
+            mesh.SetUVs(0, uvs);
+            mesh.SetColors(cols);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
         private static Mesh BuildFallbackTreeMesh()
         {
             var verts = new List<Vector3>();
@@ -1605,6 +1850,8 @@ namespace GodGame.Rendering
             _flyingStones.Dispose();
             _arrows.Dispose();
             _propShadows.Dispose();
+            _banners.Dispose();
+            _bannerColorsBuffer?.Dispose();
             _cellColors?.Dispose();
             if (Application.isPlaying)
             {
@@ -1617,6 +1864,10 @@ namespace GodGame.Rendering
                 {
                     UnityEngine.Object.Destroy(_shadowMaterial);
                 }
+                if (_bannerMaterial != null)
+                {
+                    UnityEngine.Object.Destroy(_bannerMaterial);
+                }
             }
             else
             {
@@ -1628,6 +1879,10 @@ namespace GodGame.Rendering
                 if (_shadowMaterial != null)
                 {
                     UnityEngine.Object.DestroyImmediate(_shadowMaterial);
+                }
+                if (_bannerMaterial != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(_bannerMaterial);
                 }
             }
         }

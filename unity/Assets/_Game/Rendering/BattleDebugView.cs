@@ -72,6 +72,9 @@ namespace GodGame.Rendering
         private Shader _shadowShader;
 
         [SerializeField]
+        private Shader _bannerShader;
+
+        [SerializeField]
         private PanelSettings _panelSettings;
 
         [SerializeField]
@@ -148,6 +151,8 @@ namespace GodGame.Rendering
             new List<FlyingStoneInstance>();
         private readonly List<ArrowVolleyInstance> _arrowInstances =
             new List<ArrowVolleyInstance>();
+        private readonly List<RegimentBannerInstance> _bannerInstances =
+            new List<RegimentBannerInstance>();
         private readonly Dictionary<int, int> _crushCountsScratch = new Dictionary<int, int>();
         private MapData _map;
         private Navigation _navigation;
@@ -264,7 +269,8 @@ namespace GodGame.Rendering
                     _herdPenMesh
                 ),
                 _rainShader,
-                _shadowShader
+                _shadowShader,
+                _bannerShader
             );
             Shader resolvedSky =
                 _skyShader != null ? _skyShader : Shader.Find("GodGame/StylizedSky");
@@ -505,15 +511,27 @@ namespace GodGame.Rendering
                 gameObject.GetComponent<UIDocument>() ?? gameObject.AddComponent<UIDocument>();
             document.panelSettings = _panelSettings;
             _hud = new Label();
-            _hud.style.color = Color.white;
-            _hud.style.backgroundColor = new Color(0, 0, 0, 0.55f);
-            _hud.style.paddingLeft = 8;
-            _hud.style.paddingRight = 8;
-            _hud.style.paddingTop = 4;
-            _hud.style.paddingBottom = 4;
+            _hud.style.color = new Color(0.95f, 0.93f, 0.87f, 1f);
+            _hud.style.backgroundColor = new Color(0.07f, 0.09f, 0.13f, 0.86f);
+            _hud.style.borderLeftWidth = 3;
+            _hud.style.borderLeftColor = new Color(0.80f, 0.64f, 0.34f, 0.95f);
+            _hud.style.borderTopWidth = 1;
+            _hud.style.borderRightWidth = 1;
+            _hud.style.borderBottomWidth = 1;
+            _hud.style.borderTopColor = new Color(0.80f, 0.64f, 0.34f, 0.45f);
+            _hud.style.borderRightColor = new Color(0.80f, 0.64f, 0.34f, 0.45f);
+            _hud.style.borderBottomColor = new Color(0.80f, 0.64f, 0.34f, 0.45f);
+            _hud.style.borderTopLeftRadius = 6;
+            _hud.style.borderTopRightRadius = 6;
+            _hud.style.borderBottomLeftRadius = 6;
+            _hud.style.borderBottomRightRadius = 6;
+            _hud.style.paddingLeft = 12;
+            _hud.style.paddingRight = 12;
+            _hud.style.paddingTop = 7;
+            _hud.style.paddingBottom = 7;
             _hud.style.position = Position.Absolute;
-            _hud.style.left = 8;
-            _hud.style.top = 8;
+            _hud.style.left = 12;
+            _hud.style.top = 12;
             document.rootVisualElement.Add(_hud);
         }
 
@@ -672,6 +690,14 @@ namespace GodGame.Rendering
                 _arrowInstances,
                 Time.unscaledTime
             );
+            SalvoAndBlockerProjection.CollectRegimentBanners(
+                latestUnits,
+                _regiments,
+                _plan,
+                _host.Map,
+                _bannerInstances
+            );
+            _worldMarkers?.DrawBanners(_bannerInstances, Time.unscaledTime);
             float ms = Time.unscaledDeltaTime * 1000f;
             _smoothedFrameMs = Mathf.Lerp(_smoothedFrameMs, ms, 0.05f);
             if (_hud != null && Time.unscaledTime >= _nextHud)

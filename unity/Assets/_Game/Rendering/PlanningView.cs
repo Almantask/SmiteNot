@@ -69,6 +69,9 @@ namespace GodGame.Rendering
         private Shader _shadowShader;
 
         [SerializeField]
+        private Shader _bannerShader;
+
+        [SerializeField]
         private PanelSettings _panelSettings;
 
         [SerializeField]
@@ -166,6 +169,8 @@ namespace GodGame.Rendering
             new List<FlyingStoneInstance>();
         private readonly List<ArrowVolleyInstance> _arrowInstances =
             new List<ArrowVolleyInstance>();
+        private readonly List<RegimentBannerInstance> _bannerInstances =
+            new List<RegimentBannerInstance>();
         private readonly Dictionary<int, int> _crushCountsScratch = new Dictionary<int, int>();
         private FieldUpload _fields;
         private uint[] _fieldCells;
@@ -210,8 +215,21 @@ namespace GodGame.Rendering
         private Vector3? _channelStart;
         private string _trace = "";
 
-        private Label _hud;
+        private VisualElement _topBar;
+        private Label _titleLabel;
+        private Label _clockLabel;
+        private Label _fillLabel;
+        private Label _outcomeBadge;
+        private Label _fpsLabel;
+        private Label _warningBanner;
         private Label _tracePanel;
+        private VisualElement _bottomDock;
+        private Button[] _toolButtons;
+        private Label _radiusChip;
+        private Button _playButton;
+        private Button _ghostButton;
+        private Button _strainButton;
+        private Button _moraleButton;
         private ResultsScreen _results;
         private PlaybackTrack _resultsTrack;
         private int _resultsCausesCount = -1;
@@ -220,6 +238,7 @@ namespace GodGame.Rendering
         private VisualElement _bar;
         private VisualElement _filled;
         private VisualElement _cursor;
+        private readonly List<VisualElement> _tickMarks = new List<VisualElement>();
         private readonly List<VisualElement> _markers = new List<VisualElement>();
         private string _dragMarker;
         private bool _scrubbing;
@@ -456,7 +475,8 @@ namespace GodGame.Rendering
                     _herdPenMesh
                 ),
                 _rainShader,
-                _shadowShader
+                _shadowShader,
+                _bannerShader
             );
             _structures = new StructureSnapshot();
             _regiments = new RegimentSnapshot();
@@ -525,33 +545,255 @@ namespace GodGame.Rendering
                 gameObject.GetComponent<UIDocument>() ?? gameObject.AddComponent<UIDocument>();
             document.panelSettings = _panelSettings;
             var root = document.rootVisualElement;
-            _hud = Panel(new Label(), 8, 8);
-            root.Add(_hud);
-            _tracePanel = Panel(new Label(), 8, 120);
-            _tracePanel.style.maxWidth = 560;
+
+            Color slateBg = new Color(0.07f, 0.09f, 0.13f, 0.88f);
+            Color goldBorder = new Color(0.80f, 0.64f, 0.34f, 0.55f);
+            Color goldAccent = new Color(0.86f, 0.70f, 0.38f, 1f);
+            Color creamText = new Color(0.95f, 0.93f, 0.87f, 1f);
+            Color mutedText = new Color(0.72f, 0.76f, 0.82f, 1f);
+
+            // Top tactical header bar (title, clock, preview fill, outcome pill, FPS).
+            _topBar = new VisualElement();
+            _topBar.style.position = Position.Absolute;
+            _topBar.style.left = 14;
+            _topBar.style.top = 12;
+            _topBar.style.flexDirection = FlexDirection.Row;
+            _topBar.style.alignItems = Align.Center;
+            StyleCard(_topBar, slateBg, goldBorder, 6, 12, 7);
+            _topBar.style.borderLeftWidth = 3;
+            _topBar.style.borderLeftColor = goldAccent;
+
+            _titleLabel = new Label();
+            _titleLabel.style.color = creamText;
+            _titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _titleLabel.style.fontSize = 14;
+            _titleLabel.style.marginRight = 14;
+            _topBar.Add(_titleLabel);
+
+            _clockLabel = new Label();
+            _clockLabel.style.color = goldAccent;
+            _clockLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _clockLabel.style.fontSize = 13;
+            _clockLabel.style.marginRight = 14;
+            _topBar.Add(_clockLabel);
+
+            _fillLabel = new Label();
+            _fillLabel.style.color = mutedText;
+            _fillLabel.style.fontSize = 12;
+            _fillLabel.style.marginRight = 12;
+            _topBar.Add(_fillLabel);
+
+            _outcomeBadge = new Label();
+            _outcomeBadge.style.color = Color.white;
+            _outcomeBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _outcomeBadge.style.fontSize = 12;
+            _outcomeBadge.style.paddingLeft = 8;
+            _outcomeBadge.style.paddingRight = 8;
+            _outcomeBadge.style.paddingTop = 2;
+            _outcomeBadge.style.paddingBottom = 2;
+            _outcomeBadge.style.borderTopLeftRadius = 4;
+            _outcomeBadge.style.borderTopRightRadius = 4;
+            _outcomeBadge.style.borderBottomLeftRadius = 4;
+            _outcomeBadge.style.borderBottomRightRadius = 4;
+            _outcomeBadge.style.marginRight = 12;
+            _outcomeBadge.style.display = DisplayStyle.None;
+            _topBar.Add(_outcomeBadge);
+
+            _fpsLabel = new Label();
+            _fpsLabel.style.color = mutedText;
+            _fpsLabel.style.fontSize = 11;
+            _topBar.Add(_fpsLabel);
+            root.Add(_topBar);
+
+            // Fizzle / refusal alert banner directly under header (hidden when clear).
+            _warningBanner = new Label();
+            _warningBanner.style.position = Position.Absolute;
+            _warningBanner.style.left = 14;
+            _warningBanner.style.top = 54;
+            _warningBanner.style.maxWidth = 640;
+            _warningBanner.style.whiteSpace = WhiteSpace.Normal;
+            _warningBanner.style.color = new Color(1f, 0.88f, 0.86f, 1f);
+            _warningBanner.style.fontSize = 12;
+            StyleCard(
+                _warningBanner,
+                new Color(0.42f, 0.08f, 0.08f, 0.90f),
+                new Color(0.95f, 0.30f, 0.25f, 0.85f),
+                5,
+                10,
+                5
+            );
+            _warningBanner.style.display = DisplayStyle.None;
+            root.Add(_warningBanner);
+
+            // Causality trace card (right-click any regiment).
+            _tracePanel = new Label();
+            _tracePanel.style.position = Position.Absolute;
+            _tracePanel.style.left = 14;
+            _tracePanel.style.top = 60;
+            _tracePanel.style.maxWidth = 540;
             _tracePanel.style.whiteSpace = WhiteSpace.Normal;
+            _tracePanel.style.color = creamText;
+            _tracePanel.style.fontSize = 12;
+            StyleCard(_tracePanel, slateBg, goldBorder, 6, 12, 8);
+            _tracePanel.style.borderLeftWidth = 3;
+            _tracePanel.style.borderLeftColor = goldAccent;
+            _tracePanel.style.display = DisplayStyle.None;
             root.Add(_tracePanel);
 
+            // Bottom tactical command dock (tool buttons on left, playback & overlay toggles on right).
+            _bottomDock = new VisualElement();
+            _bottomDock.style.position = Position.Absolute;
+            _bottomDock.style.left = 16;
+            _bottomDock.style.right = 16;
+            _bottomDock.style.bottom = 54;
+            _bottomDock.style.flexDirection = FlexDirection.Row;
+            _bottomDock.style.justifyContent = Justify.SpaceBetween;
+            _bottomDock.style.alignItems = Align.Center;
+
+            var toolRow = new VisualElement();
+            toolRow.style.flexDirection = FlexDirection.Row;
+            toolRow.style.alignItems = Align.Center;
+            StyleCard(toolRow, slateBg, goldBorder, 6, 6, 4);
+
+            var toolDefs = new (Tool Tool, string Text)[]
+            {
+                (Tool.Move, "[1] Move"),
+                (Tool.Rain, "[2] Rain"),
+                (Tool.Boulder, "[3] Boulder"),
+                (Tool.Channel, "[4] Channel"),
+                (Tool.Lightning, "[5] Lightning"),
+            };
+            _toolButtons = new Button[toolDefs.Length];
+            for (int i = 0; i < toolDefs.Length; i++)
+            {
+                Tool captured = toolDefs[i].Tool;
+                var btn = MakeChipButton(toolDefs[i].Text, () => _tool = captured);
+                toolRow.Add(btn);
+                _toolButtons[i] = btn;
+            }
+
+            var radMinus = MakeChipButton("-", () => ChangeRadius(-10_000));
+            radMinus.style.marginLeft = 6;
+            radMinus.style.paddingLeft = 6;
+            radMinus.style.paddingRight = 6;
+            toolRow.Add(radMinus);
+
+            _radiusChip = new Label("80m");
+            _radiusChip.style.color = goldAccent;
+            _radiusChip.style.fontSize = 11;
+            _radiusChip.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _radiusChip.style.marginLeft = 3;
+            _radiusChip.style.marginRight = 3;
+            toolRow.Add(_radiusChip);
+
+            var radPlus = MakeChipButton("+", () => ChangeRadius(10_000));
+            radPlus.style.paddingLeft = 6;
+            radPlus.style.paddingRight = 6;
+            toolRow.Add(radPlus);
+            _bottomDock.Add(toolRow);
+
+            var controlRow = new VisualElement();
+            controlRow.style.flexDirection = FlexDirection.Row;
+            controlRow.style.alignItems = Align.Center;
+            StyleCard(controlRow, slateBg, goldBorder, 6, 6, 4);
+
+            _playButton = MakeChipButton("[Space] Play", () => _playing = !_playing);
+            controlRow.Add(_playButton);
+            _ghostButton = MakeChipButton("[G] Ghost", () => _showGhost = !_showGhost);
+            controlRow.Add(_ghostButton);
+            _strainButton = MakeChipButton(
+                "[T] Strain",
+                () =>
+                {
+                    _showStrainOverlay = !_showStrainOverlay;
+                    _overlayDirty = true;
+                }
+            );
+            controlRow.Add(_strainButton);
+            _moraleButton = MakeChipButton(
+                "[M] Morale",
+                () => _boostMoraleTints = !_boostMoraleTints
+            );
+            controlRow.Add(_moraleButton);
+            controlRow.Add(MakeChipButton("[Tab] Results", () => _results?.Toggle()));
+            controlRow.Add(MakeChipButton("[R] Reset", ResetPlan));
+
+            var hint = new Label("Hold [V] Speed  [N] Rings  [L] Landing  Right-click Trace");
+            hint.style.color = mutedText;
+            hint.style.fontSize = 10;
+            hint.style.marginLeft = 8;
+            hint.style.marginRight = 4;
+            controlRow.Add(hint);
+
+            _bottomDock.Add(controlRow);
+            root.Add(_bottomDock);
+
+            // Upgraded timeline scrubber bar with 30-second notches, buffer fill, cast pills and gold playhead.
             _bar = new VisualElement();
             _bar.style.position = Position.Absolute;
             _bar.style.left = 16;
             _bar.style.right = 16;
-            _bar.style.bottom = 16;
-            _bar.style.height = 28;
-            _bar.style.backgroundColor = new Color(0, 0, 0, 0.55f);
+            _bar.style.bottom = 14;
+            _bar.style.height = 32;
+            StyleCard(_bar, slateBg, goldBorder, 6, 0, 0);
+
             _filled = new VisualElement();
             _filled.style.position = Position.Absolute;
             _filled.style.left = 0;
             _filled.style.top = 0;
             _filled.style.bottom = 0;
-            _filled.style.backgroundColor = new Color(0.35f, 0.55f, 0.85f, 0.6f);
+            _filled.style.backgroundColor = new Color(0.24f, 0.48f, 0.78f, 0.42f);
+            _filled.style.borderTopLeftRadius = 5;
+            _filled.style.borderBottomLeftRadius = 5;
+            _bar.Add(_filled);
+
+            int totalSec = Mathf.Max(30, Mathf.RoundToInt(EndSeconds));
+            for (int sec = 30; sec < totalSec; sec += 30)
+            {
+                var tick = new VisualElement();
+                tick.style.position = Position.Absolute;
+                tick.style.top = 0;
+                tick.style.bottom = 0;
+                tick.style.width = 1;
+                tick.style.backgroundColor = new Color(1f, 1f, 1f, 0.16f);
+                tick.userData = sec / (float)totalSec;
+                tick.pickingMode = PickingMode.Ignore;
+
+                var lbl = new Label(CauseTrace.Clock(sec * SimConstants.TicksPerSecond));
+                lbl.style.position = Position.Absolute;
+                lbl.style.left = 4;
+                lbl.style.top = 2;
+                lbl.style.fontSize = 10;
+                lbl.style.color = new Color(0.76f, 0.80f, 0.86f, 0.72f);
+                lbl.pickingMode = PickingMode.Ignore;
+                tick.Add(lbl);
+
+                _bar.Add(tick);
+                _tickMarks.Add(tick);
+            }
+
             _cursor = new VisualElement();
             _cursor.style.position = Position.Absolute;
             _cursor.style.top = -4;
             _cursor.style.bottom = -4;
             _cursor.style.width = 3;
-            _cursor.style.backgroundColor = Color.white;
-            _bar.Add(_filled);
+            _cursor.style.backgroundColor = goldAccent;
+            _cursor.pickingMode = PickingMode.Ignore;
+
+            var cursorCap = new VisualElement();
+            cursorCap.style.position = Position.Absolute;
+            cursorCap.style.left = -4;
+            cursorCap.style.top = -3;
+            cursorCap.style.width = 11;
+            cursorCap.style.height = 7;
+            cursorCap.style.backgroundColor = new Color(1f, 0.92f, 0.65f, 1f);
+            cursorCap.style.borderTopLeftRadius = 3;
+            cursorCap.style.borderTopRightRadius = 3;
+            cursorCap.style.borderBottomLeftRadius = 3;
+            cursorCap.style.borderBottomRightRadius = 3;
+            cursorCap.pickingMode = PickingMode.Ignore;
+            _cursor.Add(cursorCap);
+
             _bar.Add(_cursor);
             _bar.RegisterCallback<PointerDownEvent>(e =>
             {
@@ -584,18 +826,82 @@ namespace GodGame.Rendering
             _results = new ResultsScreen(root);
         }
 
-        private static Label Panel(Label label, float left, float top)
+        private static void StyleCard(
+            VisualElement el,
+            Color bg,
+            Color border,
+            float radius,
+            float padX,
+            float padY
+        )
         {
-            label.style.color = Color.white;
-            label.style.backgroundColor = new Color(0, 0, 0, 0.55f);
-            label.style.paddingLeft = 8;
-            label.style.paddingRight = 8;
-            label.style.paddingTop = 4;
-            label.style.paddingBottom = 4;
-            label.style.position = Position.Absolute;
-            label.style.left = left;
-            label.style.top = top;
-            return label;
+            el.style.backgroundColor = bg;
+            el.style.borderTopWidth = 1;
+            el.style.borderBottomWidth = 1;
+            el.style.borderLeftWidth = 1;
+            el.style.borderRightWidth = 1;
+            el.style.borderTopColor = border;
+            el.style.borderBottomColor = border;
+            el.style.borderLeftColor = border;
+            el.style.borderRightColor = border;
+            el.style.borderTopLeftRadius = radius;
+            el.style.borderTopRightRadius = radius;
+            el.style.borderBottomLeftRadius = radius;
+            el.style.borderBottomRightRadius = radius;
+            el.style.paddingLeft = padX;
+            el.style.paddingRight = padX;
+            el.style.paddingTop = padY;
+            el.style.paddingBottom = padY;
+        }
+
+        private static Button MakeChipButton(string text, Action onClick)
+        {
+            var btn = new Button(onClick) { text = text };
+            btn.style.marginLeft = 2;
+            btn.style.marginRight = 2;
+            btn.style.marginTop = 0;
+            btn.style.marginBottom = 0;
+            btn.style.paddingLeft = 8;
+            btn.style.paddingRight = 8;
+            btn.style.paddingTop = 3;
+            btn.style.paddingBottom = 3;
+            btn.style.fontSize = 11;
+            btn.style.color = new Color(0.92f, 0.90f, 0.84f, 1f);
+            btn.style.backgroundColor = new Color(0.14f, 0.18f, 0.24f, 0.90f);
+            btn.style.borderTopWidth = 1;
+            btn.style.borderBottomWidth = 1;
+            btn.style.borderLeftWidth = 1;
+            btn.style.borderRightWidth = 1;
+            btn.style.borderTopColor = new Color(0.42f, 0.48f, 0.56f, 0.55f);
+            btn.style.borderBottomColor = new Color(0.42f, 0.48f, 0.56f, 0.55f);
+            btn.style.borderLeftColor = new Color(0.42f, 0.48f, 0.56f, 0.55f);
+            btn.style.borderRightColor = new Color(0.42f, 0.48f, 0.56f, 0.55f);
+            btn.style.borderTopLeftRadius = 4;
+            btn.style.borderTopRightRadius = 4;
+            btn.style.borderBottomLeftRadius = 4;
+            btn.style.borderBottomRightRadius = 4;
+            return btn;
+        }
+
+        private static void SetChipActive(Button btn, bool active)
+        {
+            if (btn == null)
+            {
+                return;
+            }
+            btn.style.backgroundColor = active
+                ? new Color(0.38f, 0.29f, 0.12f, 0.95f)
+                : new Color(0.14f, 0.18f, 0.24f, 0.90f);
+            Color border = active
+                ? new Color(0.94f, 0.78f, 0.38f, 1f)
+                : new Color(0.42f, 0.48f, 0.56f, 0.55f);
+            btn.style.borderTopColor = border;
+            btn.style.borderBottomColor = border;
+            btn.style.borderLeftColor = border;
+            btn.style.borderRightColor = border;
+            btn.style.color = active
+                ? new Color(1f, 0.96f, 0.84f, 1f)
+                : new Color(0.84f, 0.86f, 0.90f, 1f);
         }
 
         private float EndSeconds => _worker.EndTick / (float)SimConstants.TicksPerSecond;
@@ -826,6 +1132,14 @@ namespace GodGame.Rendering
                 _arrowInstances,
                 Time.unscaledTime
             );
+            SalvoAndBlockerProjection.CollectRegimentBanners(
+                hasCurrent ? current : null,
+                _regiments,
+                plan,
+                activeMap,
+                _bannerInstances
+            );
+            _worldMarkers?.DrawBanners(_bannerInstances, Time.unscaledTime);
             UploadFields(track);
             UpdateOverlay(track);
             DrawRings(track);
@@ -1073,39 +1387,64 @@ namespace GodGame.Rendering
 
         private void UpdateUi()
         {
-            if (_hud == null)
+            if (_topBar == null)
             {
                 return;
             }
             var progress = _worker.ReadProgress();
             var results = _worker.ReadCasts();
             var outcome = _worker.ReadOutcome();
-            string outcomeLabel =
-                outcome == null || outcome.Kind == BattleOutcomeKind.Ongoing ? ""
-                : outcome.Kind == BattleOutcomeKind.DefenderVictory
-                    ? string.Format(
-                        CultureInfo.InvariantCulture,
-                        "  VICTORY ({0} @ {1})",
-                        outcome.Reason,
-                        CauseTrace.Clock(
-                            outcome.DecidedTick > 0 ? outcome.DecidedTick : outcome.EvaluatedTick
-                        )
-                    )
+
+            _titleLabel.text = _level != null ? _level.Title : _mapId;
+            _clockLabel.text = string.Format(
+                CultureInfo.InvariantCulture,
+                "{0} / {1}",
+                CauseTrace.Clock((int)(_scrubSeconds * SimConstants.TicksPerSecond)),
+                CauseTrace.Clock(_worker.EndTick)
+            );
+            _fillLabel.text = progress.Complete
+                ? string.Format(CultureInfo.InvariantCulture, "100% ({0:0} ms)", progress.FillMs)
                 : string.Format(
                     CultureInfo.InvariantCulture,
-                    "  DEFEAT ({0} @ {1})",
-                    outcome.Reason,
-                    CauseTrace.Clock(
-                        outcome.DecidedTick > 0 ? outcome.DecidedTick : outcome.EvaluatedTick
-                    )
+                    "sim {0:0}%",
+                    progress.Fraction * 100
                 );
-            string fizzles = "";
+
+            if (outcome != null && outcome.Kind != BattleOutcomeKind.Ongoing)
+            {
+                bool win = outcome.Kind == BattleOutcomeKind.DefenderVictory;
+                int t = outcome.DecidedTick > 0 ? outcome.DecidedTick : outcome.EvaluatedTick;
+                _outcomeBadge.text = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0} · {1} @ {2}",
+                    win ? "VICTORY" : "DEFEAT",
+                    outcome.Reason,
+                    CauseTrace.Clock(t)
+                );
+                _outcomeBadge.style.backgroundColor = win
+                    ? new Color(0.11f, 0.56f, 0.30f, 0.95f)
+                    : new Color(0.76f, 0.16f, 0.16f, 0.95f);
+                _outcomeBadge.style.display = DisplayStyle.Flex;
+            }
+            else
+            {
+                _outcomeBadge.style.display = DisplayStyle.None;
+            }
+
+            _fpsLabel.text = string.Format(
+                CultureInfo.InvariantCulture,
+                "{0:0} fps",
+                1f / Mathf.Max(0.0001f, Time.smoothDeltaTime)
+            );
+
+            string warnings = "";
             foreach (var c in results)
             {
                 if (c.Fizzled)
                 {
-                    fizzles +=
-                        "\nRED: "
+                    warnings +=
+                        (warnings.Length > 0 ? "\n" : "")
+                        + "FIZZLED: "
                         + c.Id
                         + " at "
                         + CauseTrace.Clock(c.Tick)
@@ -1122,55 +1461,74 @@ namespace GodGame.Rendering
                                     : int.MaxValue
                             ) / 1000
                         )
-                        + " m from the army)";
+                        + " m from army)";
                 }
             }
-            _hud.text = string.Format(
-                CultureInfo.InvariantCulture,
-                "{0}  {1} / {2}  filled {3:0}%{4}{5}{6}\ntool [1-5] {7}  radius [ ] {8} m  play [Space]  reset [R]  ghost [G] {9}  strain [T] {10}  morale [M] {11}  hold [V] speed  hold [N] rings  hold [L] landing  results [Tab]  trace [right-click]  {12:0} fps{13}{14}",
-                _level != null ? _level.Title : _mapId,
-                CauseTrace.Clock((int)(_scrubSeconds * SimConstants.TicksPerSecond)),
-                CauseTrace.Clock(_worker.EndTick),
-                progress.Fraction * 100,
-                progress.FirstWindowReady
-                    ? string.Format(
-                        CultureInfo.InvariantCulture,
-                        "  first 30 s in {0:0} ms",
-                        progress.FirstWindowMs
-                    )
-                    : "",
-                progress.Complete
-                    ? string.Format(
-                        CultureInfo.InvariantCulture,
-                        ", all in {0:0} ms",
-                        progress.FillMs
-                    )
-                    : "",
-                outcomeLabel,
-                _tool,
-                _radiusMm / 1000,
-                _showGhost ? "on" : "off",
-                _showStrainOverlay ? "on" : "off",
-                _boostMoraleTints ? "on" : "auto",
-                1f / Mathf.Max(0.0001f, Time.smoothDeltaTime),
-                fizzles,
-                _editor.Error != null ? "\nREFUSED: " + _editor.Error : ""
-            );
+            if (_editor.Error != null)
+            {
+                warnings += (warnings.Length > 0 ? "\n" : "") + "REFUSED: " + _editor.Error;
+            }
+            _warningBanner.text = warnings;
+            bool hasWarnings = warnings.Length > 0;
+            _warningBanner.style.display = hasWarnings ? DisplayStyle.Flex : DisplayStyle.None;
+
             _tracePanel.text = _trace;
+            _tracePanel.style.top = hasWarnings ? 104 : 58;
             _tracePanel.style.display = string.IsNullOrEmpty(_trace)
                 ? DisplayStyle.None
                 : DisplayStyle.Flex;
 
+            if (_toolButtons != null)
+            {
+                for (int i = 0; i < _toolButtons.Length; i++)
+                {
+                    SetChipActive(_toolButtons[i], (int)_tool == i);
+                }
+            }
+            if (_radiusChip != null)
+            {
+                _radiusChip.text = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0}m",
+                    _radiusMm / 1000
+                );
+            }
+            if (_playButton != null)
+            {
+                _playButton.text = _playing ? "[Space] Pause" : "[Space] Play";
+                SetChipActive(_playButton, _playing);
+            }
+            SetChipActive(_ghostButton, _showGhost);
+            SetChipActive(_strainButton, _showStrainOverlay);
+            SetChipActive(_moraleButton, _boostMoraleTints);
+
             float width = Mathf.Max(1, _bar.resolvedStyle.width);
             _filled.style.width = width * progress.Fraction;
             _cursor.style.left = width * Mathf.Clamp01(_scrubSeconds / EndSeconds) - 1;
+            for (int i = 0; i < _tickMarks.Count; i++)
+            {
+                float frac = (float)_tickMarks[i].userData;
+                _tickMarks[i].style.left = width * frac;
+            }
             while (_markers.Count < _editor.Casts.Count)
             {
                 var marker = new VisualElement();
                 marker.style.position = Position.Absolute;
-                marker.style.top = 2;
-                marker.style.bottom = 2;
-                marker.style.width = 8;
+                marker.style.top = 4;
+                marker.style.bottom = 4;
+                marker.style.width = 10;
+                marker.style.borderTopLeftRadius = 4;
+                marker.style.borderTopRightRadius = 4;
+                marker.style.borderBottomLeftRadius = 4;
+                marker.style.borderBottomRightRadius = 4;
+                marker.style.borderTopWidth = 1;
+                marker.style.borderBottomWidth = 1;
+                marker.style.borderLeftWidth = 1;
+                marker.style.borderRightWidth = 1;
+                marker.style.borderTopColor = new Color(1f, 1f, 1f, 0.85f);
+                marker.style.borderBottomColor = new Color(1f, 1f, 1f, 0.85f);
+                marker.style.borderLeftColor = new Color(1f, 1f, 1f, 0.85f);
+                marker.style.borderRightColor = new Color(1f, 1f, 1f, 0.85f);
                 marker.RegisterCallback<PointerDownEvent>(e =>
                 {
                     _dragMarker = (string)marker.userData;
@@ -1192,7 +1550,7 @@ namespace GodGame.Rendering
                 var cast = _editor.Casts[i];
                 bool red = Array.Exists(results, c => c.Id == cast.Id && c.Fizzled);
                 _markers[i].userData = cast.Id;
-                _markers[i].style.left = width * cast.Tick / (float)_worker.EndTick - 4;
+                _markers[i].style.left = width * cast.Tick / (float)_worker.EndTick - 5;
                 _markers[i].style.backgroundColor = CastColor(cast, red);
                 _markers[i].tooltip = red ? cast.Id + ": fizzles" : cast.Id;
             }
@@ -1249,14 +1607,14 @@ namespace GodGame.Rendering
                     CommitEdit();
                 }
             }
+            Vector2 panelMouse = new Vector2(
+                mouse.position.ReadValue().x,
+                Screen.height - mouse.position.ReadValue().y
+            );
             bool overUi =
-                _bar != null
-                && _bar.worldBound.Contains(
-                    new Vector2(
-                        mouse.position.ReadValue().x,
-                        Screen.height - mouse.position.ReadValue().y
-                    )
-                );
+                (_bar != null && _bar.worldBound.Contains(panelMouse))
+                || (_bottomDock != null && _bottomDock.worldBound.Contains(panelMouse))
+                || (_topBar != null && _topBar.worldBound.Contains(panelMouse));
             if (overUi || !PointOnMap(mouse.position.ReadValue(), out Vector3 point))
             {
                 if (!mouse.leftButton.isPressed)

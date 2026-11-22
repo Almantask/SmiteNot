@@ -1310,5 +1310,63 @@ namespace GodGame.Tests.EditMode
             Assert.That(units.UsedLod2LastFrame, Is.True);
             Assert.That(units.DrawnShadowsLastFrame, Is.EqualTo(2));
         }
+
+        [Test]
+        public void RegimentBanners_CollectRoleEmblemsMoraleAndDrawCleanly()
+        {
+            Shader bannerShader = Shader.Find("GodGame/RegimentBanner");
+            Assert.That(bannerShader, Is.Not.Null);
+
+            var rules = RepoLoader.LoadRules(RepoLoader.EditorRepoRoot);
+            var map = FlatMap(widthMm: 300_000, depthMm: 180_000);
+            string planJson =
+                "{\"version\":0,\"map\":\""
+                + map.Id
+                + "\",\"army\":["
+                + "{\"id\":\"att-inf\",\"side\":\"attacker\",\"unitType\":\"infantry\",\"soldiers\":50,\"xMm\":40000,\"yMm\":90000,\"facingCentiDegrees\":0},"
+                + "{\"id\":\"att-cav\",\"side\":\"attacker\",\"unitType\":\"cavalry\",\"soldiers\":40,\"xMm\":40000,\"yMm\":120000,\"facingCentiDegrees\":0},"
+                + "{\"id\":\"def-rng\",\"side\":\"defender\",\"unitType\":\"ranged\",\"soldiers\":50,\"xMm\":250000,\"yMm\":90000,\"facingCentiDegrees\":18000},"
+                + "{\"id\":\"def-spade\",\"side\":\"defender\",\"unitType\":\"spademen\",\"soldiers\":50,\"xMm\":250000,\"yMm\":120000,\"facingCentiDegrees\":18000}"
+                + "],\"terrain\":[],\"casts\":[]}";
+            var plan = BattlePlan.Load(planJson, map, rules);
+
+            var units = new BattleHost.UnitSnapshot(16) { Tick = 10, Count = 4 };
+            for (int i = 0; i < 4; i++)
+            {
+                units.Alive[i] = true;
+                units.Regiment[i] = i;
+                units.X[i] = 40f + i * 50f;
+                units.Z[i] = 90f;
+            }
+            var regs = new RegimentSnapshot(4) { Tick = 10, Count = 4 };
+            for (int r = 0; r < 4; r++)
+            {
+                regs.Alive[r] = true;
+                regs.Morale[r] = (ushort)(1000 - r * 200);
+                regs.StartingSize[r] = 50;
+            }
+            regs.Routing[1] = true;
+
+            var banners = new List<RegimentBannerInstance>();
+            SalvoAndBlockerProjection.CollectRegimentBanners(units, regs, plan, map, banners);
+            Assert.That(banners.Count, Is.EqualTo(4));
+            // BattlePlan sorts Army by ordinal id: att-cav (0), att-inf (1), def-rng (2), def-spade (3).
+            Assert.That(banners[0].EmblemKind, Is.EqualTo(1)); // cavalry
+            Assert.That(banners[1].EmblemKind, Is.EqualTo(0)); // infantry
+            Assert.That(banners[1].Routing, Is.True);
+            Assert.That(banners[2].EmblemKind, Is.EqualTo(2)); // ranged
+            Assert.That(banners[3].EmblemKind, Is.EqualTo(4)); // specialist
+
+            using var markers = new WorldMarkerRenderer(
+                map,
+                Shader.Find("GodGame/DebugMarkers"),
+                default,
+                null,
+                null,
+                bannerShader
+            );
+            markers.DrawBanners(banners, timeSeconds: 2.5f);
+            Assert.That(markers.DrawnBannersLastFrame, Is.EqualTo(4));
+        }
     }
 }
